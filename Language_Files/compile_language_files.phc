@@ -1,0 +1,120 @@
+<?
+class Console
+{
+	var $hIn;
+	var $hOut;
+	
+	function Read ()
+	{
+		return FRead($this->hIn, 1024);
+	} // .function Read
+	
+	function Write ($Str /* str */)
+	{
+		FWrite($this->hOut, $Str);
+	} // .function Write
+	
+	function Console ()
+	{
+		$this->hIn	=	FOpen('php://stdin', 'r');
+		$this->hOut	=	FOpen('php://stdout', 'a');
+	} // .function Console
+} // .class Console
+
+function GotoNextLine (&$Str /* str */, &$Pos /* int */)	/* bool */
+{
+	$Len	=	StrLen($Str);
+	while (($Pos < $Len) && ($Str[$Pos] !== "\n"))
+	{
+		$Pos++;
+	}
+	$result	=	($Pos + 1) < $Len;
+	if ($result)
+	{
+		$Pos++;
+	}
+	return $result;
+} // .function GotoNextLine
+
+function SkipGarbage (&$Str /* str */, &$Pos /* int */)	/* bool */
+{
+	$Len	=	StrLen($Str);
+	while (($Pos < $Len) && (ord($Str[$Pos]) <= 32))
+	{
+		$Pos++;
+	}
+	return $Pos < $Len;
+} // .function SkipGarbage
+
+function BinInt ($Int32)	/* str[4] */
+{
+	$c1			=	chr($Int32 % 256);
+	$Int32	=	$Int32 >> 8;
+	$c2			=	chr($Int32 % 256);
+	$Int32	=	$Int32 >> 8;
+	$c3			=	chr($Int32 % 256);
+	$c4			=	chr($Int32 >> 8);
+	return $c1.$c2.$c3.$c4;
+} // .function BinInt
+
+function GenLngStrArr ($SrcPath /* str */)
+{
+	$Data					=	File_Get_Contents($SrcPath);
+	$DataLen			=	StrLen($Data);
+	$Items				=	array();
+	$Pos					=	0;
+	$SrcPathInfo	=	PathInfo($SrcPath);
+	$Temp					=	Explode('.', $SrcPathInfo['basename']);
+	$UnitName			=	$Temp[0];
+	$Lang					=	$Temp[1];
+	$OutPath			=	"{$SrcPathInfo['dirname']}/".str_replace('Lng', '', $UnitName).".ansi.{$Lang}";
+	$hOut					=	FOpen($OutPath, 'wb');
+	$Out					=	array();
+	/***/
+	while (($Pos < $DataLen) && SkipGarbage($Data, $Pos))
+	{
+		if ($Data[$Pos] === ';')
+		{
+			GotoNextLine($Data, $Pos);
+		}
+		else
+		{
+			$EndPos	=	StrPos($Data, '\';', $Pos);
+			/*!*/ Assert($EndPos !== false);
+			$Token		=	Explode('=', SubStr($Data, $Pos, $EndPos - $Pos), 2);
+			$Items[]	=	SubStr(LTrim($Token[1]), 1);
+			$Pos			=	$EndPos;
+			GotoNextLine($Data, $Pos);
+		}
+	}
+	$NumItems	=	Count($Items);
+	$Out[]	=	BinInt($NumItems);
+	$Out[]	=	$Lang."\x0";
+	$Out[]	=	BinInt(0);
+	for ($i = 0; $i < $NumItems; $i++)
+	{
+		$Out[]	=	BinInt(StrLen($Items[$i]));
+		$Out[]	=	$Items[$i];
+	}
+	$Out		=	Join('', $Out);
+	$Crc32	=	CRC32($Out);
+	FWrite($hOut, "LAR\x0".BinInt(StrLen($Out) + 12).BinInt($Crc32));
+	FWrite($hOut, $Out);
+	FClose($hOut);
+} // .function GenLngStrArr
+
+Set_Time_Limit(0);
+$Con			=	new Console;
+$FileList	=	ScanDir('.');
+$NumFiles	=	Count($FileList);
+for ($i = 0; $i < $NumFiles; $i++)
+{
+	$FileName	=	$FileList[$i];
+	if (PReg_Match('/^.*\.la$/', $FileName))
+	{
+		GenLngStrArr($FileName);
+	}
+}
+echo('OK');
+$Con->Read();
+?>

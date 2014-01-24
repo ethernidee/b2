@@ -1,0 +1,184 @@
+<?
+/*
+Read - reads data from stdin
+*/
+FUNCTION Read ()
+{
+	GLOBAL $hIn;
+	RETURN FRead($hIn, 1024);
+} // .FUNCTION Read
+
+/*
+Write - writes data to stdout
+*/
+FUNCTION Write ($Str)
+{
+	GLOBAL $hOut;
+	FWrite($hOut, $Str);
+} // .FUNCTION Write
+
+/*
+WriteLn - writes data and #13#10 to stdout
+*/
+FUNCTION WriteLn ($Str)
+{
+	Write($Str."\r\n");
+} // .FUNCTION WriteLn
+
+$hIn = FOpen('php://stdin', 'r');
+$hOut = FOpen('php://stdout', 'a');
+
+/*
+SkipLine - skips symbols until new line
+*/
+FUNCTION SkipLine (&$Data, &$Pos)
+{
+	$Len = StrLen($Data);
+	IF ($Pos >= $Len) {
+		RETURN FALSE;
+	} // .IF
+	FOR (; $Pos<$Len; $Pos++) {
+		IF ($Data[$Pos] === "\n") {
+			$Pos++;
+			IF (Pos >= $Len) {
+				RETURN FALSE;
+			} // .IF
+			ELSE {
+				RETURN TRUE;
+			} //.ELSE
+		} // .IF
+	} // .FOR
+	RETURN FALSE;
+} // .FUNCTION SkipLine
+
+/*
+SkipGarbage - skips garbage sumbols and comments
+*/
+FUNCTION SkipGarbage (&$Data, &$Pos)
+{
+	$Len = StrLen($Data);
+	IF ($Pos >= $Len) {
+		RETURN FALSE;
+	} // .IF
+	FOR (; $Pos<$Len; $Pos++) {
+		IF (ORD($Data[$Pos]) <= 32) {
+			CONTINUE;
+		} // .IF
+		IF ($Data[$Pos] === ';') {
+			IF (!SkipLine($Data, $Pos)) {
+				RETURN FALSE;
+			} // .IF
+			ELSE {
+				$Pos--;
+				CONTINUE;
+			} //.ELSE
+		} // .IF
+		RETURN TRUE;
+	} // .FOR
+	RETURN FALSE;
+} // .FUNCTION SkipGarbage
+
+/*
+Compile - compiles *.lng files to pas-units
+*/
+FUNCTION Compile ($Path)
+{
+	$Data = File_Get_Contents($Path);
+	$Pos = 0;
+	$Info = PathInfo($Path);
+	$Out = ARRAY();
+	$Names = ARRAY();
+	$Values = ARRAY();
+	$Out[] = <<<ZCX
+UNIT {$Info['filename']};
+{
+DESCRIPTION:	Language unit
+AUTHOR:				Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+}
+
+(***)  INTERFACE   (***)
+
+TYPE
+	TLangStrings =
+	(
+ZCX;
+	WHILE (TRUE) {
+		IF (!SkipGarbage($Data, $Pos)) {
+			BREAK;
+		} // .IF
+		$EndPos = StrPos($Data, '\';', $Pos);
+		$Token = Explode('=', SubStr($Data, $Pos, $EndPos-$Pos+1), 2);
+		$Pos = $EndPos+1;
+		$Key = Trim($Token[0]);
+		$Value = Str_Replace("\r\n", "\n", Trim($Token[1]));
+		$Len = StrLen($Value);
+		$Res = ARRAY();
+		$Ofs = 0;
+		WHILE ($Len >= 80) {
+			$Res[] = Str_Replace("\n", '\'#13#10\'', SubStr($Value, $Ofs, 80));
+			$Ofs+=80;
+			$Len-=80;
+		} // .WHILE
+		$Res[] = Str_Replace("\n", '\'#13#10\'', SubStr($Value, $Ofs, $Len));
+		IF (Count($Values) > 0) {
+			$Values[] = ",\r\n\t\t// {$Key}\r\n\t\t".Join("'+\r\n\t\t'", $Res);
+		} // .IF
+		ELSE {
+			$Values[] = "\r\n\t\t// {$Key}\r\n\t\t".Join("'+\r\n\t\t'", $Res);
+		} //.ELSE
+		IF (Count($Names) > 0) {
+			$Names[] = ",\r\n\t\t{$Key}";
+		} // .IF
+		ELSE {
+			$Names[] = "\r\n\t\t{$Key}";
+		} //.ELSE
+		//WriteLn($Key.'='.$Value);
+	} // .WHILE
+	$Out[] = Join('', $Names);
+	$Out[] = <<<ZCX
+
+	); // TLangStrings
+
+	PLangStringsArr = ^TLangStringsArr;
+	TLangStringsArr = ARRAY [TLangStrings] OF STRING;
+
+
+VAR
+	Strs: TLangStringsArr =
+	(
+ZCX;
+	$Out[] = Join('', $Values);
+	$Out[] = <<<ZCX
+
+	); // Lng
+
+
+(***) IMPLEMENTATION (***)
+
+
+END.
+
+ZCX;
+	$F = FOpen($Info['filename'].'.pas', 'wb');
+	FWrite($F, Join('', $Out));
+	FClose($F);
+} // .FUNCTION Compile
+
+
+Set_Time_Limit(0);
+$List = ScanDir('.');
+$Count = Count($List);
+FOR ($i=0; $i<$Count; $i++) {
+	$Name = $List[$i];
+	IF (($Name === '.') || ($Name === '..') || Is_Dir($Name)) {
+		CONTINUE;
+	} // .IF
+	IF (PReg_Match('/^.*\.lng$/', $Name)) {
+		Compile($Name);
+	} // .IF
+} // .FOR
+
+Write('OK');
+Read();
+EXIT();
+?>
