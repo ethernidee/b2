@@ -453,7 +453,7 @@ begin
   // * * * * * //
   result := ParseSectionHeader(Sections, Section);
 
-  if SkipGarbage and (fScanner.c in IDENT_CHARS) then begin
+  if result and SkipGarbage and (fScanner.c in IDENT_CHARS) then begin
     result := ParseSectionBody(Section);
   end; // .if
 end; // .function TLangMan.ParseSection
