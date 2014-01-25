@@ -17,31 +17,31 @@ type
   PLngStructHeader = ^TLngStructHeader;
   TLngStructHeader = packed record
     Signature:    array [0..3] of AnsiChar;
-    StructSize:   INTEGER;
-    BodyCRC32Sum: INTEGER;
+    StructSize:   integer;
+    BodyCRC32Sum: integer;
     Body:         Utils.TEmptyRec;
   end; // .record TLngStructHeader
 
 
-function  GetCharSize (Unicode: BOOLEAN): INTEGER;
-function  IsValidLangName (const LangName: string): BOOLEAN;
-function  IsValidClientName (const ClientName: string): BOOLEAN;
+function  GetCharSize (Unicode: boolean): integer;
+function  IsValidLangName (const LangName: string): boolean;
+function  IsValidClientName (const ClientName: string): boolean;
 function  ValidateLngStructHeader
 (
   (* n *)       Header:                 PLngStructHeader;
-                StructMemoryBlockSize:  INTEGER;
-                MinStructSize:          INTEGER;
+                StructMemoryBlockSize:  integer;
+                MinStructSize:          integer;
           const Signature:              string;
           out   Error:                  string
-): BOOLEAN;
-function  ValidateStructSize (FormalSize, RealSize: INTEGER; out Error: string): BOOLEAN;
-function  GetEncodingPrefix (Unicode: BOOLEAN): string;
+): boolean;
+function  ValidateStructSize (FormalSize, RealSize: integer; out Error: string): boolean;
+function  GetEncodingPrefix (Unicode: boolean): string;
 
 
 (***)  implementation  (***)
 
 
-function GetCharSize (Unicode: BOOLEAN): INTEGER;
+function GetCharSize (Unicode: boolean): integer;
 begin
   if Unicode then begin
     result  :=  2;
@@ -51,46 +51,46 @@ begin
   end; // .else
 end; // .function GetCharSize
 
-function IsValidLangName (const LangName: string): BOOLEAN;
+function IsValidLangName (const LangName: string): boolean;
 const
   ALLOWED = ['a'..'z'];
 
 var
-  i:            INTEGER;
-  LangNameLen:  INTEGER;
+  i:            integer;
+  LangNameLen:  integer;
   
 begin
-  LangNameLen :=  LENGTH(LangName);
+  LangNameLen :=  Length(LangName);
   result      :=  LangNameLen = LANGNAME_LEN;
   // * * * * * //
   i :=  1;
   while (i <= LANGNAME_LEN) and result do begin
     result  :=  LangName[i] in ALLOWED;
-    INC(i);
+    Inc(i);
   end; // .while
 end; // .function IsValidLangName
 
-function IsValidClientName (const ClientName: string): BOOLEAN;
+function IsValidClientName (const ClientName: string): boolean;
 const
   NO_DOTS_ALLOWED = FALSE;
 
 begin
-  result  :=  (LENGTH(ClientName) <= CLIENTNAME_MAXLEN) and SysUtils.IsValidIdent(ClientName, NO_DOTS_ALLOWED);
+  result  :=  (Length(ClientName) <= CLIENTNAME_MAXLEN) and SysUtils.IsValidIdent(ClientName, NO_DOTS_ALLOWED);
 end; // .function IsValidClientName
 
 function ValidateLngStructHeader
 (
   (* Un *)        Header:                 PLngStructHeader;
-                  StructMemoryBlockSize:  INTEGER;
-                  MinStructSize:          INTEGER;
+                  StructMemoryBlockSize:  integer;
+                  MinStructSize:          integer;
             const Signature:              string;
             out   Error:                  string
-): BOOLEAN;
+): boolean;
 
 var
-  StructSize: INTEGER;
+  StructSize: integer;
   
-  function ValidateMinStructSize: BOOLEAN;
+  function ValidateMinStructSize: boolean;
   begin
     result  :=  StructMemoryBlockSize >= MinStructSize;
     if not result then begin
@@ -98,7 +98,7 @@ var
     end; // .if
   end; // .function ValidateMinStructSize
 
-  function ValidateSignatureField: BOOLEAN;
+  function ValidateSignatureField: boolean;
   begin
     result  :=  Header.Signature = Signature;
     if not result then begin
@@ -106,7 +106,7 @@ var
     end; // .if
   end; // .function ValidateSignatureField
   
-  function ValidateStructSizeField: BOOLEAN;
+  function ValidateStructSizeField: boolean;
   begin
     StructSize  :=  Header.StructSize;
     result      :=  Math.InRange(StructSize, MinStructSize, StructMemoryBlockSize);
@@ -115,12 +115,12 @@ var
     end; // .if
   end; // .function ValidateStructSizeField
   
-  function ValidateBodyCrc32Field: BOOLEAN;
+  function ValidateBodyCrc32Field: boolean;
   var
-    RealCRC32:  INTEGER;
+    RealCRC32:  integer;
   
   begin
-    RealCRC32 :=  Crypto.CRC32(@Header.Body, StructSize - SIZEOF(TLngStructHeader));
+    RealCRC32 :=  Crypto.CRC32(@Header.Body, StructSize - sizeof(TLngStructHeader));
     result    :=  Header.BodyCRC32Sum = RealCRC32;
     if not result then begin
       Error :=  'CRC32 check failed. Original: ' + SysUtils.IntToStr(Header.BodyCRC32Sum) + '. Current: ' + SysUtils.IntToStr(RealCRC32);
@@ -130,7 +130,7 @@ var
 begin
   {!} Assert((Header <> nil) or (StructMemoryBlockSize = 0));
   {!} Assert(StructMemoryBlockSize >= 0);
-  {!} Assert(MinStructSize >= SIZEOF(TLngStructHeader));
+  {!} Assert(MinStructSize >= sizeof(TLngStructHeader));
   {!} Assert(Error = '');
   result  :=
     ValidateMinStructSize and
@@ -139,7 +139,7 @@ begin
     ValidateBodyCrc32Field;
 end; // .function ValidateLngStructHeader
 
-function ValidateStructSize (FormalSize, RealSize: INTEGER; out Error: string): BOOLEAN;
+function ValidateStructSize (FormalSize, RealSize: integer; out Error: string): boolean;
 begin
   {!} Assert(FormalSize > 0);
   {!} Assert(RealSize >= 0);
@@ -150,7 +150,7 @@ begin
   end; // .if
 end; // .function ValidateStructSize
 
-function GetEncodingPrefix (Unicode: BOOLEAN): string;
+function GetEncodingPrefix (Unicode: boolean): string;
 begin
   if Unicode then begin
     result  :=  'wide';

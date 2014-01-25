@@ -3,18 +3,18 @@ unit FolderBrowser;
 interface
 uses Windows, SysUtils, ShlObj;
 
-function GetFolderDialog(Handle: Integer; Caption: string; var strFolder: string): Boolean;
+function GetFolderDialog(Handle: integer; Caption: string; var strFolder: string): boolean;
 
 implementation
 
-function BrowseCallbackProc(hwnd: HWND; uMsg: UINT; lParam: LPARAM; lpData: LPARAM): Integer; stdcall;
+function BrowseCallbackProc(hwnd: HWND; uMsg: UINT; lParam: LPARAM; lpData: LPARAM): integer; stdcall;
 begin
   if (uMsg = BFFM_INITIALIZED) then
     SendMessage(hwnd, BFFM_SETSELECTION, 1, lpData);
   BrowseCallbackProc:= 0;
 end;
 
-function GetFolderDialog(Handle: Integer; Caption: string; var strFolder: string): Boolean;
+function GetFolderDialog(Handle: integer; Caption: string; var strFolder: string): boolean;
 const
   BIF_STATUSTEXT           = $0004;
   BIF_EDITBOX              = $0010;
@@ -39,9 +39,9 @@ begin
     pidlRoot:= JtemIDList;
     SHGetSpecialFolderLocation(hwndOwner, CSIDL_DRIVES, JtemIDList);
     pszDisplayName:= StrAlloc(MAX_PATH);
-    lpszTitle:= PChar(Caption);
+    lpszTitle:= pchar(Caption);
     lpfn:= @BrowseCallbackProc;
-    lParam:= LongInt(PChar(strFolder));
+    lParam:= LongInt(pchar(strFolder));
     ulflags :=  
       BIF_STATUSTEXT or BIF_NEWDIALOGSTYLE or BIF_RETURNONLYFSDIRS or
       BIF_SHAREABLE or BIF_NONEWFOLDERBUTTON;

@@ -103,24 +103,24 @@ const
   FASTCALL_1 = 1;
 
 type
-  _dword_ = Cardinal;
+  _dword_ = cardinal;
 
 // все адреса и часть указателей определены этим типом,
 // если вам удобнее по-другому, можете заменить _ptr_
-// на любой другой четырехбайтовый тип: Pointer или Integer например
+// на любой другой четырехбайтовый тип: Pointer или integer например
   _ptr_ = _dword_;
 
 // Структура HookContext
 // используется в функциях сработавших по LoHook хуку
   THookContext = packed record
-    eax: Integer;
-    ecx: Integer;
-	  edx: Integer;
-	  ebx: Integer;
-	  esp: Integer;
-	  ebp: Integer;
-	  esi: Integer;
-	  edi: Integer;
+    eax: integer;
+    ecx: integer;
+	  edx: integer;
+	  ebx: integer;
+	  esp: integer;
+	  ebp: integer;
+	  esi: integer;
+	  edi: integer;
  	  return_address: _ptr_;
   end;
   PHookContext = ^THookContext;
@@ -130,10 +130,10 @@ type
   TPatch = packed class
 
 	// возвращает адрес по которому устанавливается патч
-    function GetAddress: Integer; virtual; stdcall; abstract;
+    function GetAddress: integer; virtual; stdcall; abstract;
 
 	// возвращает размер патча
-    function GetSize: Cardinal; virtual; stdcall; abstract;
+    function GetSize: cardinal; virtual; stdcall; abstract;
 
 	// возвращает уникальное имя экземпляра TPatcherInstance, с помощью которого был создан патч
     function GetOwner: PAnsiChar; virtual; stdcall; abstract;
@@ -142,10 +142,10 @@ type
 	// для не хука всегда PATCH_
 	// для TLoHook всегда LOHOOK_
 	// для THiHook всегда HIHOOK_
-    function GetType: Integer; virtual; stdcall; abstract;
+    function GetType: integer; virtual; stdcall; abstract;
 
 	// возвращает true, если патч применен и false, если нет.
-    function IsApplied: Boolean; virtual; stdcall; abstract;
+    function IsApplied: boolean; virtual; stdcall; abstract;
 
 
 	// применяет патч 
@@ -159,7 +159,7 @@ type
 	// В случаях конфликтного применения (см. конец ОПИСАНИЯ библиотеки выше)
 	// ранее примененный патч  (с которым так или иначе конфликтует этот) отмечается как 
 	// неотменяемый (FIXED), и в лог пишется предупреждение о конфликте.
-    function Apply: Boolean; virtual; stdcall; abstract;
+    function Apply: boolean; virtual; stdcall; abstract;
 
   // ApplyInsert применяет патч с указанием порядкового номера в
 	// последовательности патчей, примененных по этому адресу.
@@ -168,7 +168,7 @@ type
 	// возвращаемый порядковый номер может отличаться от желаемого, переданного параметром.
 	// функции ApplyInsert можно аргументом передать значение, возвращаемое 
 	// функцией Undo, чтобы применить патч в то же место, на котором тот был до отменения.
-    function ApplyInsert(ZOrder: Integer): Boolean; virtual; stdcall; abstract;
+    function ApplyInsert(ZOrder: integer): boolean; virtual; stdcall; abstract;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Метод Undo
@@ -180,7 +180,7 @@ type
 	// Возвращает -2, если патч и так уже был отменен (не был применен)
 	// Возвращает -3, если патч является неотменяемым (FIXED) (см. метод Apply)
 	// Результат выполнения метода распространенно пишется в лог
-    function Undo: Integer; virtual; stdcall; abstract;
+    function Undo: integer; virtual; stdcall; abstract;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Метод Destroy
@@ -190,7 +190,7 @@ type
 	// возвращает 1, если патч(хук) уничтожен успешно
 	// возвращает 0, если патч не уничтожен
 	// Результат уничтожения распространенно пишется в лог
-    function _Destroy: Integer; virtual; stdcall; abstract;
+    function _Destroy: integer; virtual; stdcall; abstract;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Метод GetAppliedBefore
@@ -244,21 +244,21 @@ type
 	// пишет однбайтовое число по адресу address
 	// (создает и применяет DATA_ патч)
 	// Возвращает патч
-	  function WriteByte(address: _ptr_; value: Integer): TPatch; virtual; stdcall; abstract;
+	  function WriteByte(address: _ptr_; value: integer): TPatch; virtual; stdcall; abstract;
 
 	////////////////////////////////////////////////////////////
 	// Метод WriteWord
 	// пишет двухбайтовое число по адресу address
 	// (создает и применяет DATA_ патч)
 	// Возвращает патч
-	  function WriteWord(address: _ptr_; value: Integer): TPatch; virtual; stdcall; abstract;
+	  function WriteWord(address: _ptr_; value: integer): TPatch; virtual; stdcall; abstract;
 
 	////////////////////////////////////////////////////////////
 	// Метод WriteDword
 	// пишет четырехбайтовое число по адресу address
 	// (создает и применяет DATA_ патч)
 	// Возвращает патч
-	  function WriteDword(address: _ptr_; value: Integer): TPatch; virtual; stdcall; abstract;
+	  function WriteDword(address: _ptr_; value: integer): TPatch; virtual; stdcall; abstract;
 
 	////////////////////////////////////////////////////////////
 	// Метод WriteJmp
@@ -349,21 +349,21 @@ type
 	// CALL_, SPLICE_ хук является CODE_ патчем
 	// FUNCPTR_ хук является DATA_ патчем
   //
-	  function WriteHiHook(address: _ptr_; hooktype, subtype, calltype: Integer; new_func: pointer): THiHook; virtual; stdcall; abstract;
+	  function WriteHiHook(address: _ptr_; hooktype, subtype, calltype: integer; new_func: pointer): THiHook; virtual; stdcall; abstract;
 
 	///////////////////////////////////////////////////////////////////
 	// Методы Create...
 	// создают патч/хук так же как и соответствующие методы Write...,
 	// но НЕ ПРИМЕНЯЮТ его
 	// возвращают патч/хук
-	  function CreateBytePatch(address: _ptr_; value: Integer): TPatch; virtual; stdcall; abstract;
-	  function CreateWordPatch(address: _ptr_; value: Integer): TPatch; virtual; stdcall; abstract;
-	  function CreateDwordPatch(address: _ptr_; value: Integer): TPatch; virtual; stdcall; abstract;
+	  function CreateBytePatch(address: _ptr_; value: integer): TPatch; virtual; stdcall; abstract;
+	  function CreateWordPatch(address: _ptr_; value: integer): TPatch; virtual; stdcall; abstract;
+	  function CreateDwordPatch(address: _ptr_; value: integer): TPatch; virtual; stdcall; abstract;
 	  function CreateJmpPatch(address, to_address: _ptr_): TPatch; virtual; stdcall; abstract;
 	  function CreateHexPatch(address: _ptr_; hex_str: PAnsiChar): TPatch; virtual; stdcall; abstract;
 	  function CreateCodePatchVA(address: _ptr_; format: PAnsiChar; va_args: _ptr_): TPatch; virtual; stdcall; abstract;
 	  function CreateLoHook(address: _ptr_; func: pointer): TLoHook; virtual; stdcall; abstract;
-	  function CreateHiHook(address: _ptr_; hooktype, subtype, calltype: Integer; new_func: pointer): THiHook; virtual; stdcall; abstract;
+	  function CreateHiHook(address: _ptr_; hooktype, subtype, calltype: integer; new_func: pointer): THiHook; virtual; stdcall; abstract;
 
 	////////////////////////////////////////////////////////////
 	// Метод ApplyAll
@@ -371,7 +371,7 @@ type
 	// возвращает TRUE если все патчи/хуки применились успешно
 	// возвращает FALSE если хотя бы один патч/хук не был применен
 	// (см. TPatch.Apply)
-	  function ApplyAll: Boolean; virtual; stdcall; abstract;
+	  function ApplyAll: boolean; virtual; stdcall; abstract;
 
 	////////////////////////////////////////////////////////////
 	// Метод UndoAll
@@ -379,7 +379,7 @@ type
 	// т.е. для каждого из патчей/хуков вызывает метод Undo
 	// возвращает FALSE, если хотя бы один патч/хук невозможно отменить (является неотменяемым (FIXED))
 	// иначе возвращает TRUE
-	  function UndoAll: Boolean; virtual; stdcall; abstract;
+	  function UndoAll: boolean; virtual; stdcall; abstract;
 
 	////////////////////////////////////////////////////////////
 	// Метод DestroyAll
@@ -387,7 +387,7 @@ type
 	// т.е. для каждого из патчей/хуков вызывает метод Destroy
 	// возвращает FALSE, если хотя бы один патч/хук невозможно уничтожить (является примененным)
 	// иначе возвращает TRUE
-	  function DestroyAll: Boolean; virtual; stdcall; abstract;
+	  function DestroyAll: boolean; virtual; stdcall; abstract;
 
 	// в оригинальном виде применение метода не предполагается,
 	// смотрите (ниже) описание метода-оболочки WriteDataPatch
@@ -409,7 +409,7 @@ type
 	// по адресу address 
 	// возвращает TRUE, если все патчи успешно отменены,
 	// иначе возвращает FALSE
-   	function UndoAllAt(address: _ptr_): Boolean; virtual; stdcall; abstract;
+   	function UndoAllAt(address: _ptr_): boolean; virtual; stdcall; abstract;
 
 	// Метод GetFirstPatchAt
 	// возвращает NULL, если по адресу address не был применен ни один патч/хук,
@@ -424,13 +424,13 @@ type
 	// пишет по адресу address данные/код из памяти по адресу data размером size байт 
 	// если is_code == true, то создается и пишется CODE_ патч, иначе - DATA_ патч.
 	// Возвращает патч
-	function Write(address: _ptr_; data: _ptr_; size: _dword_; is_code: Boolean): TPatch; virtual; stdcall; abstract;
+	function Write(address: _ptr_; data: _ptr_; size: _dword_; is_code: boolean): TPatch; virtual; stdcall; abstract;
 
 	// Метод CreatePatch
 	// создаёт патч так же как и метод Write,
 	// но НЕ ПРИМЕНЯЕТ его
 	// возвращает патч
-	function CreatePatch(address: _ptr_; data: _ptr_; size: _dword_; is_code: Boolean): TPatch; virtual; stdcall; abstract;
+	function CreatePatch(address: _ptr_; data: _ptr_; size: _dword_; is_code: boolean): TPatch; virtual; stdcall; abstract;
 
 
 	////////////////////////////////////////////////////////////
@@ -559,7 +559,7 @@ type
 	// отменяет все патчи/хуки по адресу address
 	// возвращает FALSE, если хотя бы 1 патч/хук не получилось отменить (см. Patch::Undo)
 	// иначе возвращает TRUE
-  	function UndoAllAt(address: _ptr_): Boolean; virtual; stdcall; abstract;
+  	function UndoAllAt(address: _ptr_): boolean; virtual; stdcall; abstract;
 
 	///////////////////////////////////////////////////
 	// Метод SaveDump
@@ -580,7 +580,7 @@ type
 	// на максимальный размер патча,
 	// какой - можно узнать с помощью метода GetMaxPatchSize
 	// (на данный момент это 8192 байт, т.е. дохрена :) )
-   	function GetMaxPatchSize: Integer; virtual; stdcall; abstract;
+   	function GetMaxPatchSize: integer; virtual; stdcall; abstract;
 
 	// дополнительные методы:
 
@@ -588,14 +588,14 @@ type
 	// Метод WriteComplexDataVA
 	// в оригинальном виде применение метода не предполагается,
 	// смотрите (ниже) описание метода-оболочки WriteComplexString
-   	function WriteComplexDataVA(address: _ptr_; format: PAnsiChar; va_args: _ptr_): Integer; virtual; stdcall; abstract;
+   	function WriteComplexDataVA(address: _ptr_; format: PAnsiChar; va_args: _ptr_): integer; virtual; stdcall; abstract;
 
 	///////////////////////////////////////////////////
 	// метод GetOpcodeLength
 	// т.н. дизассемблер длин опкодов
 	// возвращает длину в байтах опкода по адресу p_opcode
 	// возвращает 0, если опкод неизвестен
-   	function GetOpcodeLength(p_opcode: Pointer): Integer; virtual; stdcall; abstract;
+   	function GetOpcodeLength(p_opcode: Pointer): integer; virtual; stdcall; abstract;
 
 	///////////////////////////////////////////////////
 	// метод MemCopyCode
@@ -606,7 +606,7 @@ type
 	// что корректно копирует опкоды E8 (call), E9 (jmp long), 0F80 - 0F8F (j** long)
 	// c относительной адресацией не сбивая в них адреса, если инструкции 
 	// направляют за пределы копируемого блокая.
-    procedure MemCopyCode(dst, src: Pointer; size: Cardinal); virtual; stdcall; abstract;
+    procedure MemCopyCode(dst, src: Pointer; size: cardinal); virtual; stdcall; abstract;
 
 
 	///////////////////////////////////////////////////
@@ -628,7 +628,7 @@ type
 	// соответствующие E9 (jmp long), 0F80 - 0F8F (j** long) опкоды.
 	// Внимание! Из-за этого размер скопированного кода может оказаться значительно 
 	// больше копируемого.
-    function MemCopyCodeEx(dst, src: Pointer; size: Cardinal): Integer; virtual; stdcall; abstract;
+    function MemCopyCodeEx(dst, src: Pointer; size: cardinal): integer; virtual; stdcall; abstract;
 
 	////////////////////////////////////////////////////////////////////
 	// метод WriteComplexData
@@ -646,7 +646,7 @@ type
 	// кода, т.е. пишите этим методом только в свою память,
 	// а в код модифицируемой программы только с помощью
 	// TPatcherInstance.WriteCodePatch / TPatcherInstance.WriteDataPatch
-   	function WriteComplexData(address: _ptr_; const args: array of const): Integer; stdcall;
+   	function WriteComplexData(address: _ptr_; const args: array of const): integer; stdcall;
 
   end;
 
@@ -713,7 +713,7 @@ type
       jl @loop_end
       push [edi]
       sub edi, 4
-      dec esi
+      Dec esi
       jmp @loop_start
    @loop_end:
       mov eax, address
@@ -741,7 +741,7 @@ type
       jl @loop_end
       push [edi]
       sub edi, 4
-      dec esi
+      Dec esi
       jmp @loop_start
     @loop_end:
       mov eax, address
@@ -778,7 +778,7 @@ type
       jl @loop_end
       push [edi]
       sub edi, 4
-      dec esi
+      Dec esi
       jmp @loop_start
     @loop_end:
       mov ecx, ecx_arg
@@ -818,7 +818,7 @@ type
       jl @loop_end
       push [edi]
       sub edi, 4
-      dec esi
+      Dec esi
       jmp @loop_start
     @loop_end:
       mov ecx, ecx_arg
@@ -840,10 +840,10 @@ type
     __MoveToDWordArgs(args, dword_args);
     
     case calltype of
-      CDECL_   : result := CALL_CDECL(address, dword_args, length(args));
-      STDCALL_ : result := CALL_STD(address, dword_args, length(args));
-      THISCALL_: result := CALL_THIS(address, dword_args, length(args));
-      FASTCALL_: result := CALL_FAST(address, dword_args, length(args));
+      CDECL_   : result := CALL_CDECL(address, dword_args, Length(args));
+      STDCALL_ : result := CALL_STD(address, dword_args, Length(args));
+      THISCALL_: result := CALL_THIS(address, dword_args, Length(args));
+      FASTCALL_: result := CALL_FAST(address, dword_args, Length(args));
     else
       result := 0;
       asm int 3 end;
@@ -889,7 +889,7 @@ type
   end;
 
 
-  function TPatcher.WriteComplexData(address: _ptr_; const args: array of const): Integer;
+  function TPatcher.WriteComplexData(address: _ptr_; const args: array of const): integer;
   var
     dword_args: TDwordArgs;
   
@@ -903,7 +903,7 @@ type
   
   function GetPatcher: TPatcher;
   var
-    dll: Cardinal;
+    dll: cardinal;
     func: _ptr_;
   begin
     result := PatcherPtr;

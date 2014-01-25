@@ -35,7 +35,7 @@ end; // .procedure GetFileList
 procedure MergeFileLists (MainList, DependantList: TStrList);
 var
 {O} NamesDict: TDict {OF FileName: STRING => Ptr(1)};
-    i: INTEGER;
+    i: integer;
    
 begin
   {!} Assert(MainList <> nil);

@@ -19,8 +19,8 @@ type
   
   PListItem = ^TListItem;
   TListItem = record
-          Data:     array of CHAR;
-          DataSize: INTEGER;
+          Data:     array of char;
+          DataSize: integer;
     {On}  NextItem: PListItem;
   end; // .record TListItem
   
@@ -32,57 +32,57 @@ type
     var
       {On}  fRootItem:  PListItem;
       {Un}  fCurrItem:  PListItem;
-            fSize:      INTEGER;
+            fSize:      integer;
           
     (***) public (***)
       destructor  Destroy; override;
       procedure Append (const Str: string);
-      procedure AppendBuf (BufSize: INTEGER; {n} Buf: POINTER);
+      procedure AppendBuf (BufSize: integer; {n} Buf: POINTER);
       function  BuildStr: string;
       procedure Clear;
       
-      property  Size: INTEGER READ fSize;
+      property  Size: integer read fSize;
   end; // .class TStrBuilder
 
 
-function  InStrBounds (Pos: INTEGER; const Str: string): BOOLEAN;
-function  BytesToAnsiString (PBytes: PBYTE; NumBytes: INTEGER): AnsiString;
-function  BytesToWideString (PBytes: PBYTE; NumBytes: INTEGER): WideString;
+function  InStrBounds (Pos: integer; const Str: string): boolean;
+function  BytesToAnsiString (PBytes: PBYTE; NumBytes: integer): AnsiString;
+function  BytesToWideString (PBytes: PBYTE; NumBytes: integer): WideString;
 function  FindCharEx
 (
-        Ch:       CHAR;
+        Ch:       char;
   const Str:      string;
-        StartPos: INTEGER;
-  out   CharPos:  INTEGER
-): BOOLEAN;
+        StartPos: integer;
+  out   CharPos:  integer
+): boolean;
 
 function  ReverseFindCharEx
 (
-        Ch:       CHAR;
+        Ch:       char;
   const Str:      string;
-        StartPos: INTEGER;
-  out   CharPos:  INTEGER
-): BOOLEAN;
+        StartPos: integer;
+  out   CharPos:  integer
+): boolean;
 
-function  FindChar (Ch: CHAR; const Str: string; out CharPos: INTEGER): BOOLEAN;
-function  ReverseFindChar (Ch: CHAR; const Str: string; out CharPos: INTEGER): BOOLEAN;
+function  FindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
+function  ReverseFindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
 
 function  FindCharsetEx
 (
         Charset:  Utils.TCharSet;
   const Str:      string;
-        StartPos: INTEGER;
-  out   CharPos:  INTEGER
-): BOOLEAN;
+        StartPos: integer;
+  out   CharPos:  integer
+): boolean;
 
-function  FindCharset (Charset: Utils.TCharSet; const Str: string; out CharPos: INTEGER): BOOLEAN;
-function  FindSubstrEx (const Substr, Str: string; StartPos: INTEGER; out SubstrPos: INTEGER): BOOLEAN;
-function  FindSubstr (const Substr, Str: string; out SubstrPos: INTEGER): BOOLEAN;
+function  FindCharset (Charset: Utils.TCharSet; const Str: string; out CharPos: integer): boolean;
+function  FindSubstrEx (const Substr, Str: string; StartPos: integer; out SubstrPos: integer): boolean;
+function  FindSubstr (const Substr, Str: string; out SubstrPos: integer): boolean;
 {
 f('') => NIL
 f(Str, '') => [Str]
 }
-function  ExplodeEx (const Str, Delim: string; InclDelim: BOOLEAN; LimitTokens: BOOLEAN; MaxTokens: INTEGER): TArrayOfString;
+function  ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfString;
 function  Explode (const Str: string; const Delim: string): TArrayOfString;
 function  Join (const Arr: TArrayOfString; const Glue: string): string;
 {
@@ -90,21 +90,21 @@ TemplArgs - pairs of (ArgName, ArgValue).
 Example: f('Hello, ~UserName~. You are ~Years~ years old.', ['Years', '20', 'UserName', 'Bob'], '~') =>
 => 'Hello, Bob. You are 20 years old'.
 }
-function  BuildStr (const Template: string; TemplArgs: array of string; TemplChar: CHAR): string;
+function  BuildStr (const Template: string; TemplArgs: array of string; TemplChar: char): string;
 function  CharsetToStr (const Charset: Utils.TCharSet): string;
-function  IntToRoman (Value: INTEGER): string;
-function  CharToLower (c: CHAR): CHAR;
-function  CharToUpper (c: CHAR): CHAR;
-function  HexCharToByte (HexChar: CHAR): BYTE;
-function  ByteToHexChar (ByteValue: BYTE): CHAR;
+function  IntToRoman (Value: integer): string;
+function  CharToLower (c: char): char;
+function  CharToUpper (c: char): char;
+function  HexCharToByte (HexChar: char): byte;
+function  ByteToHexChar (ByteValue: byte): char;
 function  Concat (const Strings: array of string): string;
 {
 Base file name does not include extension.
 }
 function  ExtractBaseFileName (const FilePath: string): string;
-function  SubstrBeforeChar (const Str: string; Ch: CHAR): string;
-function  Match (const Str, Pattern: string): BOOLEAN;
-function  ExtractFromPchar (Str: PCHAR; Count: INTEGER): string;
+function  SubstrBeforeChar (const Str: string; Ch: char): string;
+function  Match (const Str, Pattern: string): boolean;
+function  ExtractFromPchar (Str: pchar; Count: integer): string;
 
 
 (***) implementation (***)
@@ -117,33 +117,33 @@ end; // .destructor TStrBuilder.Destroy
 
 procedure TStrBuilder.Append (const Str: string);
 begin
-  Self.AppendBuf(LENGTH(Str), POINTER(Str));
+  Self.AppendBuf(Length(Str), POINTER(Str));
 end; // .procedure TStrBuilder.Append
 
-procedure TStrBuilder.AppendBuf (BufSize: INTEGER; {n} Buf: POINTER);
+procedure TStrBuilder.AppendBuf (BufSize: integer; {n} Buf: POINTER);
 var
-  LeftPartSize:   INTEGER;
-  RightPartSize:  INTEGER;
+  LeftPartSize:   integer;
+  RightPartSize:  integer;
   
 begin
   {!} Assert(BufSize >= 0);
   {!} Assert((Buf <> nil) or (BufSize = 0));
   if BufSize > 0 then begin
     if Self.fRootItem = nil then begin
-      NEW(Self.fRootItem);
+      New(Self.fRootItem);
       Self.fCurrItem  :=  Self.fRootItem;
       SetLength(Self.fCurrItem.Data, Math.Max(BufSize, Self.MIN_BLOCK_SIZE));
       Self.fCurrItem.DataSize :=  0;
       Self.fCurrItem.NextItem :=  nil;
     end; // .if
-    LeftPartSize  :=  Math.Min(BufSize, LENGTH(Self.fCurrItem.Data) - Self.fCurrItem.DataSize);
+    LeftPartSize  :=  Math.Min(BufSize, Length(Self.fCurrItem.Data) - Self.fCurrItem.DataSize);
     RightPartSize :=  BufSize - LeftPartSize;
     if LeftPartSize > 0 then begin
       Utils.CopyMem(LeftPartSize, Buf, @Self.fCurrItem.Data[Self.fCurrItem.DataSize]);
     end; // .if
     Self.fCurrItem.DataSize :=  Self.fCurrItem.DataSize + LeftPartSize;
     if RightPartSize > 0 then begin
-      NEW(Self.fCurrItem.NextItem);
+      New(Self.fCurrItem.NextItem);
       Self.fCurrItem  :=  Self.fCurrItem.NextItem;
       SetLength(Self.fCurrItem.Data, Math.Max(RightPartSize, Self.MIN_BLOCK_SIZE));
       Self.fCurrItem.DataSize :=  RightPartSize;
@@ -163,7 +163,7 @@ function TStrBuilder.BuildStr: string;
 var
 {U} Res:      POINTER;
 {U} CurrItem: PListItem;
-    Pos:      INTEGER;
+    Pos:      integer;
 
 begin
   Res       :=  nil;
@@ -190,7 +190,7 @@ begin
   // * * * * * //
   while CurrItem <> nil do begin
     NextItem  :=  CurrItem.NextItem;
-    DISPOSE(CurrItem);
+    Dispose(CurrItem);
     CurrItem  :=  NextItem;
   end; // .while
   Self.fRootItem  :=  nil;
@@ -198,12 +198,12 @@ begin
   Self.fSize      :=  0;
 end; // .procedure TStrBuilder.Clear
 
-function InStrBounds (Pos: INTEGER; const Str: string): BOOLEAN;
+function InStrBounds (Pos: integer; const Str: string): boolean;
 begin
-  result  :=  Math.InRange(Pos, 1, LENGTH(Str));
+  result  :=  Math.InRange(Pos, 1, Length(Str));
 end; // .function InStrBounds
 
-function BytesToAnsiString (PBytes: PBYTE; NumBytes: INTEGER): AnsiString;
+function BytesToAnsiString (PBytes: PBYTE; NumBytes: integer): AnsiString;
 begin
   {!} Assert(PBytes <> nil);
   {!} Assert(NumBytes >= 0);
@@ -211,7 +211,7 @@ begin
   Utils.CopyMem(NumBytes, PBytes, POINTER(result));
 end; // .function BytesToAnsiString
 
-function BytesToWideString (PBytes: PBYTE; NumBytes: INTEGER): WideString;
+function BytesToWideString (PBytes: PBYTE; NumBytes: integer): WideString;
 begin
   {!} Assert(PBytes <> nil);
   {!} Assert(NumBytes >= 0);
@@ -220,18 +220,18 @@ begin
   Utils.CopyMem(NumBytes, PBytes, POINTER(result));
 end; // .function BytesToWideString
 
-function FindCharEx (Ch: CHAR; const Str: string; StartPos: INTEGER; out CharPos: INTEGER): BOOLEAN;
+function FindCharEx (Ch: char; const Str: string; StartPos: integer; out CharPos: integer): boolean;
 var
-  StrLen: INTEGER;
-  i:      INTEGER;
+  StrLen: integer;
+  i:      integer;
 
 begin
-  StrLen  :=  LENGTH(Str);
+  StrLen  :=  Length(Str);
   result  :=  Math.InRange(StartPos, 1, StrLen);
   if result then begin
     i :=  StartPos;
     while (i <= StrLen) and (Str[i] <> Ch) do begin
-      INC(i);
+      Inc(i);
     end; // .while
     result  :=  i <= StrLen;
     if result then begin
@@ -242,23 +242,23 @@ end; // .function FindCharEx
 
 function ReverseFindCharEx
 (
-        Ch:       CHAR;
+        Ch:       char;
   const Str:      string;
-        StartPos: INTEGER;
-  out   CharPos:  INTEGER
-): BOOLEAN;
+        StartPos: integer;
+  out   CharPos:  integer
+): boolean;
 
 var
-  StrLen: INTEGER;
-  i:      INTEGER;
+  StrLen: integer;
+  i:      integer;
 
 begin
-  StrLen  :=  LENGTH(Str);
+  StrLen  :=  Length(Str);
   result  :=  Math.InRange(StartPos, 1, StrLen);
   if result then begin
     i :=  StartPos;
     while (i >= 1) and (Str[i] <> Ch) do begin
-      DEC(i);
+      Dec(i);
     end; // .while
     result  :=  i >= 1;
     if result then begin
@@ -267,29 +267,29 @@ begin
   end; // .if
 end; // .function ReverseFindCharEx
 
-function FindChar (Ch: CHAR; const Str: string; out CharPos: INTEGER): BOOLEAN;
+function FindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
 begin
   result  :=  FindCharEx(Ch, Str, 1, CharPos);
 end; // .function FindChar
 
-function ReverseFindChar (Ch: CHAR; const Str: string; out CharPos: INTEGER): BOOLEAN;
+function ReverseFindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
 begin
-  result  :=  ReverseFindCharEx(Ch, Str, LENGTH(Str), CharPos);
+  result  :=  ReverseFindCharEx(Ch, Str, Length(Str), CharPos);
 end; // .function ReverseFindChar
 
-function FindCharsetEx (Charset: Utils.TCharSet; const Str: string; StartPos: INTEGER; out CharPos: INTEGER): BOOLEAN;
+function FindCharsetEx (Charset: Utils.TCharSet; const Str: string; StartPos: integer; out CharPos: integer): boolean;
 var
-  StrLen: INTEGER;
-  i:      INTEGER;
+  StrLen: integer;
+  i:      integer;
 
 begin
   {!} Assert(StartPos >= 1);
-  StrLen  :=  LENGTH(Str);
+  StrLen  :=  Length(Str);
   result  :=  StartPos <= StrLen;
   if result then begin
     i :=  StartPos;
     while (i <= StrLen) and not (Str[i] in Charset) do begin
-      INC(i);
+      Inc(i);
     end; // .while
     result  :=  i <= StrLen;
     if result then begin
@@ -298,41 +298,41 @@ begin
   end; // .if
 end; // .function FindCharsetEx
 
-function FindCharset (Charset: Utils.TCharSet; const Str: string; out CharPos: INTEGER): BOOLEAN;
+function FindCharset (Charset: Utils.TCharSet; const Str: string; out CharPos: integer): boolean;
 begin
   result  :=  FindCharsetEx(Charset, Str, 1, CharPos);
 end; // .function FindCharset
 
-function FindSubstrEx (const Substr, Str: string; StartPos: INTEGER; out SubstrPos: INTEGER): BOOLEAN;
+function FindSubstrEx (const Substr, Str: string; StartPos: integer; out SubstrPos: integer): boolean;
 begin
   SubstrPos :=  StrUtils.PosEx(Substr, Str, StartPos);
   result    :=  SubstrPos <> 0;
 end; // .function FindSubstrEx
 
-function FindSubstr (const Substr, Str: string; out SubstrPos: INTEGER): BOOLEAN;
+function FindSubstr (const Substr, Str: string; out SubstrPos: integer): boolean;
 begin
   result  :=  FindSubstrEx(Substr, Str, 1, SubstrPos);
 end; // .function FindSubstr
 
-function ExplodeEx (const Str, Delim: string; InclDelim: BOOLEAN; LimitTokens: BOOLEAN; MaxTokens: INTEGER): TArrayOfString;
+function ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfString;
 var
 (* O *) DelimPosList:   Classes.TList {OF INTEGER};
-        StrLen:         INTEGER;
-        DelimLen:       INTEGER;
-        DelimPos:       INTEGER;
-        DelimsLimit:    INTEGER;
-        NumDelims:      INTEGER;
-        TokenStartPos:  INTEGER;
-        TokenEndPos:    INTEGER;
-        TokenLen:       INTEGER;
-        i:              INTEGER;
+        StrLen:         integer;
+        DelimLen:       integer;
+        DelimPos:       integer;
+        DelimsLimit:    integer;
+        NumDelims:      integer;
+        TokenStartPos:  integer;
+        TokenEndPos:    integer;
+        TokenLen:       integer;
+        i:              integer;
 
 begin
   {!} Assert(not LimitTokens or (MaxTokens > 0));
   DelimPosList  :=  Classes.TList.Create;
   // * * * * * //
-  StrLen    :=  LENGTH(Str);
-  DelimLen  :=  LENGTH(Delim);
+  StrLen    :=  Length(Str);
+  DelimLen  :=  Length(Delim);
   if StrLen > 0 then begin
     if not LimitTokens then begin
       MaxTokens :=  MAXLONGINT;
@@ -347,14 +347,14 @@ begin
       DelimPos    :=  1;
       while (NumDelims < DelimsLimit) and FindSubstrEx(Delim, Str, DelimPos, DelimPos) do begin
         DelimPosList.Add(POINTER(DelimPos));
-        INC(DelimPos);
-        INC(NumDelims);
+        Inc(DelimPos);
+        Inc(NumDelims);
       end; // .while
       DelimPosList.Add(POINTER(StrLen + 1));
       SetLength(result, NumDelims + 1);
       TokenStartPos :=  1;
       for i:=0 to NumDelims do begin
-        TokenEndPos   :=  INTEGER(DelimPosList[i]);
+        TokenEndPos   :=  integer(DelimPosList[i]);
         TokenLen      :=  TokenEndPos - TokenStartPos;
         if InclDelim and (i < NumDelims) then begin
           TokenLen    :=  TokenLen + DelimLen;
@@ -376,68 +376,68 @@ end; // .function Explode
 function Join (const Arr: TArrayOfString; const Glue: string): string;
 var
 (* U *) Mem:        POINTER;
-        ArrLen:     INTEGER;
-        GlueLen:    INTEGER;
-        NumPairs:   INTEGER;
-        ResultSize: INTEGER;
-        i:          INTEGER;
+        ArrLen:     integer;
+        GlueLen:    integer;
+        NumPairs:   integer;
+        ResultSize: integer;
+        i:          integer;
 
 begin
   Mem :=  nil;
   // * * * * * //
-  ArrLen  :=  LENGTH(Arr);
-  GlueLen :=  LENGTH(Glue);
+  ArrLen  :=  Length(Arr);
+  GlueLen :=  Length(Glue);
   if ArrLen > 0 then begin
     NumPairs    :=  ArrLen - 1;
     ResultSize  :=  0;
     for i:=0 to ArrLen - 1 do begin
-      ResultSize  :=  ResultSize + LENGTH(Arr[i]);
+      ResultSize  :=  ResultSize + Length(Arr[i]);
     end; // .for
     ResultSize  :=  ResultSize + NumPairs * GlueLen;
     SetLength(result, ResultSize);
     Mem :=  POINTER(result);
     if GlueLen = 0 then begin
       for i:=0 to NumPairs - 1 do begin
-        Utils.CopyMem(LENGTH(Arr[i]), POINTER(Arr[i]), Mem);
-        Mem :=  Utils.PtrOfs(Mem, LENGTH(Arr[i]));
+        Utils.CopyMem(Length(Arr[i]), POINTER(Arr[i]), Mem);
+        Mem :=  Utils.PtrOfs(Mem, Length(Arr[i]));
       end; // .for
     end // .if
     else begin
       for i:=0 to NumPairs - 1 do begin
-        Utils.CopyMem(LENGTH(Arr[i]), POINTER(Arr[i]), Mem);
-        Mem :=  Utils.PtrOfs(Mem, LENGTH(Arr[i]));
-        Utils.CopyMem(LENGTH(Glue), POINTER(Glue), Mem);
-        Mem :=  Utils.PtrOfs(Mem, LENGTH(Glue));
+        Utils.CopyMem(Length(Arr[i]), POINTER(Arr[i]), Mem);
+        Mem :=  Utils.PtrOfs(Mem, Length(Arr[i]));
+        Utils.CopyMem(Length(Glue), POINTER(Glue), Mem);
+        Mem :=  Utils.PtrOfs(Mem, Length(Glue));
       end; // .for
     end; // .else
-    Utils.CopyMem(LENGTH(Arr[NumPairs]), POINTER(Arr[NumPairs]), Mem);
+    Utils.CopyMem(Length(Arr[NumPairs]), POINTER(Arr[NumPairs]), Mem);
   end; // .if
 end; // .function Join
 
-function BuildStr (const Template: string; TemplArgs: array of string; TemplChar: CHAR): string;
+function BuildStr (const Template: string; TemplArgs: array of string; TemplChar: char): string;
 var
   TemplTokens:    TArrayOfString;
-  NumTemplTokens: INTEGER;
-  NumTemplVars:   INTEGER;
-  NumTemplArgs:   INTEGER;
-  TemplTokenInd:  INTEGER;
-  i:              INTEGER;
+  NumTemplTokens: integer;
+  NumTemplVars:   integer;
+  NumTemplArgs:   integer;
+  TemplTokenInd:  integer;
+  i:              integer;
   
-  function FindTemplVar (const TemplVarName: string; out Ind: INTEGER): BOOLEAN;
+  function FindTemplVar (const TemplVarName: string; out Ind: integer): boolean;
   begin
     Ind :=  1;
     while (Ind < NumTemplTokens) and (TemplTokens[Ind] <> TemplVarName) do begin
-      INC(Ind, 2);
+      Inc(Ind, 2);
     end; // .while
     result  :=  Ind < NumTemplTokens;
   end; // .function FindTemplVar
 
 begin
-  NumTemplArgs  :=  LENGTH(TemplArgs);
+  NumTemplArgs  :=  Length(TemplArgs);
   {!} Assert(Utils.EVEN(NumTemplArgs));
   // * * * * * //
   TemplTokens     :=  Explode(Template, TemplChar);
-  NumTemplTokens  :=  LENGTH(TemplTokens);
+  NumTemplTokens  :=  Length(TemplTokens);
   NumTemplVars    :=  (NumTemplTokens - 1) div 2;
   if (NumTemplVars = 0) or (NumTemplArgs = 0) then begin
     result  :=  Template;
@@ -448,7 +448,7 @@ begin
       if FindTemplVar(TemplArgs[i], TemplTokenInd) then begin
         TemplTokens[TemplTokenInd]  :=  TemplArgs[i + 1];
       end; // .if
-      INC(i, 2);
+      Inc(i, 2);
     end; // .while
     result  :=  StrLib.Join(TemplTokens, '');
   end; // .else
@@ -459,29 +459,29 @@ const
   CHARSET_CAPACITY  = 256;
   SPACE_PER_ITEM    = 3;
   DELIMETER         = ', ';
-  DELIM_LEN         = LENGTH(DELIMETER);
+  DELIM_LEN         = Length(DELIMETER);
 
 var
-(* U *) BufPos:       ^CHAR;
-        Buffer:       array [0..(SPACE_PER_ITEM * CHARSET_CAPACITY + DELIM_LEN * (CHARSET_CAPACITY - 1)) - 1] of CHAR;
-        BufSize:      INTEGER;
-        StartItemInd: INTEGER;
-        FinitItemInd: INTEGER;
-        RangeLen:     INTEGER;
+(* U *) BufPos:       ^char;
+        Buffer:       array [0..(SPACE_PER_ITEM * CHARSET_CAPACITY + DELIM_LEN * (CHARSET_CAPACITY - 1)) - 1] of char;
+        BufSize:      integer;
+        StartItemInd: integer;
+        FinitItemInd: integer;
+        RangeLen:     integer;
         
-  procedure WriteItem (c: CHAR);
+  procedure WriteItem (c: char);
   begin
     if ORD(c) < ORD(' ') then begin
-      BufPos^ :=  '#';                            INC(BufPos);
-      BufPos^ :=  CHR(ORD(c) div 10 + ORD('0'));  INC(BufPos);
-      BufPos^ :=  CHR(ORD(c) mod 10 + ORD('0'));  INC(BufPos);
+      BufPos^ :=  '#';                            Inc(BufPos);
+      BufPos^ :=  CHR(ORD(c) div 10 + ORD('0'));  Inc(BufPos);
+      BufPos^ :=  CHR(ORD(c) mod 10 + ORD('0'));  Inc(BufPos);
     end // .if
     else begin
-      BufPos^ :=  '"';  INC(BufPos);
-      BufPos^ :=  c;    INC(BufPos);
-      BufPos^ :=  '"';  INC(BufPos);
+      BufPos^ :=  '"';  Inc(BufPos);
+      BufPos^ :=  c;    Inc(BufPos);
+      BufPos^ :=  '"';  Inc(BufPos);
     end; // .else
-    INC(BufSize, SPACE_PER_ITEM);
+    Inc(BufSize, SPACE_PER_ITEM);
   end; // .procedure WriteItem
 
 begin
@@ -492,41 +492,41 @@ begin
   while StartItemInd < CHARSET_CAPACITY do begin
     if CHR(StartItemInd) in Charset then begin
       if BufSize > 0 then begin
-        BufPos^ :=  DELIMETER[1]; INC(BufPos);
-        BufPos^ :=  DELIMETER[2]; INC(BufPos);
-        INC(BufSize, DELIM_LEN);
+        BufPos^ :=  DELIMETER[1]; Inc(BufPos);
+        BufPos^ :=  DELIMETER[2]; Inc(BufPos);
+        Inc(BufSize, DELIM_LEN);
       end; // .if
       FinitItemInd  :=  StartItemInd + 1;
       while (FinitItemInd < CHARSET_CAPACITY) and (CHR(FinitItemInd) in Charset) do begin
-        INC(FinitItemInd);
+        Inc(FinitItemInd);
       end; // .while
       RangeLen  :=  FinitItemInd - StartItemInd;
       WriteItem(CHR(StartItemInd));
       if RangeLen > 1 then begin
         if RangeLen > 2 then begin
           BufPos^ :=  '-';
-          INC(BufPos);
-          INC(BufSize);
+          Inc(BufPos);
+          Inc(BufSize);
         end; // .if
         WriteItem(CHR(FinitItemInd - 1));
       end; // .if
       StartItemInd  :=  FinitItemInd;
     end // .if
     else begin
-      INC(StartItemInd);
+      Inc(StartItemInd);
     end; // .else
   end; // .while
   SetLength(result, BufSize);
   Utils.CopyMem(BufSize, @Buffer[0], POINTER(result));
 end; // .function CharsetToStr
 
-function IntToRoman (Value: INTEGER): string;
+function IntToRoman (Value: integer): string;
 const
-  Arabics:  array [0..12] of INTEGER  = (1,4,5,9,10,40,50,90,100,400,500,900,1000);
+  Arabics:  array [0..12] of integer  = (1,4,5,9,10,40,50,90,100,400,500,900,1000);
   Romans:   array [0..12] of string   = ('I','IV','V','IX','X','XL','L','XC','C','CD','D','CM','M');
 
 var
-  i:  INTEGER;
+  i:  integer;
 
 begin
   {!} Assert(Value > 0);
@@ -539,17 +539,17 @@ begin
   end; // .for
 end; // .function IntToRoman
 
-function CharToLower (c: CHAR): CHAR;
+function CharToLower (c: char): char;
 begin
-  result  :=  CHR(INTEGER(Windows.CharLower(Ptr(ORD(c)))));
+  result  :=  CHR(integer(Windows.CharLower(Ptr(ORD(c)))));
 end; // .function CharToLower
 
-function CharToUpper (c: CHAR): CHAR;
+function CharToUpper (c: char): char;
 begin
-  result  :=  CHR(INTEGER(Windows.CharUpper(Ptr(ORD(c)))));
+  result  :=  CHR(integer(Windows.CharUpper(Ptr(ORD(c)))));
 end; // .function CharToUpper
 
-function HexCharToByte (HexChar: CHAR): BYTE;
+function HexCharToByte (HexChar: char): byte;
 begin
   HexChar :=  CharToLower(HexChar);
   if HexChar in ['0'..'9'] then begin
@@ -564,7 +564,7 @@ begin
   end; // .else
 end; // .function HexCharToByte
 
-function ByteToHexChar (ByteValue: BYTE): CHAR;
+function ByteToHexChar (ByteValue: byte): char;
 begin
   {!} Assert(Math.InRange(ByteValue, $00, $0F));
   if ByteValue < 10 then begin
@@ -577,22 +577,22 @@ end; // .function ByteToHexChar
 
 function Concat (const Strings: array of string): string;
 var
-  ResLen: INTEGER;
-  Offset: INTEGER;
-  StrLen: INTEGER;
-  i:      INTEGER;
+  ResLen: integer;
+  Offset: integer;
+  StrLen: integer;
+  i:      integer;
 
 begin
   ResLen  :=  0;
-  for i:=0 to HIGH(Strings) do begin
-    ResLen  :=  ResLen + LENGTH(Strings[i]);
+  for i:=0 to High(Strings) do begin
+    ResLen  :=  ResLen + Length(Strings[i]);
   end; // .for
   
   SetLength(result, ResLen);
   
   Offset  :=  0;
-  for i:=0 to HIGH(Strings) do begin
-    StrLen  :=  LENGTH(Strings[i]);
+  for i:=0 to High(Strings) do begin
+    StrLen  :=  Length(Strings[i]);
     if StrLen > 0 then begin
       Utils.CopyMem(StrLen, POINTER(Strings[i]), Utils.PtrOfs(POINTER(result), Offset));
       Offset  :=  Offset + StrLen;
@@ -602,7 +602,7 @@ end; // .function Concat
 
 function ExtractBaseFileName (const FilePath: string): string;
 var
-  DotPos: INTEGER;
+  DotPos: integer;
 
 begin
   result  :=  SysUtils.ExtractFileName(FilePath);
@@ -612,9 +612,9 @@ begin
   end; // .if
 end; // .function ExtractBaseFileName
 
-function SubstrBeforeChar (const Str: string; Ch: CHAR): string;
+function SubstrBeforeChar (const Str: string; Ch: char): string;
 var
-  CharPos:  INTEGER;
+  CharPos:  integer;
 
 begin
   if FindChar(Ch, Str, CharPos) then begin
@@ -625,7 +625,7 @@ begin
   end; // .else
 end; // .function SubstrBeforeChar
 
-function Match (const Str, Pattern: string): BOOLEAN;
+function Match (const Str, Pattern: string): boolean;
 const
   ONE_SYM_WILDCARD  = '?';
   ANY_SYMS_WILDCARD = '*';
@@ -701,7 +701,7 @@ type
       - Character [c] must be initialized before entering
       - Searches for character [c] in the string
       - Exits on end of string
-      - Sets new token positions for string and token to current positions
+      - Sets New token positions for string and token to current positions
       - => STATE_MATCH_SUBSTR_TAIL
     STATE_MATCH_SUBSTR_TAIL:
       - Matches character-to-character, including ONE_SYM_WILLCARD
@@ -713,13 +713,13 @@ type
   
 var
   State:          TState;
-  StrLen:         INTEGER;
-  PatternLen:     INTEGER;
-  StrBasePos:     INTEGER;  // Start position of current token
-  PatternBasePos: INTEGER;  // Start position of current token
-  s:              INTEGER;  // Pos in Pattern
-  p:              INTEGER;  // Pos in Str
-  c:              CHAR;     // First letter to search for
+  StrLen:         integer;
+  PatternLen:     integer;
+  StrBasePos:     integer;  // Start position of current token
+  PatternBasePos: integer;  // Start position of current token
+  s:              integer;  // Pos in Pattern
+  p:              integer;  // Pos in Str
+  c:              char;     // First letter to search for
   
   
   procedure SkipMatchingSubstr;
@@ -733,14 +733,14 @@ var
         (Pattern[p] = ONE_SYM_WILDCARD)
       )
     do begin
-      INC(p);
-      INC(s);
+      Inc(p);
+      Inc(s);
     end; // .while
   end; // .procedure SkipMatchingSubstr
 
 begin
-  StrLen          :=  LENGTH(Str);
-  PatternLen      :=  LENGTH(Pattern);
+  StrLen          :=  Length(Str);
+  PatternLen      :=  Length(Pattern);
   StrBasePos      :=  1;
   PatternBasePos  :=  1;
   s               :=  1;
@@ -767,10 +767,10 @@ begin
         begin
           while (p <= PatternLen) and (Pattern[p] in WILDCARDS) do begin
             if Pattern[p] = ONE_SYM_WILDCARD then begin
-              INC(s);
+              Inc(s);
             end; // .if
             
-            INC(p);
+            Inc(p);
           end; // .while
           
           if p <= PatternLen then begin
@@ -789,7 +789,7 @@ begin
       STATE_FIRST_LETTER_SEARCH:
         begin
           while (s <= StrLen) and (Str[s] <> c) do begin
-            INC(s);
+            Inc(s);
           end; // .while
           
           if s > StrLen then begin
@@ -798,8 +798,8 @@ begin
           else begin
             StrBasePos      :=  s;
             PatternBasePos  :=  p;
-            INC(p);
-            INC(s);
+            Inc(p);
+            Inc(s);
             State           :=  STATE_MATCH_SUBSTR_TAIL;
           end; // .else
         end; // .case STATE_FIRST_LETTER_SEARCH
@@ -815,7 +815,7 @@ begin
             STATE := STATE_EXIT;
           end // .ELSEIF
           else begin
-            INC(StrBasePos);
+            Inc(StrBasePos);
             p     :=  PatternBasePos;
             s     :=  StrBasePos;
             State :=  STATE_FIRST_LETTER_SEARCH;
@@ -827,10 +827,10 @@ begin
   result  :=  (s = (StrLen + 1)) and (p = (PatternLen + 1));
 end; // .function Match
 
-function ExtractFromPchar (Str: PCHAR; Count: INTEGER): string;
+function ExtractFromPchar (Str: pchar; Count: integer): string;
 var
-  Buf:    PCHAR;
-  StrLen: INTEGER;
+  Buf:    pchar;
+  StrLen: integer;
 
 begin
   {!} Assert(Str <> nil);
@@ -839,8 +839,8 @@ begin
   // * * * * * //
   if Count > 0 then begin
     while (Count > 0) and (Str^ <> #0) do begin
-      DEC(Count);
-      INC(Str);
+      Dec(Count);
+      Inc(Str);
     end; // .while
     
     StrLen := Str - Buf;

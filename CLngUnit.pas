@@ -14,9 +14,9 @@ const
 type
   PLngUnitExtHeader = ^TLngUnitExtHeader;
   TLngUnitExtHeader = packed record (* FORMAT *)
-    NumLngStrArrays:  INTEGER;
+    NumLngStrArrays:  integer;
     Unicode:          LONGBOOL;
-    UnitNameLen:      INTEGER;
+    UnitNameLen:      integer;
     (*
     UnitName: array UnitNameLen of AnsiChar;  // !Assert UnitName is unique in parent structure
     *)
@@ -34,35 +34,35 @@ type
       
   TLngUnitReader = class
     (***) protected (***)
-                fConnected:             BOOLEAN;
+                fConnected:             boolean;
       (* Un *)  fLngUnit:               PLngUnit;
-                fStructMemoryBlockSize: INTEGER;
-                fCurrLngStrArrInd:      INTEGER;
+                fStructMemoryBlockSize: integer;
+                fCurrLngStrArrInd:      integer;
       (* Un *)  fCurrLngStrArr:         CLngStrArr.PLngStrArr;
 
       function  GetUnitName: string;
-      function  GetStructSize: INTEGER;
-      function  GetNumLngStrArrays: INTEGER;
-      function  GetUnicode: BOOLEAN;
+      function  GetStructSize: integer;
+      function  GetNumLngStrArrays: integer;
+      function  GetUnicode: boolean;
 
     (***) public (***)
-      procedure Connect (LngUnit: PLngUnit; StructMemoryBlockSize: INTEGER);
+      procedure Connect (LngUnit: PLngUnit; StructMemoryBlockSize: integer);
       procedure Disconnect;
-      function  Validate (out Error: string): BOOLEAN;
-      function  SeekLngStrArr (SeekLngStrArrInd: INTEGER): BOOLEAN;
-      function  ReadLngStrArr ((* n *) var LngStrArrReader: CLngStrArr.TLngStrArrReader): BOOLEAN;
-      function  FindLngStrArr (const LangName: string; out LngStrArrReader: CLngStrArr.TLngStrArrReader): BOOLEAN;
+      function  Validate (out Error: string): boolean;
+      function  SeekLngStrArr (SeekLngStrArrInd: integer): boolean;
+      function  ReadLngStrArr ((* n *) var LngStrArrReader: CLngStrArr.TLngStrArrReader): boolean;
+      function  FindLngStrArr (const LangName: string; out LngStrArrReader: CLngStrArr.TLngStrArrReader): boolean;
 
       constructor Create;
 
-      property  Connected:              BOOLEAN READ fConnected;
-      property  LngUnit:                PLngUnit READ fLngUnit;
-      property  StructMemoryBlockSize:  INTEGER READ fStructMemoryBlockSize;
-      property  Unicode:                BOOLEAN READ GetUnicode;
-      property  UnitName:               string READ GetUnitName;
-      property  StructSize:             INTEGER READ GetStructSize;
-      property  NumLngStrArrays:        INTEGER READ GetNumLngStrArrays;
-      property  CurrLngStrArrInd:       INTEGER READ fCurrLngStrArrInd;
+      property  Connected:              boolean read fConnected;
+      property  LngUnit:                PLngUnit read fLngUnit;
+      property  StructMemoryBlockSize:  integer read fStructMemoryBlockSize;
+      property  Unicode:                boolean read GetUnicode;
+      property  UnitName:               string read GetUnitName;
+      property  StructSize:             integer read GetStructSize;
+      property  NumLngStrArrays:        integer read GetNumLngStrArrays;
+      property  CurrLngStrArrInd:       integer read fCurrLngStrArrInd;
   end; // .class TLngUnitReader
 
 
@@ -74,7 +74,7 @@ begin
   Self.fConnected :=  FALSE;
 end; // .constructor TLngUnitReader.Create
 
-procedure TLngUnitReader.Connect (LngUnit: PLngUnit; StructMemoryBlockSize: INTEGER);
+procedure TLngUnitReader.Connect (LngUnit: PLngUnit; StructMemoryBlockSize: integer);
 begin
   {!} Assert((LngUnit <> nil) or (StructMemoryBlockSize = 0));
   {!} Assert(StructMemoryBlockSize >= 0);
@@ -90,30 +90,30 @@ begin
   Self.fConnected :=  FALSE;
 end; // .procedure TLngUnitReader.Disconnect
 
-function TLngUnitReader.Validate (out Error: string): BOOLEAN;
+function TLngUnitReader.Validate (out Error: string): boolean;
 var
-        MinStructSize:    INTEGER;
-        RealStructSize:   INTEGER;
-        NumLngStrArrays:  INTEGER;
-        UnitNameLen:      INTEGER;
+        MinStructSize:    integer;
+        RealStructSize:   integer;
+        NumLngStrArrays:  integer;
+        UnitNameLen:      integer;
         UnitName:         string;
         Unicode:          LONGBOOL;
 (* O *) LangNames:        Classes.TStringList;
 (* U *) LngStrArr:        CLngStrArr.PLngStrArr;
 (* O *) LngStrArrReader:  CLngStrArr.TLngStrArrReader;
-        i:                INTEGER;
+        i:                integer;
 
-  function ValidateNumLngStrArraysField: BOOLEAN;
+  function ValidateNumLngStrArraysField: boolean;
   begin
     NumLngStrArrays :=  Self.NumLngStrArrays;
-    MinStructSize   :=  MinStructSize + NumLngStrArrays * SIZEOF(TLngStrArr);
+    MinStructSize   :=  MinStructSize + NumLngStrArrays * sizeof(TLngStrArr);
     result          :=  (NumLngStrArrays >= 0) and (MinStructSize <= Self.StructMemoryBlockSize);
     if not result then begin
       Error :=  'Invalid NumLngStrArrays field: ' + SysUtils.IntToStr(NumLngStrArrays);
     end; // .if
   end; // .function ValidateNumLngStrArraysField
   
-  function ValidateUnitNameLenField: BOOLEAN;
+  function ValidateUnitNameLenField: boolean;
   begin
     UnitNameLen   :=  Self.LngUnit.ExtHeader.UnitNameLen;
     MinStructSize :=  MinStructSize + UnitNameLen;
@@ -123,7 +123,7 @@ var
     end; // .if
   end; // .function ValidateUnitNameLenField
 
-  function ValidateUnitNameField: BOOLEAN;
+  function ValidateUnitNameField: boolean;
   begin
     UnitName  :=  Self.UnitName;
     result    :=  CLang.IsValidClientName(UnitName);
@@ -139,7 +139,7 @@ begin
   LangNames       :=  Classes.TStringList.Create;
   LngStrArr       :=  nil;
   LngStrArrReader :=  CLngStrArr.TLngStrArrReader.Create;
-  MinStructSize   :=  SIZEOF(TLngUnit);
+  MinStructSize   :=  sizeof(TLngUnit);
   result          :=  CLang.ValidateLngStructHeader(@Self.LngUnit.Header, Self.StructMemoryBlockSize, MinStructSize, LNGUNIT_SIGNATURE, Error);
   // * * * * * //
   LangNames.CaseSensitive :=  TRUE;
@@ -151,10 +151,10 @@ begin
     ValidateUnitNameField;
   if result then begin
     Unicode         :=  Self.Unicode;
-    RealStructSize  :=  SIZEOF(TLngUnit) + UnitNameLen;
+    RealStructSize  :=  sizeof(TLngUnit) + UnitNameLen;
     if NumLngStrArrays > 0 then begin
       i         :=  0;
-      LngStrArr :=  POINTER(INTEGER(@Self.LngUnit.Header) + RealStructSize);
+      LngStrArr :=  POINTER(integer(@Self.LngUnit.Header) + RealStructSize);
       while result and (i < NumLngStrArrays) do begin
         LngStrArrReader.Connect(LngStrArr, Self.StructMemoryBlockSize - RealStructSize);
         result  :=  LngStrArrReader.Validate(Error);
@@ -169,14 +169,14 @@ begin
         if result then begin
           result  :=  LngStrArrReader.Unicode = Unicode;
           if not result then begin
-            Error :=  'Child structure has different encoding: Unicode = ' + SysUtils.IntToStr(BYTE(Unicode));
+            Error :=  'Child structure has different encoding: Unicode = ' + SysUtils.IntToStr(byte(Unicode));
           end; // .if
         end; // .if
         if result then begin
           RealStructSize  :=  RealStructSize + LngStrArrReader.StructSize;
-          INC(INTEGER(LngStrArr), LngStrArrReader.StructSize);
+          Inc(integer(LngStrArr), LngStrArrReader.StructSize);
         end; // .if
-        INC(i);
+        Inc(i);
       end; // .while
     end; // .if
   end; // .if
@@ -192,25 +192,25 @@ begin
   result  :=  StrLib.BytesToAnsiString(@Self.LngUnit.ExtHeader.UnitName, Self.LngUnit.ExtHeader.UnitNameLen);
 end; // .function TLngUnitReader.GetUnitName
 
-function TLngUnitReader.GetStructSize: INTEGER;
+function TLngUnitReader.GetStructSize: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngUnit.Header.StructSize;
 end; // .function TLngUnitReader.GetStructSize
 
-function TLngUnitReader.GetNumLngStrArrays: INTEGER;
+function TLngUnitReader.GetNumLngStrArrays: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngUnit.ExtHeader.NumLngStrArrays;
 end; // .function TLngUnitReader.GetNumLngStrArrays
 
-function TLngUnitReader.GetUnicode: BOOLEAN;
+function TLngUnitReader.GetUnicode: boolean;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngUnit.ExtHeader.Unicode;
 end; // .function TLngUnitReader.GetUnicode
 
-function TLngUnitReader.SeekLngStrArr (SeekLngStrArrInd: INTEGER): BOOLEAN;
+function TLngUnitReader.SeekLngStrArr (SeekLngStrArrInd: integer): boolean;
 var
 (* on *)  LngStrArrReader: CLngStrArr.TLngStrArrReader;
 
@@ -232,7 +232,7 @@ begin
   SysUtils.FreeAndNil(LngStrArrReader);
 end; // .function TLngUnitReader.SeekLngStrArr
 
-function TLngUnitReader.ReadLngStrArr ((* n *) var LngStrArrReader: CLngStrArr.TLngStrArrReader): BOOLEAN;
+function TLngUnitReader.ReadLngStrArr ((* n *) var LngStrArrReader: CLngStrArr.TLngStrArrReader): boolean;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.fCurrLngStrArrInd < Self.NumLngStrArrays;
@@ -241,17 +241,17 @@ begin
       LngStrArrReader :=  CLngStrArr.TLngStrArrReader.Create;
     end; // .if
     if Self.fCurrLngStrArrInd = 0 then begin
-      Self.fCurrLngStrArr :=  POINTER(INTEGER(@Self.LngUnit.ExtHeader.UnitName) + Self.LngUnit.ExtHeader.UnitNameLen);
+      Self.fCurrLngStrArr :=  POINTER(integer(@Self.LngUnit.ExtHeader.UnitName) + Self.LngUnit.ExtHeader.UnitNameLen);
     end; // .if
-    LngStrArrReader.Connect(Self.fCurrLngStrArr, Self.StructMemoryBlockSize - (INTEGER(Self.fCurrLngStrArr) - INTEGER(Self.LngUnit)));
-    INC(INTEGER(Self.fCurrLngStrArr), LngStrArrReader.StructSize);
-    INC(Self.fCurrLngStrArrInd);
+    LngStrArrReader.Connect(Self.fCurrLngStrArr, Self.StructMemoryBlockSize - (integer(Self.fCurrLngStrArr) - integer(Self.LngUnit)));
+    Inc(integer(Self.fCurrLngStrArr), LngStrArrReader.StructSize);
+    Inc(Self.fCurrLngStrArrInd);
   end; // .if
 end; // .function TLngUnitReader.ReadLngStrArr 
 
-function TLngUnitReader.FindLngStrArr (const LangName: string; out LngStrArrReader: CLngStrArr.TLngStrArrReader): BOOLEAN;
+function TLngUnitReader.FindLngStrArr (const LangName: string; out LngStrArrReader: CLngStrArr.TLngStrArrReader): boolean;
 var
-    SavedLngStrArrInd:  INTEGER;
+    SavedLngStrArrInd:  integer;
 
 begin
   {!} Assert(Self.Connected);

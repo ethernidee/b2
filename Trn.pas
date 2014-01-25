@@ -333,7 +333,7 @@ begin
   if result then begin
     fScanner.GotoNextChar;
   end else begin
-    ParsingError(tr('Trn.Char x expected', '2b', ['char', c]));
+    ParsingError(tr('Trn.char x expected', '2b', ['char', c]));
   end; // .if
 end; // .function TLangMan.ParseChar
 

@@ -14,43 +14,43 @@ Binary string is an atom in language system. It is either unicode or ansi string
 type
   PBinStringHeader = ^TBinStringHeader;
   TBinStringHeader = record
-    StrSize:  INTEGER;
+    StrSize:  integer;
   end; // .record TBinStringHeader
   
   PBinString = ^TBinString;
   TBinString = packed record (* FORMAT *)
     Header:   TBinStringHeader;
     (*
-    Chars:    array Header.StrSize of BYTE;
+    Chars:    array Header.StrSize of byte;
     *)
     Chars:    Utils.TEmptyRec;
   end; // .record TBinString
 
   TBinStringReader = class
     (***) protected (***)
-                fConnected:             BOOLEAN;
+                fConnected:             boolean;
       (* Un *)  fBinString:             PBinString;
-                fStructMemoryBlockSize: INTEGER;
-                fUnicode:               BOOLEAN;
+                fStructMemoryBlockSize: integer;
+                fUnicode:               boolean;
       
-      function  GetStrSize: INTEGER;
-      function  GetStructSize: INTEGER;
+      function  GetStrSize: integer;
+      function  GetStructSize: integer;
     
     (***) public (***)
-      procedure Connect (BinString: PBinString; StructMemoryBlockSize: INTEGER; Unicode: BOOLEAN);
+      procedure Connect (BinString: PBinString; StructMemoryBlockSize: integer; Unicode: boolean);
       procedure Disconnect;
-      function  Validate (out Error: string): BOOLEAN;
+      function  Validate (out Error: string): boolean;
       function  GetAnsiString:  AnsiString;
       function  GetWideString:  WideString;
 
       constructor Create;
       
-      property  Connected:              BOOLEAN READ fConnected;
-      property  BinString:              PBinString READ fBinString;
-      property  StructMemoryBlockSize:  INTEGER READ fStructMemoryBlockSize;
-      property  Unicode:                BOOLEAN READ fUnicode;
-      property  StrSize:                INTEGER READ GetStrSize;
-      property  StructSize:             INTEGER READ GetStructSize;
+      property  Connected:              boolean read fConnected;
+      property  BinString:              PBinString read fBinString;
+      property  StructMemoryBlockSize:  integer read fStructMemoryBlockSize;
+      property  Unicode:                boolean read fUnicode;
+      property  StrSize:                integer read GetStrSize;
+      property  StructSize:             integer read GetStructSize;
   end; // .class TBinStringReader
 
 
@@ -62,7 +62,7 @@ begin
   Self.fConnected :=  FALSE;
 end; // .constructor TBinStringReader.Create
 
-procedure TBinStringReader.Connect (BinString: PBinString; StructMemoryBlockSize: INTEGER; Unicode: BOOLEAN);
+procedure TBinStringReader.Connect (BinString: PBinString; StructMemoryBlockSize: integer; Unicode: boolean);
 begin
   {!} Assert((BinString <> nil) or (StructMemoryBlockSize = 0));
   {!} Assert(StructMemoryBlockSize >= 0);
@@ -77,22 +77,22 @@ begin
   Self.fConnected :=  FALSE;
 end; // .procedure TBinStringReader.Disconnect
 
-function TBinStringReader.Validate (out Error: string): BOOLEAN;
-  function ValidateMinStructSize: BOOLEAN;
+function TBinStringReader.Validate (out Error: string): boolean;
+  function ValidateMinStructSize: boolean;
   begin
-    result  :=  Self.StructMemoryBlockSize >= SIZEOF(TBinString);
+    result  :=  Self.StructMemoryBlockSize >= sizeof(TBinString);
     if not result then begin
-      Error :=  'The size of structure is too small: ' + SysUtils.IntToStr(Self.StructMemoryBlockSize) + '/' + SysUtils.IntToStr(SIZEOF(TBinString));
+      Error :=  'The size of structure is too small: ' + SysUtils.IntToStr(Self.StructMemoryBlockSize) + '/' + SysUtils.IntToStr(sizeof(TBinString));
     end; // .if
   end; // .function ValidateMinStructSize
 
-  function ValidateStrSizeField: BOOLEAN;
+  function ValidateStrSizeField: boolean;
   var
-    StrSize:  INTEGER;
+    StrSize:  integer;
 
   begin
     StrSize :=  Self.StrSize;
-    result  :=  (StrSize >= 0) and ((SIZEOF(TBinString) + StrSize) <= Self.StructMemoryBlockSize);
+    result  :=  (StrSize >= 0) and ((sizeof(TBinString) + StrSize) <= Self.StructMemoryBlockSize);
     if not result then begin
       Error :=  'Invalid StrSize field: ' + SysUtils.IntToStr(StrSize);
     end; // .if
@@ -106,16 +106,16 @@ begin
     ValidateStrSizeField;
 end; // .function TBinStringReader.Validate
 
-function TBinStringReader.GetStrSize: INTEGER;
+function TBinStringReader.GetStrSize: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.BinString.Header.StrSize;
 end; // .function TBinStringReader.GetStrSize
 
-function TBinStringReader.GetStructSize: INTEGER;
+function TBinStringReader.GetStructSize: integer;
 begin
   {!} Assert(Self.Connected);
-  result  :=  SIZEOF(TBinString) + Self.StrSize;
+  result  :=  sizeof(TBinString) + Self.StrSize;
 end; // .function TBinStringReader.GetStructSize
 
 function TBinStringReader.GetAnsiString: AnsiString;

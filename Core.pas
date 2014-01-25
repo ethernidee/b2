@@ -16,7 +16,7 @@ const
   
   (*
   Opcode: call.
-  Creates a bridge to high-level function "F".
+  Creates a bridge to High-level function "F".
   function F (Context: PHookHandlerArgs): TExecuteDefaultCodeFlag; stdcall;
   if default code should be executed, it can contain any commands except jumps.
   *)
@@ -31,13 +31,13 @@ const
 
 type
   THookRec = packed record
-    Opcode: BYTE;
-    Ofs:    INTEGER;
+    Opcode: byte;
+    Ofs:    integer;
   end; // .record THookRec
   
   PHookHandlerArgs  = ^THookHandlerArgs;
   THookHandlerArgs  = packed record
-    EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX: INTEGER;
+    EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX: integer;
     RetAddr:                                POINTER;
   end; // .record THookHandlerArgs
 
@@ -45,36 +45,36 @@ type
   
   PAPIArg = ^TAPIArg;
   TAPIArg = packed record
-    v:  INTEGER;
+    v:  integer;
   end; // .record TAPIArg
 
 
-function  WriteAtCode (Count: INTEGER; Src, Dst: POINTER): BOOLEAN; stdcall;
+function  WriteAtCode (Count: integer; Src, Dst: POINTER): boolean; stdcall;
 
 (* in BRIDGE mode hook functions return address to call original routine *)
 function  Hook
 (
   HandlerAddr:  POINTER;
-  HookType:     INTEGER;
-  PatchSize:    INTEGER;
+  HookType:     integer;
+  PatchSize:    integer;
   CodeAddr:     POINTER
 ): {n} POINTER; stdcall;
 
 function  ApiHook
 (
   HandlerAddr:  POINTER;
-  HookType:     INTEGER;
+  HookType:     integer;
   CodeAddr:     POINTER
 ): {n} POINTER; stdcall;
 
-function  APIArg (Context: PHookHandlerArgs; ArgN: INTEGER): PAPIArg; inline;
+function  APIArg (Context: PHookHandlerArgs; ArgN: integer): PAPIArg; inline;
 function  GetOrigAPIAddr (HookAddr: POINTER): POINTER; stdcall;
-function  RecallAPI (Context: PHookHandlerArgs; NumArgs: INTEGER): INTEGER; stdcall;
+function  RecallAPI (Context: PHookHandlerArgs; NumArgs: integer): integer; stdcall;
 procedure KillThisProcess; stdcall;
 procedure FatalError (const Err: string); stdcall;
 
 // Returns address of assember ret-routine which will clean the arguments and return
-function  Ret (NumArgs: INTEGER): POINTER;
+function  Ret (NumArgs: integer): POINTER;
 
 
 var
@@ -94,9 +94,9 @@ var
 {O} Hooker: Files.TFixedBuf;
 
 
-function WriteAtCode (Count: INTEGER; Src, Dst: POINTER): BOOLEAN;
+function WriteAtCode (Count: integer; Src, Dst: POINTER): boolean;
 var
-  OldPageProtect: INTEGER;
+  OldPageProtect: integer;
 
 begin
   {!} Assert(Count >= 0);
@@ -113,8 +113,8 @@ end; // .function WriteAtCode
 function Hook
 (
   HandlerAddr:  POINTER;
-  HookType:     INTEGER;
-  PatchSize:    INTEGER;
+  HookType:     integer;
+  PatchSize:    integer;
   CodeAddr:     POINTER
 ): {n} POINTER;
 
@@ -122,44 +122,44 @@ const
   MIN_BRIDGE_SIZE = 25;
   
 type
-  TBytes  = array of BYTE;
+  TBytes  = array of byte;
 
 var
 {U} BridgeCode: POINTER;
     HookRec:    THookRec;
-    NopCount:   INTEGER;
+    NopCount:   integer;
     NopBuf:     string;
     
- function PreprocessCode (CodeSize: INTEGER; OldCodeAddr, NewCodeAddr: POINTER): TBytes;
+ function PreprocessCode (CodeSize: integer; OldCodeAddr, NewCodeAddr: POINTER): TBytes;
  var
-   Delta:   INTEGER;
-   BufPos:  INTEGER;
+   Delta:   integer;
+   BufPos:  integer;
    Disasm:  hde32.TDisasm;
  
  begin
-  {!} Assert(CodeSize >= SIZEOF(THookRec));
+  {!} Assert(CodeSize >= sizeof(THookRec));
   {!} Assert(OldCodeAddr <> nil);
   {!} Assert(NewCodeAddr <> nil);
   SetLength(result, CodeSize);
   Utils.CopyMem(CodeSize, OldCodeAddr, @result[0]);
-  Delta   :=  INTEGER(NewCodeAddr) - INTEGER(OldCodeAddr);
+  Delta   :=  integer(NewCodeAddr) - integer(OldCodeAddr);
   BufPos  :=  0;
   
   while BufPos < CodeSize do begin
     hde32.hde32_disasm(Utils.PtrOfs(OldCodeAddr, BufPos), Disasm);
     
-    if (Disasm.Len = SIZEOF(THookRec)) and (Disasm.Opcode in [OPCODE_JUMP, OPCODE_CALL]) then begin
-      DEC(PINTEGER(@result[BufPos + 1])^, Delta);
+    if (Disasm.Len = sizeof(THookRec)) and (Disasm.Opcode in [OPCODE_JUMP, OPCODE_CALL]) then begin
+      Dec(PINTEGER(@result[BufPos + 1])^, Delta);
     end; // .if
     
-    INC(BufPos, Disasm.Len);
+    Inc(BufPos, Disasm.Len);
   end; // .while
  end; // .function PreprocessCode
 
 begin
   {!} Assert(HandlerAddr <> nil);
   {!} Assert(Math.InRange(HookType, HOOKTYPE_JUMP, HOOKTYPE_BRIDGE));
-  {!} Assert(PatchSize >= SIZEOF(THookRec));
+  {!} Assert(PatchSize >= sizeof(THookRec));
   {!} Assert(CodeAddr <> nil);
   BridgeCode  :=  nil;
   // * * * * * //
@@ -179,7 +179,7 @@ begin
     // PUSH ESP
     // MOV EAX, ????
     Hooker.WriteStr(#$60#$54#$B8);
-    Hooker.WriteInt(INTEGER(HandlerAddr));
+    Hooker.WriteInt(integer(HandlerAddr));
     // CALL near EAX
     Hooker.WriteStr(#$FF#$D0);
     // TEST EAX, EAX
@@ -198,7 +198,7 @@ begin
     );
     // PUSH ????
     Hooker.WriteByte($68);
-    Hooker.WriteInt(INTEGER(CodeAddr) + SIZEOF(THookRec));
+    Hooker.WriteInt(integer(CodeAddr) + sizeof(THookRec));
     // RET
     Hooker.WriteByte($C3);
     // POPAD
@@ -211,18 +211,18 @@ begin
     result  :=  Utils.PtrOfs(BridgeCode, BRIDGE_DEF_CODE_OFS);
   end; // .if
   
-  HookRec.Ofs :=  INTEGER(HandlerAddr) - INTEGER(CodeAddr) - SIZEOF(THookRec);
-  {!} Assert(WriteAtCode(SIZEOF(THookRec), @HookRec, CodeAddr));
-  NopCount    :=  PatchSize - SIZEOF(THookRec);
+  HookRec.Ofs :=  integer(HandlerAddr) - integer(CodeAddr) - sizeof(THookRec);
+  {!} Assert(WriteAtCode(sizeof(THookRec), @HookRec, CodeAddr));
+  NopCount    :=  PatchSize - sizeof(THookRec);
   
   if NopCount > 0 then begin
     SetLength(NopBuf, NopCount);
     FillChar(NopBuf[1], NopCount, CHR($90));
-    {!} Assert(WriteAtCode(NopCount, POINTER(NopBuf), Utils.PtrOfs(CodeAddr, SIZEOF(THookRec))));
+    {!} Assert(WriteAtCode(NopCount, POINTER(NopBuf), Utils.PtrOfs(CodeAddr, sizeof(THookRec))));
   end; // .if
 end; // .function Hook
 
-function CalcHookSize (Code: POINTER): INTEGER;
+function CalcHookSize (Code: POINTER): integer;
 var
   Disasm: hde32.TDisasm;
 
@@ -230,19 +230,19 @@ begin
   {!} Assert(Code <> nil);
   result  :=  0;
   
-  while result < SIZEOF(THookRec) do begin
+  while result < sizeof(THookRec) do begin
     hde32.hde32_disasm(Code, Disasm);
     result  :=  result + Disasm.Len;
     Code    :=  Utils.PtrOfs(Code, Disasm.Len);
   end; // .while
 end; // .function CalcHookSize
 
-function ApiHook (HandlerAddr: POINTER; HookType: INTEGER; CodeAddr: POINTER): {n} POINTER;
+function ApiHook (HandlerAddr: POINTER; HookType: integer; CodeAddr: POINTER): {n} POINTER;
 begin
   result  :=  Hook(HandlerAddr, HookType, CalcHookSize(CodeAddr), CodeAddr);
 end; // .function ApiHook
 
-function APIArg (Context: PHookHandlerArgs; ArgN: INTEGER): PAPIArg;
+function APIArg (Context: PHookHandlerArgs; ArgN: integer): PAPIArg;
 begin
   result :=  Ptr(Context.ESP + (4 + 4 * ArgN));
 end; // .function APIArg
@@ -252,22 +252,22 @@ begin
   {!} Assert(HookAddr <> nil);
   result  :=  POINTER
   (
-    INTEGER(HookAddr)                 +
-    SIZEOF(THookRec)                  +
-    PINTEGER(INTEGER(HookAddr) + 1)^  +
+    integer(HookAddr)                 +
+    sizeof(THookRec)                  +
+    PINTEGER(integer(HookAddr) + 1)^  +
     BRIDGE_DEF_CODE_OFS
   );
 end; // .function GetOrigAPIAddr
 
-function RecallAPI (Context: PHookHandlerArgs; NumArgs: INTEGER): INTEGER;
+function RecallAPI (Context: PHookHandlerArgs; NumArgs: integer): integer;
 var
   APIAddr:  POINTER;
-  PtrArgs:  INTEGER;
-  APIRes:   INTEGER;
+  PtrArgs:  integer;
+  APIRes:   integer;
    
 begin
-  APIAddr :=  GetOrigAPIAddr(Ptr(PINTEGER(Context.ESP)^ - SIZEOF(THookRec)));
-  PtrArgs :=  INTEGER(APIArg(Context, NumArgs));
+  APIAddr :=  GetOrigAPIAddr(Ptr(PINTEGER(Context.ESP)^ - sizeof(THookRec)));
+  PtrArgs :=  integer(APIArg(Context, NumArgs));
   
   asm
     MOV ECX, NumArgs
@@ -276,7 +276,7 @@ begin
   @PUSHARGS:
     PUSH [EDX]
     SUB EDX, 4
-    DEC ECX
+    Dec ECX
     JNZ @PUSHARGS
     
     MOV EAX, APIAddr
@@ -345,7 +345,7 @@ asm
   RET 32
 end; // .procedure Ret32
 
-function Ret (NumArgs: INTEGER): POINTER;
+function Ret (NumArgs: integer): POINTER;
 begin
   case NumArgs of 
     0:  result  :=  @Ret0;

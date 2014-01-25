@@ -24,10 +24,10 @@ function  ReadStrFromIni
   const SectionName:  string;
         FilePath:     string;
   out   Res:          string
-): BOOLEAN;
+): boolean;
 
-function  WriteStrToIni (const Key, Value, SectionName: string; FilePath: string): BOOLEAN;
-function  SaveIni (FilePath: string): BOOLEAN;
+function  WriteStrToIni (const Key, Value, SectionName: string; FilePath: string): boolean;
+function  SaveIni (FilePath: string): boolean;
 
 (***) implementation (***)
 
@@ -46,7 +46,7 @@ begin
   CachedIniFiles.Clear;
 end; // .procedure ClearAllIniCache
 
-function LoadIni (FilePath: string): BOOLEAN;
+function LoadIni (FilePath: string): boolean;
 const
   LINE_END_MARKER     = #10;
   LINE_END_MARKERS    = [#10, #13];
@@ -63,7 +63,7 @@ var
     SectionName:  string;
     Key:          string;
     Value:        string;
-    c:            CHAR;
+    c:            char;
 
  procedure GotoNextLine;
  begin
@@ -79,7 +79,7 @@ begin
   FilePath  :=  SysUtils.ExpandFileName(FilePath);
   result    :=  Files.ReadFileContents(FilePath, FileContents);
   
-  if result and (LENGTH(FileContents) > 0) then begin
+  if result and (Length(FileContents) > 0) then begin
     Sections  :=  AssocArrays.NewStrictAssocArr(TAssocArray);
     TextScanner.Connect(FileContents, LINE_END_MARKER);
     
@@ -158,7 +158,7 @@ begin
   SysUtils.FreeAndNil(Sections);
 end; // .function LoadIni
 
-function SaveIni (FilePath: string): BOOLEAN;
+function SaveIni (FilePath: string): boolean;
 var
 {O} StrBuilder:   StrLib.TStrBuilder;
 {O} SectionNames: Lists.TStringList {OF TAssocArray};
@@ -169,8 +169,8 @@ var
 {U} Value:        TString;
     SectionName:  string;
     Key:          string;
-    i:            INTEGER;
-    j:            INTEGER;
+    i:            integer;
+    j:            integer;
 
 begin
   StrBuilder    :=  StrLib.TStrBuilder.Create;
@@ -240,7 +240,7 @@ function ReadStrFromIni
   const SectionName:  string;
         FilePath:     string;
   out   Res:          string
-): BOOLEAN;
+): boolean;
 
 var
 {U} CachedIni:  {O} TAssocArray {OF TAssocArray};
@@ -277,11 +277,11 @@ begin
   end; // .if
 end; // .function ReadStrFromIni
 
-function WriteStrToIni (const Key, Value, SectionName: string; FilePath: string): BOOLEAN;
+function WriteStrToIni (const Key, Value, SectionName: string; FilePath: string): boolean;
 var
 {U} CachedIni:      {O} TAssocArray {OF TAssocArray};
 {U} Section:        {O} TAssocArray {OF TString};
-    InvalidCharPos: INTEGER;
+    InvalidCharPos: integer;
 
 begin
   CachedIni :=  nil;

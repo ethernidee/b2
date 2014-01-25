@@ -8,51 +8,51 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 uses Utils, Math;
 
 type
-  TCompareFunc = function (Value1, Value2: INTEGER): INTEGER;
+  TCompareFunc = function (Value1, Value2: integer): integer;
   
   TQuickSortAdapter = class abstract
-    function  CompareItems (Ind1, Ind2: INTEGER): INTEGER; virtual; abstract;
-    procedure SwapItems (Ind1, Ind2: INTEGER); virtual; abstract;
-    procedure SavePivotItem (PivotItemInd: INTEGER); virtual; abstract;
-    function  CompareToPivot (Ind: INTEGER): INTEGER; virtual; abstract;
+    function  CompareItems (Ind1, Ind2: integer): integer; virtual; abstract;
+    procedure SwapItems (Ind1, Ind2: integer); virtual; abstract;
+    procedure SavePivotItem (PivotItemInd: integer); virtual; abstract;
+    function  CompareToPivot (Ind: integer): integer; virtual; abstract;
   end; // .class TQuickSortAdapter
 
 
-function  IntLog2 (Num: INTEGER): INTEGER; {=> Ceil(Log2(N)), N > 0}
-function  IntCompare (Int1, Int2: INTEGER): INTEGER;
-function  CardCompare (Card1, Card2: CARDINAL): INTEGER;
-function  PtrCompare (Ptr1, Ptr2: POINTER): INTEGER;
-function  Int64To32 (Value: INT64): INTEGER; {No overflow, bounds to LOW(INT32)..HIGH(IN32)}
-procedure QuickSort (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: INTEGER);
+function  IntLog2 (Num: integer): integer; {=> Ceil(Log2(N)), N > 0}
+function  IntCompare (Int1, Int2: integer): integer;
+function  CardCompare (Card1, Card2: cardinal): integer;
+function  PtrCompare (Ptr1, Ptr2: POINTER): integer;
+function  Int64To32 (Value: INT64): integer; {No overflow, bounds to LOW(INT32)..HIGH(IN32)}
+procedure QuickSort (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer);
 procedure CustomQuickSort
 (
   Arr:          Utils.PEndlessIntArr;
-  MinInd:       INTEGER;
-  MaxInd:       INTEGER;
+  MinInd:       integer;
+  MaxInd:       integer;
   CompareItems: TCompareFunc
 );
-procedure QuickSortEx (Obj: TQuickSortAdapter; MinInd, MaxInd: INTEGER);
+procedure QuickSortEx (Obj: TQuickSortAdapter; MinInd, MaxInd: integer);
 
 
 (***)  implementation  (***)
 
 
-function IntLog2 (Num: INTEGER): INTEGER;
+function IntLog2 (Num: integer): integer;
 var
-  TestValue:  CARDINAL;
+  TestValue:  cardinal;
   
 begin
   {!} Assert(Num > 0);
   result    :=  0;
   TestValue :=  1;
   
-  while TestValue < CARDINAL(Num) do begin
-    INC(result);
+  while TestValue < cardinal(Num) do begin
+    Inc(result);
     TestValue :=  TestValue shl 1;
   end; // .while
 end; // .function IntLog2
 
-function IntCompare (Int1, Int2: INTEGER): INTEGER;
+function IntCompare (Int1, Int2: integer): integer;
 begin
   if Int1 > Int2 then begin
     result  :=  +1;
@@ -65,7 +65,7 @@ begin
   end; // .else
 end; // .function IntCompare
 
-function CardCompare (Card1, Card2: CARDINAL): INTEGER;
+function CardCompare (Card1, Card2: cardinal): integer;
 begin
   if Card1 > Card2 then begin
     result := +1;
@@ -78,12 +78,12 @@ begin
   end; // .else
 end; // .function CardCompare
 
-function PtrCompare (Ptr1, Ptr2: POINTER): INTEGER;
+function PtrCompare (Ptr1, Ptr2: POINTER): integer;
 begin
-  if CARDINAL(Ptr1) > CARDINAL(Ptr2) then begin
+  if cardinal(Ptr1) > cardinal(Ptr2) then begin
     result := +1;
   end // .if
-  else if CARDINAL(Ptr1) < CARDINAL(Ptr2) then begin
+  else if cardinal(Ptr1) < cardinal(Ptr2) then begin
     result := -1;
   end // .ELSEIF
   else begin
@@ -91,20 +91,20 @@ begin
   end; // .else
 end; // .function PtrCompare
 
-function Int64To32 (Value: INT64): INTEGER;
+function Int64To32 (Value: INT64): integer;
 begin
-  if Value > HIGH(INTEGER) then begin
-    result  :=  HIGH(INTEGER);
+  if Value > High(integer) then begin
+    result  :=  High(integer);
   end // .if
-  else if Value < LOW(INTEGER) then begin
-    result  :=  LOW(INTEGER);
+  else if Value < Low(integer) then begin
+    result  :=  Low(integer);
   end // .ELSEIF
   else begin
     result  :=  Value;
   end; // .else
 end; // .function Int64To32
 
-procedure QuickSort (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: INTEGER);
+procedure QuickSort (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer);
 begin
   CustomQuickSort(Arr, MinInd, MaxInd, IntCompare);
 end; // .procedure QuickSort
@@ -112,20 +112,20 @@ end; // .procedure QuickSort
 procedure CustomQuickSort
 (
   Arr:          Utils.PEndlessIntArr;
-  MinInd:       INTEGER;
-  MaxInd:       INTEGER;
+  MinInd:       integer;
+  MaxInd:       integer;
   CompareItems: TCompareFunc
 );
 
 var
-  RangeLen:   INTEGER;
-  LeftInd:    INTEGER;
-  RightInd:   INTEGER;
-  PivotItem:  INTEGER;
+  RangeLen:   integer;
+  LeftInd:    integer;
+  RightInd:   integer;
+  PivotItem:  integer;
   
-  procedure ExchangeItems (Ind1, Ind2: INTEGER);
+  procedure ExchangeItems (Ind1, Ind2: integer);
   var
-    TransfValue:  INTEGER;
+    TransfValue:  integer;
      
   begin
     TransfValue :=  Arr[Ind1];
@@ -146,11 +146,11 @@ begin
     
     while LeftInd <= RightInd do begin
       while CompareItems(Arr[LeftInd], PivotItem) < 0 do begin
-        INC(LeftInd);
+        Inc(LeftInd);
       end; // .while
       
       while CompareItems(Arr[RightInd], PivotItem) > 0 do begin
-        DEC(RightInd);
+        Dec(RightInd);
       end; // .while
       
       if LeftInd <= RightInd then begin
@@ -158,8 +158,8 @@ begin
           ExchangeItems(LeftInd, RightInd);
         end // .if
         else begin
-          INC(LeftInd);
-          DEC(RightInd);
+          Inc(LeftInd);
+          Dec(RightInd);
         end; // .else
       end; // .if
     end; // .while
@@ -183,11 +183,11 @@ begin
   end; // .while
 end; // .procedure CustomQuickSort
 
-procedure QuickSortEx (Obj: TQuickSortAdapter; MinInd, MaxInd: INTEGER);
+procedure QuickSortEx (Obj: TQuickSortAdapter; MinInd, MaxInd: integer);
 var
-  RangeLen: INTEGER;
-  LeftInd:  INTEGER;
-  RightInd: INTEGER;
+  RangeLen: integer;
+  LeftInd:  integer;
+  RightInd: integer;
   
 begin
   RangeLen := MaxInd - MinInd + 1;
@@ -202,11 +202,11 @@ begin
     
     while LeftInd <= RightInd do begin
       while Obj.CompareToPivot(LeftInd) < 0 do begin
-        INC(LeftInd);
+        Inc(LeftInd);
       end; // .while
       
       while Obj.CompareToPivot(RightInd) > 0 do begin
-        DEC(RightInd);
+        Dec(RightInd);
       end; // .while
       
       if LeftInd <= RightInd then begin
@@ -214,8 +214,8 @@ begin
           Obj.SwapItems(LeftInd, RightInd);
         end // .if
         else begin
-          INC(LeftInd);
-          DEC(RightInd);
+          Inc(LeftInd);
+          Dec(RightInd);
         end; // .else
       end; // .if
     end; // .while

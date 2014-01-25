@@ -25,28 +25,28 @@ const
 
 
 var
-  hParentWindow:  INTEGER = NO_WINDOW;
+  hParentWindow:  integer = NO_WINDOW;
   DialogsTitle:   string;
 
 
-procedure MsgEx (const Mes, Title: string; Icon: INTEGER);
+procedure MsgEx (const Mes, Title: string; Icon: integer);
 procedure MsgTitle (const Mes, Title: string);
 procedure Msg (const Mes: string);
 procedure MsgError(const Err: string);
 procedure OK;
-function  AskYesNo (const Question: string): BOOLEAN;
-function  AskYesNoCancel (const Question: string): INTEGER;
-function  AskOkCancel (const Question: string): BOOLEAN;
+function  AskYesNo (const Question: string): boolean;
+function  AskYesNoCancel (const Question: string): integer;
+function  AskOkCancel (const Question: string): boolean;
 function  VarToString (const VarRec: TVarRec): string;
 function  ToString (const Vars: array of const): string;
-function  PArrItemToString (var PArrItem: POINTER; VarType: INTEGER): string;
-function  PVarToString (PVar: POINTER; VarType: INTEGER): string;
+function  PArrItemToString (var PArrItem: POINTER; VarType: integer): string;
+function  PVarToString (PVar: POINTER; VarType: integer): string;
 procedure VarDump (const Vars: array of const; const Title: string);
 procedure ArrDump
 (
   const Arr:        POINTER;
-        Count:      INTEGER;
-  const ElemsType:  INTEGER;
+        Count:      integer;
+  const ElemsType:  integer;
   const Title:      string
 );
 
@@ -58,9 +58,9 @@ var
 {OU}  Lng:  DlgMesLng.PLangStringsArr;
 
 
-procedure MsgEx (const Mes, Title: string; Icon: INTEGER);
+procedure MsgEx (const Mes, Title: string; Icon: integer);
 begin
-  Windows.MessageBox(hParentWindow, PCHAR(Mes), PCHAR(Title), Icon);
+  Windows.MessageBox(hParentWindow, pchar(Mes), pchar(Title), Icon);
 end; // .procedure MsgEx
 
 procedure MsgTitle (const Mes, Title: string);
@@ -83,7 +83,7 @@ begin
   Msg('OK');
 end; // .procedure OK
 
-function AskYesNo (const Question: string): BOOLEAN;
+function AskYesNo (const Question: string): boolean;
 begin
   result  :=  NO;
   
@@ -91,8 +91,8 @@ begin
     Windows.MessageBox
     (
       hParentWindow,
-      PCHAR(Question),
-      PCHAR(Lng[STR_QUESTION]),
+      pchar(Question),
+      pchar(Lng[STR_QUESTION]),
       Windows.MB_YESNO + ICON_QUESTION
     ) = Windows.ID_YES
   then begin
@@ -100,15 +100,15 @@ begin
   end; // .if
 end; // .function AskYesNo
 
-function AskOkCancel (const Question: string): BOOLEAN;
+function AskOkCancel (const Question: string): boolean;
 begin
   result  :=  NO;
   
   if Windows.MessageBox
   (
     hParentWindow,
-    PCHAR(Question),
-    PCHAR(Lng[STR_QUESTION]),
+    pchar(Question),
+    pchar(Lng[STR_QUESTION]),
     Windows.MB_OKCANCEL + ICON_QUESTION
   ) = Windows.ID_OK
   then begin
@@ -116,7 +116,7 @@ begin
   end; // .if
 end; // .function AskOkCancel
 
-function AskYesNoCancel (const Question: string): INTEGER;
+function AskYesNoCancel (const Question: string): integer;
 begin
   result  :=  0;
   
@@ -124,8 +124,8 @@ begin
     Windows.MessageBox
     (
       hParentWindow,
-      PCHAR(Question),
-      PCHAR(Lng[STR_QUESTION]),
+      pchar(Question),
+      pchar(Lng[STR_QUESTION]),
       Windows.MB_YESNOCANCEL + ICON_QUESTION
     )
   of 
@@ -141,27 +141,27 @@ begin
     vtBoolean:
       begin
         if VarRec.vBoolean then begin
-          result  :=  'BOOLEAN: TRUE';
+          result  :=  'boolean: TRUE';
         end // .if
         else begin
-          result  :=  'BOOLEAN: FALSE';
+          result  :=  'boolean: FALSE';
         end; // .else
       end; // .case vtBoolean
-    vtInteger:    result  :=  'INTEGER: ' + SysUtils.IntToStr(VarRec.vInteger);
-    vtChar:       result  :=  'CHAR: ' + VarRec.vChar;
+    vtInteger:    result  :=  'integer: ' + SysUtils.IntToStr(VarRec.vInteger);
+    vtChar:       result  :=  'char: ' + VarRec.vChar;
     vtWideChar:   result  :=  'WIDECHAR: ' + VarRec.vWideChar;
     vtExtended:   result  :=  'REAL: ' + SysUtils.FloatToStr(VarRec.vExtended^);
     vtString:     result  :=  'string: ' + VarRec.vString^;
-    vtPointer:    result  :=  'POINTER: $' + SysUtils.Format('%x',[INTEGER(VarRec.vPointer)]);
-    vtPChar:      result  :=  'PCHAR: ' + VarRec.vPChar;
+    vtPointer:    result  :=  'POINTER: $' + SysUtils.Format('%x',[integer(VarRec.vPointer)]);
+    vtPChar:      result  :=  'pchar: ' + VarRec.vPChar;
     vtPWideChar:  result  :=  'PWIDECHAR: ' + VarRec.vPWideChar;
     vtObject:     result  :=  'object: ' + VarRec.vObject.ClassName;
     vtClass:      result  :=  'class: ' + VarRec.vClass.ClassName;
-    vtCurrency:   result  :=  'CURRENCY: ' + SysUtils.CurrToStr(VarRec.vCurrency^);
+    vtCurrency:   result  :=  'currency: ' + SysUtils.CurrToStr(VarRec.vCurrency^);
     vtAnsiString: result  :=  'ANSISTRING: ' + string(VarRec.vAnsiString);
     vtWideString: result  :=  'WIDESTRING: ' + WideString(VarRec.vWideString);
     vtVariant:    result  :=  'VARIANT: ' + string(VarRec.vVariant);
-    vtInterface:  result  :=  'interface: $' + SysUtils.Format('%x',[INTEGER(VarRec.vInterface)]);
+    vtInterface:  result  :=  'interface: $' + SysUtils.Format('%x',[integer(VarRec.vInterface)]);
     vtInt64:      result  :=  'INT64: ' + SysUtils.IntToStr(VarRec.vInt64^);
   else
     result  :=  'UNKNOWN:';
@@ -171,10 +171,10 @@ end; // .function VarToString
 function ToString (const Vars: array of const): string;
 var
   ResArr: Utils.TArrayOfString;
-  i:      INTEGER;
+  i:      integer;
 
 begin
-  SetLength(ResArr, LENGTH(Vars));
+  SetLength(ResArr, Length(Vars));
   
   for i := 0 to High(Vars) do begin
     ResArr[i] :=  VarToString(Vars[i]);
@@ -183,7 +183,7 @@ begin
   result  :=  StrLib.Join(ResArr, #13#10);
 end; // .function ToString
 
-function PArrItemToString (var PArrItem: POINTER; VarType: INTEGER): string;
+function PArrItemToString (var PArrItem: POINTER; VarType: integer): string;
 var
   VarRec: TVarRec;
 
@@ -192,31 +192,31 @@ begin
   VarRec.vType  :=  VarType;
   
   case VarType of
-    vtBoolean:    begin VarRec.vBoolean     :=  PBOOLEAN(PArrItem)^; INC(PBOOLEAN(PArrItem)); end;
-    vtInteger:    begin VarRec.vInteger     :=  PINTEGER(PArrItem)^; INC(PINTEGER(PArrItem)); end;
-    vtChar:       begin VarRec.vChar        :=  PCHAR(PArrItem)^; INC(PCHAR(PArrItem)); end;
-    vtWideChar:   begin VarRec.vWideChar    :=  PWideChar(PArrItem)^; INC(PWideChar(PArrItem)); end;
-    vtExtended:   begin VarRec.vExtended    :=  PArrItem; INC(PEXTENDED(PArrItem)); end;
-    vtString:     begin VarRec.vString      :=  PArrItem; INC(PShortString(PArrItem)); end;
-    vtPointer:    begin VarRec.vPointer     :=  PPOINTER(PArrItem)^; INC(PPOINTER(PArrItem)); end;
-    vtPChar:      begin VarRec.vPChar       :=  PPCHAR(PArrItem)^; INC(PPCHAR(PArrItem)); end;
+    vtBoolean:    begin VarRec.vBoolean     :=  PBOOLEAN(PArrItem)^; Inc(PBOOLEAN(PArrItem)); end;
+    vtInteger:    begin VarRec.vInteger     :=  PINTEGER(PArrItem)^; Inc(PINTEGER(PArrItem)); end;
+    vtChar:       begin VarRec.vChar        :=  pchar(PArrItem)^; Inc(pchar(PArrItem)); end;
+    vtWideChar:   begin VarRec.vWideChar    :=  PWideChar(PArrItem)^; Inc(PWideChar(PArrItem)); end;
+    vtExtended:   begin VarRec.vExtended    :=  PArrItem; Inc(PEXTENDED(PArrItem)); end;
+    vtString:     begin VarRec.vString      :=  PArrItem; Inc(PShortString(PArrItem)); end;
+    vtPointer:    begin VarRec.vPointer     :=  PPOINTER(PArrItem)^; Inc(PPOINTER(PArrItem)); end;
+    vtPChar:      begin VarRec.vPChar       :=  PPCHAR(PArrItem)^; Inc(PPCHAR(PArrItem)); end;
     vtPWideChar:
       begin
-                        VarRec.vPWideChar   :=  PPWideChar(PArrItem)^; INC(PPWideChar(PArrItem));
+                        VarRec.vPWideChar   :=  PPWideChar(PArrItem)^; Inc(PPWideChar(PArrItem));
       end;
-    vtObject:     begin VarRec.vObject      :=  PObject(PArrItem)^; INC(PObject(PArrItem)); end;
-    vtClass:      begin VarRec.vClass       :=  PClass(PArrItem)^; INC(PClass(PArrItem)); end;
-    vtCurrency:   begin VarRec.vCurrency    :=  PArrItem; INC(PCURRENCY(PArrItem)); end;
-    vtAnsiString: begin VarRec.vAnsiString  :=  PPOINTER(PArrItem)^; INC(PPOINTER(PArrItem)); end;
-    vtWideString: begin VarRec.vWideString  :=  PPOINTER(PArrItem)^; INC(PPOINTER(PArrItem)); end;
-    vtVariant:    begin VarRec.vVariant     :=  PArrItem; INC(PVARIANT(PArrItem)); end;
-    vtInterface:  begin VarRec.vInterface   :=  PPOINTER(PArrItem)^; INC(PPOINTER(PArrItem)); end;
-    vtInt64:      begin VarRec.vInt64       :=  PArrItem; INC(PINT64(PArrItem)); end;
+    vtObject:     begin VarRec.vObject      :=  pobject(PArrItem)^; Inc(pobject(PArrItem)); end;
+    vtClass:      begin VarRec.vClass       :=  pclass(PArrItem)^; Inc(pclass(PArrItem)); end;
+    vtCurrency:   begin VarRec.vCurrency    :=  PArrItem; Inc(PCURRENCY(PArrItem)); end;
+    vtAnsiString: begin VarRec.vAnsiString  :=  PPOINTER(PArrItem)^; Inc(PPOINTER(PArrItem)); end;
+    vtWideString: begin VarRec.vWideString  :=  PPOINTER(PArrItem)^; Inc(PPOINTER(PArrItem)); end;
+    vtVariant:    begin VarRec.vVariant     :=  PArrItem; Inc(PVARIANT(PArrItem)); end;
+    vtInterface:  begin VarRec.vInterface   :=  PPOINTER(PArrItem)^; Inc(PPOINTER(PArrItem)); end;
+    vtInt64:      begin VarRec.vInt64       :=  PArrItem; Inc(PINT64(PArrItem)); end;
   end; // .case PArrItem.vType
   result  :=  VarToString(VarRec);
 end; // .function PArrItemToString
 
-function PVarToString (PVar: POINTER; VarType: INTEGER): string;
+function PVarToString (PVar: POINTER; VarType: integer): string;
 var
 {U} Temp: POINTER;
 
@@ -235,8 +235,8 @@ end; // .procedure VarDump
 procedure ArrDump
 (
   const Arr:        POINTER;
-        Count:      INTEGER;
-  const ElemsType:  INTEGER;
+        Count:      integer;
+  const ElemsType:  integer;
   const Title:      string
 );
 
@@ -245,11 +245,11 @@ const
 
 var
 {U} CurrItem:           POINTER;
-    CurrItemInd:        INTEGER;
+    CurrItemInd:        integer;
     StrArr:             Utils.TArrayOfString; 
-    DisplayN:           INTEGER;
-    NumItemsToDisplay:  INTEGER;
-    i:                  INTEGER;
+    DisplayN:           integer;
+    NumItemsToDisplay:  integer;
+    i:                  integer;
   
 begin
   CurrItemInd :=  0;
@@ -274,7 +274,7 @@ begin
     'DlgMes',
     Lang.ENG,
     Lang.IS_ANSI,
-    ORD(HIGH(DlgMesLng.TLangStrings)) + 1,
+    ORD(High(DlgMesLng.TLangStrings)) + 1,
     @Lng,
     Lng
   );

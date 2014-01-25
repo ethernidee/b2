@@ -45,7 +45,7 @@ const
   IS_UNICODE  = TRUE;
   IS_ANSI     = FALSE;
   
-  MAX_NUMSTRINGS  = HIGH(INTEGER) div SIZEOF(AnsiString);
+  MAX_NUMSTRINGS  = High(integer) div sizeof(AnsiString);
 
 
 type
@@ -54,37 +54,37 @@ type
               Name:         string;
               LangName:     string;
               DefLangName:  string;
-              Unicode:      BOOLEAN;
-              NumStrings:   INTEGER;
+              Unicode:      boolean;
+              NumStrings:   integer;
     (* UO *)  LngVar:       PPOINTER; // Pointer to client's Lng variable which is pointer to array of strings
     (* U *)   DefStrArr:    POINTER;  // Pointer to client's default array of language strings
   end; // .record TClient
 
 
 var
-  AllowLoadFromFiles: BOOLEAN = TRUE;
+  AllowLoadFromFiles: boolean = TRUE;
   LangDir:            string  = '.';
   FilePackName:       string  = 'Language.lpk';
   ResPackName:        string  = 'LngPack';
 
 
 function  GetLanguage: string;
-function  IsClientRegistered (const ClientName: string): BOOLEAN;
-function  GetClientsNum: INTEGER;
+function  IsClientRegistered (const ClientName: string): boolean;
+function  GetClientsNum: integer;
 function  GetClientList: (* O *) Classes.TStringList;
 function  GetClientLang (const ClientName: string): string;
 procedure RegisterClient
 (
         ClientName:   string;
   const DefLangName:  string;
-        Unicode:      BOOLEAN;
-        NumStrings:   INTEGER;
+        Unicode:      boolean;
+        NumStrings:   integer;
         LngVar:       POINTER;  // Pointer to client's Lng variable which is pointer to array of strings
         DefStrArr:    POINTER   // Pointer to client's default array of language strings
 );
 procedure UnloadFilePack;
-function  LoadFilePack: BOOLEAN;
-function  LoadResPack: BOOLEAN;
+function  LoadFilePack: boolean;
+function  LoadResPack: boolean;
 procedure ResetLanguage;
 procedure SetLanguage (const NewLanguage: string);
   
@@ -106,9 +106,9 @@ begin
   result  :=  Language;
 end; // .function GetLanguage
 
-function FindClient (const ClientName: string; out Client: PClient): BOOLEAN;
+function FindClient (const ClientName: string; out Client: PClient): boolean;
 var
-  ClientInd: INTEGER;
+  ClientInd: integer;
 
 begin
   {!} Assert(Client = nil);
@@ -119,19 +119,19 @@ begin
   end; // .if
 end; // .function FindClient
 
-function IsClientRegistered (const ClientName: string): BOOLEAN;
+function IsClientRegistered (const ClientName: string): boolean;
 begin
   result  :=  ClientList.IndexOf(ClientName) <> -1;
 end; // .function IsClientRegistered
 
-function GetClientsNum: INTEGER;
+function GetClientsNum: integer;
 begin
   result  :=  ClientList.Count;
 end; // .function GetClientsNum
 
 function GetClientList: (* O *) Classes.TStringList;
 var
-  i:  INTEGER;
+  i:  integer;
 
 begin
   result                :=  Classes.TStringList.Create;
@@ -153,8 +153,8 @@ procedure RegisterClient
 (
         ClientName:   string;
   const DefLangName:  string;
-        Unicode:      BOOLEAN;
-        NumStrings:   INTEGER;
+        Unicode:      boolean;
+        NumStrings:   integer;
         LngVar:       POINTER;
         DefStrArr:    POINTER
 );
@@ -171,7 +171,7 @@ begin
   {!} Assert(DefStrArr <> nil);
   Client  :=  nil;
   // * * * * * //
-  NEW(Client);
+  New(Client);
   Client.Name         :=  ClientName;
   Client.LangName     :=  DefLangName;
   Client.DefLangName  :=  DefLangName;
@@ -185,7 +185,7 @@ end; // .procedure RegisterClient
 procedure ResetClientLang (Client: PClient);
 var
 (* on *)  ArrOfStr: PEndlessAnsiStrArr;
-          i:        INTEGER;
+          i:        integer;
 
 begin
   {!} Assert(Client <> nil);
@@ -207,11 +207,11 @@ begin
   FreeMem(FilePack); FilePack := nil;
 end; // .procedure UnloadFilePack
 
-function LoadFilePack: BOOLEAN;
+function LoadFilePack: boolean;
 var
 (* O *) FileObj:      Files.TFile;
         FilePackPath: string;
-        FilePackSize: INTEGER;
+        FilePackSize: integer;
         Error:        string;
 
 begin
@@ -242,11 +242,11 @@ begin
   SysUtils.FreeAndNil(FileObj);
 end; // .function LoadFilePack
 
-function LoadResPack: BOOLEAN;
+function LoadResPack: boolean;
 var
-  hResource:    INTEGER;
-  hMem:         INTEGER;
-  ResPackSize:  INTEGER;
+  hResource:    integer;
+  hMem:         integer;
+  ResPackSize:  integer;
   Error:        string;
   
 begin
@@ -270,7 +270,7 @@ procedure SetClientLngStrArr (Client: PClient; LngStrArrReader: CLngStrArr.TLngS
 var
 (* O *) ArrOfStr:         PEndlessAnsiStrArr;
 (* O *) BinStringReader:  CBinString.TBinStringReader;
-        i:                INTEGER;
+        i:                integer;
 
 begin
   {!} Assert(Client <> nil);
@@ -289,13 +289,13 @@ begin
     else begin
       ArrOfStr[i] :=  BinStringReader.GetAnsiString;
     end; // .else
-    INC(i);
+    Inc(i);
   end; // .while
   Client.LangName :=  LngStrArrReader.LangName;
   Client.LngVar^  :=  ArrOfStr; ArrOfStr  :=  nil;
 end; // .procedure SetClientLngStrArr
 
-function LoadClientLangFromResPack (Client: PClient; const NewLanguage: string): BOOLEAN;
+function LoadClientLangFromResPack (Client: PClient; const NewLanguage: string): boolean;
 var
 (* on *)  LngUnitReader:    CLngUnit.TLngUnitReader;
 (* on *)  LngStrArrReader:  CLngStrArr.TLngStrArrReader;
@@ -318,7 +318,7 @@ begin
   SysUtils.FreeAndNil(LngUnitReader);
 end; // .function LoadClientLangFromResPack
 
-function LoadClientLangFromFilePack (Client: PClient; const NewLanguage: string): BOOLEAN;
+function LoadClientLangFromFilePack (Client: PClient; const NewLanguage: string): boolean;
 var
 (* on *)  LngUnitReader:    CLngUnit.TLngUnitReader;
 (* on *)  LngStrArrReader:  CLngStrArr.TLngStrArrReader;
@@ -341,13 +341,13 @@ begin
   SysUtils.FreeAndNil(LngUnitReader);
 end; // .function LoadClientLangFromFilePack
 
-function LoadClientLangFromFileUnit (Client: PClient; const NewLanguage: string): BOOLEAN;
+function LoadClientLangFromFileUnit (Client: PClient; const NewLanguage: string): boolean;
 var
 (* O  *)  FileObj:          Files.TFile;
 (* on *)  LngUnit:          CLngUnit.PLngUnit;
 (* on *)  LngUnitReader:    CLngUnit.TLngUnitReader;
 (* on *)  LngStrArrReader:  CLngStrArr.TLngStrArrReader;
-          FileUnitSize:     INTEGER;
+          FileUnitSize:     integer;
           FileUnitPath:     string;
           Error:            string;
 
@@ -390,12 +390,12 @@ begin
   SysUtils.FreeAndNil(LngUnitReader);
 end; // .function LoadClientLangFromFileUnit
 
-function LoadClientLangFromFileStrArr (Client: PClient; const NewLanguage: string): BOOLEAN;
+function LoadClientLangFromFileStrArr (Client: PClient; const NewLanguage: string): boolean;
 var
 (* O  *)  FileObj:          Files.TFile;
 (* on *)  LngStrArr:        CLngStrArr.PLngStrArr;
 (* on *)  LngStrArrReader:  CLngStrArr.TLngStrArrReader;
-          FileStrArrSize:   INTEGER;
+          FileStrArrSize:   integer;
           FileStrArrPath:   string;
           Error:            string;
 
@@ -433,7 +433,7 @@ begin
   SysUtils.FreeAndNil(LngStrArrReader);
 end; // .function LoadClientLangFromFileStrArr
 
-function SetClientLang (Client: PClient; const NewLanguage: string): BOOLEAN;
+function SetClientLang (Client: PClient; const NewLanguage: string): boolean;
 begin
   {!} Assert(Client <> nil);
   {!} Assert(CLang.IsValidLangName(NewLanguage));
@@ -451,7 +451,7 @@ end; // .function SetClientLang
 
 procedure ResetLanguage;
 var
-  i:  INTEGER;
+  i:  integer;
 
 begin
   Language  :=  '';
@@ -462,7 +462,7 @@ end; // .procedure ResetLanguage
 
 procedure SetLanguage (const NewLanguage: string);
 var
-  i:  INTEGER;
+  i:  integer;
 
 begin
   {!} Assert(CLang.IsValidLangName(NewLanguage));

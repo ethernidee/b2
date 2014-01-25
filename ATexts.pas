@@ -17,34 +17,34 @@ type
   }
   AText = class (Utils.TCloneable)
     (***) protected (***)
-      fLen:     INTEGER;
-      fPos:     INTEGER;
-      fTextEnd: BOOLEAN;
+      fLen:     integer;
+      fPos:     integer;
+      fTextEnd: boolean;
     
     (***) public (***)
       (* Character navigation *)
-      function  GotoNextPos: BOOLEAN; virtual; abstract;
-      function  GotoPrevPos: BOOLEAN; virtual; abstract;
-      function  GotoPos (NewPos: INTEGER): BOOLEAN; virtual; abstract;
+      function  GotoNextPos: boolean; virtual; abstract;
+      function  GotoPrevPos: boolean; virtual; abstract;
+      function  GotoPos (NewPos: integer): boolean; virtual; abstract;
       
       (* Reading operations *)
-      function  GetCurrChar (out c: CHAR): BOOLEAN; virtual; abstract;
-      function  GetStr (StrLen: INTEGER): string; virtual; abstract;
+      function  GetCurrChar (out c: char): boolean; virtual; abstract;
+      function  GetStr (StrLen: integer): string; virtual; abstract;
       
       (* Writing operations *)
-      function  SetCurrChar (c: CHAR): BOOLEAN; virtual; abstract;
+      function  SetCurrChar (c: char): boolean; virtual; abstract;
       procedure Insert (const Str: string); virtual; abstract;
-      procedure Delete (DelCount: INTEGER); virtual; abstract;
+      procedure Delete (DelCount: integer); virtual; abstract;
       {The same as Delete + Insert}
-      procedure Replace (ReplCount: INTEGER; const ReplWith: string); virtual; abstract;
+      procedure Replace (ReplCount: integer; const ReplWith: string); virtual; abstract;
       
       (* Generic *)
       procedure Connect (const Source: string; {IN} var {n} Settings: TObject); virtual; abstract;
       procedure Clear; virtual; abstract;
       
-      property  Pos:      INTEGER READ fPos;
-      property  Len:      INTEGER READ fLen;
-      property  TextEnd:  BOOLEAN READ fTextEnd;
+      property  Pos:      integer read fPos;
+      property  Len:      integer read fLen;
+      property  TextEnd:  boolean read fTextEnd;
   end; // .class AText
   
   {
@@ -55,28 +55,28 @@ type
   }
   ATextLines  = class (AText)
     (***) protected (***)
-      fLineN:         INTEGER;
-      fLinePos:       INTEGER;
-      fNumLines:      INTEGER;
-      fLineEndMarker: CHAR;
+      fLineN:         integer;
+      fLinePos:       integer;
+      fNumLines:      integer;
+      fLineEndMarker: char;
     
     (***) public (***)
       (* Line navigation *)
-      function  GotoNextLine: BOOLEAN; virtual; abstract;
-      function  GotoPrevLine: BOOLEAN; virtual; abstract;
-      function  GotoLine (NewLineN: INTEGER): BOOLEAN; virtual; abstract;
+      function  GotoNextLine: boolean; virtual; abstract;
+      function  GotoPrevLine: boolean; virtual; abstract;
+      function  GotoLine (NewLineN: integer): boolean; virtual; abstract;
       
       (* Position conversions *)
-      function  PosToLinePos (Pos: INTEGER; out LineN, LinePos: INTEGER): BOOLEAN; virtual; abstract;
-      function  LinePosToPos (LineN, LinePos: INTEGER; out Pos: INTEGER): BOOLEAN; virtual; abstract;
+      function  PosToLinePos (Pos: integer; out LineN, LinePos: integer): boolean; virtual; abstract;
+      function  LinePosToPos (LineN, LinePos: integer; out Pos: integer): boolean; virtual; abstract;
       
       (* Getting metrics *)
-      function  GetLineLen (LineN: INTEGER; out LineLen: INTEGER): BOOLEAN; virtual; abstract;
+      function  GetLineLen (LineN: integer; out LineLen: integer): boolean; virtual; abstract;
       
-      property  LineN:          INTEGER READ fLineN;
-      property  LinePos:        INTEGER READ fLinePos;
-      property  NumLines:       INTEGER READ fNumLines;
-      property  LineEndMarker:  CHAR READ fLineEndMarker;
+      property  LineN:          integer read fLineN;
+      property  LinePos:        integer read fLinePos;
+      property  NumLines:       integer read fNumLines;
+      property  LineEndMarker:  char read fLineEndMarker;
   end; // .class ATextLines
 
 

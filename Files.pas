@@ -26,37 +26,37 @@ type
   TFixedBuf = class (CFiles.TAbstractFile)
     (***) protected (***)
       {OUn} fBuf:     POINTER;
-            fOwnsMem: BOOLEAN;
+            fOwnsMem: boolean;
     
     (***) public (***)
       destructor  Destroy; override;
-      procedure Open ({n} Buf: POINTER; BufSize: INTEGER; DeviceMode: TDeviceMode);
+      procedure Open ({n} Buf: POINTER; BufSize: integer; DeviceMode: TDeviceMode);
       procedure Close;
-      procedure CreateNew (BufSize: INTEGER);
-      function  ReadUpTo (Count: INTEGER; {n} Buf: POINTER; out BytesRead: INTEGER): BOOLEAN; override;
-      function  WriteUpTo (Count: INTEGER; {n} Buf: POINTER; out ByteWritten: INTEGER): BOOLEAN; override;
-      function  Seek (NewPos: INTEGER): BOOLEAN; override;
+      procedure CreateNew (BufSize: integer);
+      function  ReadUpTo (Count: integer; {n} Buf: POINTER; out BytesRead: integer): boolean; override;
+      function  WriteUpTo (Count: integer; {n} Buf: POINTER; out ByteWritten: integer): boolean; override;
+      function  Seek (NewPos: integer): boolean; override;
       
-      property  Buf:      POINTER READ fBuf;
-      property  OwnsMem:  BOOLEAN READ fOwnsMem;
+      property  Buf:      POINTER read fBuf;
+      property  OwnsMem:  boolean read fOwnsMem;
   end; // .class TFixedBuf
   
   TFile = class (CFiles.TAbstractFile)
     (***) protected (***)
-      fhFile:     INTEGER;
+      fhFile:     integer;
       fFilePath:  string;
       
     (***) public (***)
       destructor  Destroy; override;
-      function  Open (const FilePath: string; DeviceMode: TDeviceMode): BOOLEAN;
+      function  Open (const FilePath: string; DeviceMode: TDeviceMode): boolean;
       procedure Close;
-      function  CreateNew (const FilePath: string): BOOLEAN;
-      function  ReadUpTo (Count: INTEGER; {n} Buf: POINTER; out BytesRead: INTEGER): BOOLEAN; override;
-      function  WriteUpTo (Count: INTEGER; {n} Buf: POINTER; out ByteWritten: INTEGER): BOOLEAN; override;
-      function  Seek (NewPos: INTEGER): BOOLEAN; override;
+      function  CreateNew (const FilePath: string): boolean;
+      function  ReadUpTo (Count: integer; {n} Buf: POINTER; out BytesRead: integer): boolean; override;
+      function  WriteUpTo (Count: integer; {n} Buf: POINTER; out ByteWritten: integer): boolean; override;
+      function  Seek (NewPos: integer): boolean; override;
       
-      property  hFile:    INTEGER READ fhFile;
-      property  FilePath: string READ fFilePath;
+      property  hFile:    integer read fhFile;
+      property  FilePath: string read fFilePath;
   end; // .class TFile
   
   TFileItemInfo = class (CFiles.TItemInfo)
@@ -65,8 +65,8 @@ type
   
   TFileLocator  = class (CFiles.TAbstractLocator)
     (***) protected (***)
-      fOpened:        BOOLEAN;
-      fSearchHandle:  INTEGER;
+      fOpened:        boolean;
+      fSearchHandle:  integer;
       fFindData:      Windows.TWin32FindData;
       fDirPath:       string;
       
@@ -76,12 +76,12 @@ type
       procedure FinitSearch; override;
       procedure InitSearch (const Mask: string); override;
       function  GetNextItem (out ItemInfo: TItemInfo): string; override;
-      function  GetItemInfo (const ItemName: string; out ItemInfo: TItemInfo): BOOLEAN; override;
+      function  GetItemInfo (const ItemName: string; out ItemInfo: TItemInfo): boolean; override;
 
-      property  DirPath:  string READ fDirPath WRITE fDirPath;
+      property  DirPath:  string read fDirPath write fDirPath;
   end; // .class TFileLocator
   
-  TScanCallback = function (var SearchRes: SysUtils.TSearchRec): BOOLEAN;
+  TScanCallback = function (var SearchRes: SysUtils.TSearchRec): boolean;
 
 
   (*  High level directory scanning
@@ -93,29 +93,29 @@ type
   
   ILocator = interface
     procedure Locate (const MaskedPath: string; SearchSubj: TSearchSubj);
-    function  FindNext: BOOLEAN;
+    function  FindNext: boolean;
     procedure FindClose;
     function  GetFoundName: string;
     function  GetFoundRec:  {U} PSearchRec;
     
-    property FoundName: string READ GetFoundName;
-    property FoundRec:  PSearchRec READ GetFoundRec;
+    property FoundName: string read GetFoundName;
+    property FoundRec:  PSearchRec read GetFoundRec;
   end; // .interface ILocator
 
 
-function  ReadFileContents (const FilePath: string; out FileContents: string): BOOLEAN;
-function  WriteFileContents (const FileContents, FilePath: string): BOOLEAN;
-function  DeleteDir (const DirPath: string): BOOLEAN;
-function  GetFileSize (const FilePath: string; out Res: INTEGER): BOOLEAN;
+function  ReadFileContents (const FilePath: string; out FileContents: string): boolean;
+function  WriteFileContents (const FileContents, FilePath: string): boolean;
+function  DeleteDir (const DirPath: string): boolean;
+function  GetFileSize (const FilePath: string; out Res: integer): boolean;
 function  Scan
 (
   const FileMask:         string;
-        AdditionalAttrs:  INTEGER;
+        AdditionalAttrs:  integer;
   const FileLowCaseExt:   string;
         Callback:         TScanCallback
-): BOOLEAN;
+): boolean;
 
-function  DirExists (const FilePath: string): BOOLEAN;
+function  DirExists (const FilePath: string): boolean;
 function  Locate (const MaskedPath: string; SearchSubj: TSearchSubj): ILocator;
   
 
@@ -129,21 +129,21 @@ const
 type
   TLocator  = class (TInterfacedObject, ILocator)
     protected
-      fLastOperRes:   BOOLEAN;
-      fSearchStarted: BOOLEAN;
+      fLastOperRes:   boolean;
+      fSearchStarted: boolean;
       fDir:           string;
       fFileMask:      string;
       fSearchSubj:    TSearchSubj;
       fFoundRec:      SysUtils.TSearchRec;
       
-      function  MatchResult: BOOLEAN;
+      function  MatchResult: boolean;
     
     public
       constructor Create;
       destructor  Destroy; override;
     
       procedure Locate (const MaskedPath: string; SearchSubj: TSearchSubj);
-      function  FindNext: BOOLEAN;
+      function  FindNext: boolean;
       procedure FindClose;
       function  GetFoundName: string;
       function  GetFoundRec:  {U} PSearchRec;
@@ -155,7 +155,7 @@ begin
   Self.Close;
 end; // .destructor TFixedBuf.Destroy
 
-procedure TFixedBuf.Open ({n} Buf: POINTER; BufSize: INTEGER; DeviceMode: TDeviceMode);
+procedure TFixedBuf.Open ({n} Buf: POINTER; BufSize: integer; DeviceMode: TDeviceMode);
 begin
   {!} Assert(Utils.IsValidBuf(Buf, BufSize));
   {!} Assert(DeviceMode <> MODE_OFF);
@@ -178,7 +178,7 @@ begin
   Self.fMode  :=  MODE_OFF;
 end; // .procedure TFixedBuf.Close
 
-procedure TFixedBuf.CreateNew (BufSize: INTEGER);
+procedure TFixedBuf.CreateNew (BufSize: integer);
 var
 (* on *)  NewBuf: POINTER;
   
@@ -193,7 +193,7 @@ begin
   Self.fOwnsMem :=  TRUE;
 end; // .procedure TFixedBuf.CreateNew
 
-function TFixedBuf.ReadUpTo (Count: INTEGER; {n} Buf: POINTER; out BytesRead: INTEGER): BOOLEAN;
+function TFixedBuf.ReadUpTo (Count: integer; {n} Buf: POINTER; out BytesRead: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  ((Self.Mode = MODE_READ) or (Self.Mode = MODE_READWRITE)) and (not Self.EOF) and (Count > 0);
@@ -205,7 +205,7 @@ begin
   end; // .if
 end; // .function TFixedBuf.ReadUpTo
 
-function TFixedBuf.WriteUpTo (Count: INTEGER; {n} Buf: POINTER; out ByteWritten: INTEGER): BOOLEAN;
+function TFixedBuf.WriteUpTo (Count: integer; {n} Buf: POINTER; out ByteWritten: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  ((Self.Mode = MODE_WRITE) or (Self.Mode = MODE_READWRITE)) and (not Self.EOF);
@@ -217,7 +217,7 @@ begin
   end; // .if
 end; // .function TFixedBuf.WriteUpTo
 
-function TFixedBuf.Seek (NewPos: INTEGER): BOOLEAN;
+function TFixedBuf.Seek (NewPos: integer): boolean;
 begin
   {!} Assert(NewPos >= 0);
   result  :=  (Self.Mode <> MODE_OFF) and (NewPos <= Self.Size);
@@ -232,11 +232,11 @@ begin
   Self.Close;
 end; // .destructor TFile.Destroy
 
-function TFile.Open (const FilePath: string; DeviceMode: TDeviceMode): BOOLEAN;
+function TFile.Open (const FilePath: string; DeviceMode: TDeviceMode): boolean;
 var
-  OpeningMode:  INTEGER;
-  FileSizeL:    INTEGER;
-  FileSizeH:    INTEGER;
+  OpeningMode:  integer;
+  FileSizeL:    integer;
+  FileSizeH:    integer;
 
 begin
   {!} Assert(DeviceMode <> MODE_OFF);
@@ -294,7 +294,7 @@ begin
   Self.fFilePath  :=  '';
 end; // .procedure TFile.Close
 
-function TFile.CreateNew (const FilePath: string): BOOLEAN;
+function TFile.CreateNew (const FilePath: string): boolean;
 begin
   Self.Close;
   result  :=  WinWrappers.FileCreate(FilePath, Self.fhFile);
@@ -312,7 +312,7 @@ begin
   end; // .else
 end; // .function TFile.CreateNew
 
-function TFile.ReadUpTo (Count: INTEGER; {n} Buf: POINTER; out BytesRead: INTEGER): BOOLEAN;
+function TFile.ReadUpTo (Count: integer; {n} Buf: POINTER; out BytesRead: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  ((Self.Mode = MODE_READ) or (Self.Mode = MODE_READWRITE)) and (not Self.EOF);
@@ -327,7 +327,7 @@ begin
   end; // .if
 end; // .function TFile.ReadUpTo
 
-function TFile.WriteUpTo (Count: INTEGER; {n} Buf: POINTER; out ByteWritten: INTEGER): BOOLEAN;
+function TFile.WriteUpTo (Count: integer; {n} Buf: POINTER; out ByteWritten: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  (Self.Mode = MODE_WRITE) or (Self.Mode = MODE_READWRITE);
@@ -343,9 +343,9 @@ begin
   end; // .if
 end; // .function TFile.WriteUpTo
 
-function TFile.Seek (NewPos: INTEGER): BOOLEAN;
+function TFile.Seek (NewPos: integer): boolean;
 var
-  SeekRes:  INTEGER;
+  SeekRes:  integer;
 
 begin
   {!} Assert(NewPos >= 0);
@@ -405,7 +405,7 @@ begin
   Self.FinitSearch;
 end; // .destructor Destroy
 
-function TFileLocator.GetItemInfo (const ItemName: string; out ItemInfo: TItemInfo): BOOLEAN;
+function TFileLocator.GetItemInfo (const ItemName: string; out ItemInfo: TItemInfo): boolean;
 var
 (* O *) Locator:  TFileLocator;
         ItemPath: string;
@@ -425,7 +425,7 @@ begin
   SysUtils.FreeAndNil(Locator);
 end; // .function TFileLocator.GetItemInfo
 
-function ReadFileContents (const FilePath: string; out FileContents: string): BOOLEAN;
+function ReadFileContents (const FilePath: string; out FileContents: string): boolean;
 var
 {O} MyFile: TFile;
 
@@ -439,7 +439,7 @@ begin
   SysUtils.FreeAndNil(MyFile);
 end; // .function ReadFileContents
 
-function WriteFileContents (const FileContents, FilePath: string): BOOLEAN;
+function WriteFileContents (const FileContents, FilePath: string): boolean;
 var
 {O} MyFile: TFile;
 
@@ -453,7 +453,7 @@ begin
   SysUtils.FreeAndNil(MyFile);
 end; // .function WriteFileContents
 
-function DeleteDir (const DirPath: string): BOOLEAN;
+function DeleteDir (const DirPath: string): boolean;
 var
 {O} Locator:  TFileLocator;
 {O} FileInfo: TFileItemInfo;
@@ -486,7 +486,7 @@ begin
   SysUtils.FreeAndNil(Locator);
 end; // .function DeleteDir
 
-function GetFileSize (const FilePath: string; out Res: INTEGER): BOOLEAN;
+function GetFileSize (const FilePath: string; out Res: integer): boolean;
 var
 {O} MyFile: TFile;
 
@@ -504,10 +504,10 @@ end; // .function GetFileSize
 function Scan
 (
   const FileMask:         string;
-        AdditionalAttrs:  INTEGER;
+        AdditionalAttrs:  integer;
   const FileLowCaseExt:   string;
         Callback:         TScanCallback
-): BOOLEAN;
+): boolean;
 
 var
   SearchRec:  SysUtils.TSearchRec;
@@ -529,12 +529,12 @@ begin
   end; // .if
 end; // .function Scan
 
-function DirExists (const FilePath: string): BOOLEAN;
+function DirExists (const FilePath: string): boolean;
 var
-  Attrs:  INTEGER;
+  Attrs:  integer;
 
 begin
-  Attrs   :=  Windows.GetFileAttributes(PCHAR(FilePath));
+  Attrs   :=  Windows.GetFileAttributes(pchar(FilePath));
   result  :=  (Attrs <> - 1) and ((Attrs and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0);
 end; // .function DirExists
 
@@ -558,17 +558,17 @@ begin
   end; // .if
 end; // .procedure TLocator.FindClose
 
-function TLocator.MatchResult: BOOLEAN;
+function TLocator.MatchResult: boolean;
   function CanonicMask (const Mask: string): string;
   var
-    i: INTEGER;
+    i: integer;
   
   begin
     result := Mask;
-    i := LENGTH(result);
+    i := Length(result);
     
     while ((i > 0) and (result[i] = '*')) do begin
-      DEC(i);
+      Dec(i);
     end; // .while
   
     if (i > 0) and (result[i] <> '.') then begin
@@ -580,7 +580,7 @@ function TLocator.MatchResult: BOOLEAN;
   begin
     result := Name;
   
-    if (result <> '') and (result[LENGTH(result)] <> '.') then begin
+    if (result <> '') and (result[Length(result)] <> '.') then begin
       result := result + '.';
     end; // .if
   end; // .function CanonicName
@@ -606,7 +606,7 @@ begin
   end; // .if
 end; // .function TLocator.MatchResult
 
-function TLocator.FindNext: BOOLEAN;
+function TLocator.FindNext: boolean;
 begin
   {!} Assert(Self.fLastOperRes);
   result  :=  FALSE;

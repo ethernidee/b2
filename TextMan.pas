@@ -13,29 +13,29 @@ const
 
 
 type
-  TCharPreprocessFunc = function (c: CHAR): CHAR;
+  TCharPreprocessFunc = function (c: char): char;
 
 
-function  FindStr (Str: string; IgnoreCase: BOOLEAN; Text: ATexts.AText): BOOLEAN;
-procedure ReplaceStr (Str: string; ReplWith: string; IgnoreCase: BOOLEAN; Text: ATexts.AText);
-function  LoadFromFile (const FilePath: string; {n} Settings: Utils.TCloneable; Text: ATexts.AText): BOOLEAN;
-function  SaveToFile (const FilePath: string; Text: ATexts.AText): BOOLEAN;
+function  FindStr (Str: string; IgnoreCase: boolean; Text: ATexts.AText): boolean;
+procedure ReplaceStr (Str: string; ReplWith: string; IgnoreCase: boolean; Text: ATexts.AText);
+function  LoadFromFile (const FilePath: string; {n} Settings: Utils.TCloneable; Text: ATexts.AText): boolean;
+function  SaveToFile (const FilePath: string; Text: ATexts.AText): boolean;
 
 
 (***) implementation (***)
 
 
-function FindStr (Str: string; IgnoreCase: BOOLEAN; Text: ATexts.AText): BOOLEAN;
+function FindStr (Str: string; IgnoreCase: boolean; Text: ATexts.AText): boolean;
 var
-  StrLen:     INTEGER;
-  StrHash:    INTEGER;
-  MatchHash:  INTEGER;
-  HashInd:    INTEGER;
-  StartPos:   INTEGER;
-  c:          CHAR;
-  i:          INTEGER;
+  StrLen:     integer;
+  StrHash:    integer;
+  MatchHash:  integer;
+  HashInd:    integer;
+  StartPos:   integer;
+  c:          char;
+  i:          integer;
   
-  function IsMatch: BOOLEAN;
+  function IsMatch: boolean;
   begin
     Text.GotoPos(StartPos);
     result  :=  TRUE;
@@ -47,13 +47,13 @@ var
       end; // .if
       result  :=  c = Str[i];
       Text.GotoNextPos;
-      INC(i);
+      Inc(i);
     end; // .while
   end; // .function IsMatch
   
 begin
   {!} Assert(Text <> nil);
-  StrLen  :=  LENGTH(Str);
+  StrLen  :=  Length(Str);
   result  :=  FALSE;
   if (Text.Len - Text.Pos + 1) >= StrLen then begin
     if IgnoreCase then begin
@@ -67,7 +67,7 @@ begin
       if IgnoreCase then begin
         c :=  StrLib.CharToLower(c);
       end; // .if
-      INC(Crypto.TInt32(StrHash)[HashInd], Crypto.ByteRedirTable[ORD(c)]);
+      Inc(Crypto.TInt32(StrHash)[HashInd], Crypto.ByteRedirTable[ORD(c)]);
       HashInd :=  (HashInd + 1) and 3;
     end; // .for
     MatchHash :=  0;
@@ -77,7 +77,7 @@ begin
       if IgnoreCase then begin
         c :=  StrLib.CharToLower(c);
       end; // .if
-      INC(Crypto.TInt32(MatchHash)[HashInd], Crypto.ByteRedirTable[ORD(c)]);
+      Inc(Crypto.TInt32(MatchHash)[HashInd], Crypto.ByteRedirTable[ORD(c)]);
       HashInd :=  (HashInd + 1) and 3;
       Text.GotoNextPos;
     end; // .for
@@ -89,15 +89,15 @@ begin
       if IgnoreCase then begin
         c :=  StrLib.CharToLower(c);
       end; // .if
-      DEC(Crypto.TInt32(MatchHash)[0], Crypto.ByteRedirTable[ORD(c)]);
+      Dec(Crypto.TInt32(MatchHash)[0], Crypto.ByteRedirTable[ORD(c)]);
       MatchHash :=  ((MatchHash and $FF) shl 24) or (MatchHash shr 8);
       Text.GotoPos(StartPos + StrLen);
       Text.GetCurrChar(c);
       if IgnoreCase then begin
         c :=  StrLib.CharToLower(c);
       end; // .if
-      INC(Crypto.TInt32(MatchHash)[HashInd], Crypto.ByteRedirTable[ORD(c)]);
-      INC(StartPos);
+      Inc(Crypto.TInt32(MatchHash)[HashInd], Crypto.ByteRedirTable[ORD(c)]);
+      Inc(StartPos);
       result  :=  (MatchHash = StrHash) and IsMatch;
       Text.GotoNextPos;
     end; // .while
@@ -107,15 +107,15 @@ begin
   end; // .if
 end; // .function FindStr
 
-procedure ReplaceStr (Str: string; ReplWith: string; IgnoreCase: BOOLEAN; Text: ATexts.AText);
+procedure ReplaceStr (Str: string; ReplWith: string; IgnoreCase: boolean; Text: ATexts.AText);
 begin
   {!} Assert(Text <> nil);
   while FindStr(Str, IgnoreCase, Text) do begin
-    Text.Replace(LENGTH(Str), ReplWith);
+    Text.Replace(Length(Str), ReplWith);
   end; // .while
 end; // .procedure ReplaceStr
 
-function LoadFromFile (const FilePath: string; {n} Settings: Utils.TCloneable; Text: ATexts.AText): BOOLEAN;
+function LoadFromFile (const FilePath: string; {n} Settings: Utils.TCloneable; Text: ATexts.AText): boolean;
 var
 {O} DataFile:     Files.TFile;
     FileContents: string;
@@ -131,10 +131,10 @@ begin
   SysUtils.FreeAndNil(DataFile);
 end; // .function LoadFromFile
 
-function SaveToFile (const FilePath: string; Text: ATexts.AText): BOOLEAN;
+function SaveToFile (const FilePath: string; Text: ATexts.AText): boolean;
 var
 {O} DataFile: Files.TFile;
-    SavedPos: INTEGER;
+    SavedPos: integer;
 
 begin
   {!} Assert(Text <> nil);
@@ -142,7 +142,7 @@ begin
   // * * * * * //
   SavedPos  :=  Text.Pos;
   Text.GotoPos(1);
-  Windows.DeleteFile(PCHAR(FilePath));
+  Windows.DeleteFile(pchar(FilePath));
   result  :=  DataFile.CreateNew(FilePath) and DataFile.WriteStr(Text.GetStr(Text.Len));
   Text.GotoPos(SavedPos);
   SysUtils.FreeAndNil(DataFile);

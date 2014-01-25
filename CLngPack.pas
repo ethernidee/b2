@@ -12,11 +12,11 @@ const
 
 
 type
-  TUnicodeFlag  = BOOLEAN;
+  TUnicodeFlag  = boolean;
 
   PLngPackExtHeader = ^TLngPackExtHeader;
   TLngPackExtHeader = packed record
-    NumLngUnits:  INTEGER;
+    NumLngUnits:  integer;
   end; // .record TLngPackExtHeader
   
   PLngPack = ^TLngPack;
@@ -31,35 +31,35 @@ type
       
   TLngPackReader = class
     (***) protected (***)
-                fConnected:             BOOLEAN;
+                fConnected:             boolean;
       (* Un *)  fLngPack:               PLngPack;
-                fStructMemoryBlockSize: INTEGER;
-                fCurrLngUnitInd:        INTEGER;
+                fStructMemoryBlockSize: integer;
+                fCurrLngUnitInd:        integer;
       (* Un *)  fCurrLngUnit:           CLngUnit.PLngUnit;
-                fSearchIndexCreated:    BOOLEAN;
+                fSearchIndexCreated:    boolean;
       (* O *)   fSearchIndex:           array [TUnicodeFlag] of Classes.TStringList;
 
-      function  GetStructSize: INTEGER;
-      function  GetNumLngUnits: INTEGER;
+      function  GetStructSize: integer;
+      function  GetNumLngUnits: integer;
       procedure CreateSearchIndex;
 
     (***) public (***)
-      procedure Connect (LngPack: PLngPack; StructMemoryBlockSize: INTEGER);
+      procedure Connect (LngPack: PLngPack; StructMemoryBlockSize: integer);
       procedure Disconnect;
-      function  Validate (out Error: string): BOOLEAN;
-      function  SeekLngUnit (SeekLngUnitInd: INTEGER): BOOLEAN;
-      function  ReadLngUnit ((* n *) var LngUnitReader: CLngUnit.TLngUnitReader): BOOLEAN;
-      function  FindLngUnit (const UnitName: string; Unicode: BOOLEAN; out LngUnitReader: CLngUnit.TLngUnitReader): BOOLEAN;
+      function  Validate (out Error: string): boolean;
+      function  SeekLngUnit (SeekLngUnitInd: integer): boolean;
+      function  ReadLngUnit ((* n *) var LngUnitReader: CLngUnit.TLngUnitReader): boolean;
+      function  FindLngUnit (const UnitName: string; Unicode: boolean; out LngUnitReader: CLngUnit.TLngUnitReader): boolean;
 
       constructor Create;
       destructor  Destroy; override;
 
-      property  Connected:              BOOLEAN READ fConnected;
-      property  LngPack:                PLngPack READ fLngPack;
-      property  StructMemoryBlockSize:  INTEGER READ fStructMemoryBlockSize;
-      property  StructSize:             INTEGER READ GetStructSize;
-      property  NumLngUnits:            INTEGER READ GetNumLngUnits;
-      property  CurrLngUnitInd:         INTEGER READ fCurrLngUnitInd;
+      property  Connected:              boolean read fConnected;
+      property  LngPack:                PLngPack read fLngPack;
+      property  StructMemoryBlockSize:  integer read fStructMemoryBlockSize;
+      property  StructSize:             integer read GetStructSize;
+      property  NumLngUnits:            integer read GetNumLngUnits;
+      property  CurrLngUnitInd:         integer read fCurrLngUnitInd;
   end; // .class TLngPackReader
 
 
@@ -68,7 +68,7 @@ type
 
 constructor TLngPackReader.Create;
 var
-  Unicode:  BOOLEAN;
+  Unicode:  boolean;
 
 begin
   Self.fConnected :=  FALSE;
@@ -82,7 +82,7 @@ end; // .constructor TLngPackReader.Create
 
 destructor TLngPackReader.Destroy;
 var
-  Unicode:  BOOLEAN;
+  Unicode:  boolean;
 
 begin
   for Unicode:=FALSE to TRUE do begin
@@ -90,9 +90,9 @@ begin
   end; // .for
 end; // .destructor TLngPackReader.Destroy
 
-procedure TLngPackReader.Connect (LngPack: PLngPack; StructMemoryBlockSize: INTEGER);
+procedure TLngPackReader.Connect (LngPack: PLngPack; StructMemoryBlockSize: integer);
 var
-  Unicode:  BOOLEAN;
+  Unicode:  boolean;
 
 begin
   {!} Assert((LngPack <> nil) or (StructMemoryBlockSize = 0));
@@ -113,20 +113,20 @@ begin
   Self.fConnected :=  FALSE;
 end; // .procedure TLngPackReader.Disconnect
 
-function TLngPackReader.Validate (out Error: string): BOOLEAN;
+function TLngPackReader.Validate (out Error: string): boolean;
 var
-        NumLngUnits:    INTEGER;
-        Unicode:        BOOLEAN;
+        NumLngUnits:    integer;
+        Unicode:        boolean;
 (* O *) UnitNames:      array [TUnicodeFlag] of Classes.TStringList;
-        RealStructSize: INTEGER;
+        RealStructSize: integer;
 (* U *) LngUnit:        CLngUnit.PLngUnit;
 (* O *) LngUnitReader:  CLngUnit.TLngUnitReader;
-        i:              INTEGER;
+        i:              integer;
 
-  function ValidateNumLngUnitsFields: BOOLEAN;
+  function ValidateNumLngUnitsFields: boolean;
   begin
     NumLngUnits :=  Self.NumLngUnits;
-    result  :=  (NumLngUnits >= 0) and ((NumLngUnits * SIZEOF(TLngUnit) + SIZEOF(TLngPack)) <= Self.StructMemoryBlockSize);
+    result  :=  (NumLngUnits >= 0) and ((NumLngUnits * sizeof(TLngUnit) + sizeof(TLngPack)) <= Self.StructMemoryBlockSize);
     if not result then begin
       Error :=  'Invalid NumLngUnits field: ' + SysUtils.IntToStr(NumLngUnits);
     end; // .if
@@ -140,7 +140,7 @@ begin
   UnitNames[TRUE]       :=  Classes.TStringList.Create;
   LngUnit               :=  nil;
   LngUnitReader         :=  CLngUnit.TLngUnitReader.Create;
-  result                :=  CLang.ValidateLngStructHeader(@Self.LngPack.Header, Self.StructMemoryBlockSize, SIZEOF(TLngPack), LngPack_SIGNATURE, Error);
+  result                :=  CLang.ValidateLngStructHeader(@Self.LngPack.Header, Self.StructMemoryBlockSize, sizeof(TLngPack), LngPack_SIGNATURE, Error);
   // * * * * * //
   for Unicode:=FALSE to TRUE do begin
     UnitNames[Unicode].CaseSensitive  :=  TRUE;
@@ -149,7 +149,7 @@ begin
   end; // .for
   result  :=  result and ValidateNumLngUnitsFields;
   if result then begin
-    RealStructSize  :=  SIZEOF(TLngPack);
+    RealStructSize  :=  sizeof(TLngPack);
     if NumLngUnits > 0 then begin
       i       :=  0;
       LngUnit :=  @Self.LngPack.LngUnits;
@@ -161,15 +161,15 @@ begin
             UnitNames[LngUnitReader.Unicode].Add(LngUnitReader.UnitName);
           except
             Error   :=  'Duplicate (UnitName && Unicode) combination in child structure: ' + LngUnitReader.UnitName +
-                        '.'#13#10'Unicode: ' + SysUtils.IntToStr(BYTE(LngUnitReader.Unicode));
+                        '.'#13#10'Unicode: ' + SysUtils.IntToStr(byte(LngUnitReader.Unicode));
             result  :=  FALSE;
           end; // .try
         end; // .if
         if result then begin
           RealStructSize  :=  RealStructSize + LngUnitReader.StructSize;
-          INC(INTEGER(LngUnit), LngUnitReader.StructSize);
+          Inc(integer(LngUnit), LngUnitReader.StructSize);
         end; // .if
-        INC(i);
+        Inc(i);
       end; // .while
     end; // .if
   end; // .if
@@ -181,13 +181,13 @@ begin
   SysUtils.FreeAndNil(LngUnitReader);
 end; // .function TLngPackReader.Validate
 
-function TLngPackReader.GetStructSize: INTEGER;
+function TLngPackReader.GetStructSize: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngPack.Header.StructSize;
 end; // .function TLngPackReader.GetStructSize
 
-function TLngPackReader.GetNumLngUnits: INTEGER;
+function TLngPackReader.GetNumLngUnits: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngPack.ExtHeader.NumLngUnits;
@@ -195,7 +195,7 @@ end; // .function TLngPackReader.GetNumLngUnits
 
 procedure TLngPackReader.CreateSearchIndex;
 var
-          SavedLngUnitInd:  INTEGER;
+          SavedLngUnitInd:  integer;
 (* on *)  LngUnitReader:    CLngUnit.TLngUnitReader;
   
 begin
@@ -214,7 +214,7 @@ begin
   SysUtils.FreeAndNil(LngUnitReader);
 end; // .procedure TLngPackReader.CreateSearchIndex
 
-function TLngPackReader.SeekLngUnit (SeekLngUnitInd: INTEGER): BOOLEAN;
+function TLngPackReader.SeekLngUnit (SeekLngUnitInd: integer): boolean;
 var
 (* on *)  LngUnitReader: CLngUnit.TLngUnitReader;
 
@@ -236,7 +236,7 @@ begin
   SysUtils.FreeAndNil(LngUnitReader);
 end; // .function TLngPackReader.SeekLngUnit
 
-function TLngPackReader.ReadLngUnit ((* n *) var LngUnitReader: CLngUnit.TLngUnitReader): BOOLEAN;
+function TLngPackReader.ReadLngUnit ((* n *) var LngUnitReader: CLngUnit.TLngUnitReader): boolean;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.fCurrLngUnitInd < Self.NumLngUnits;
@@ -247,15 +247,15 @@ begin
     if Self.fCurrLngUnitInd = 0 then begin
       Self.fCurrLngUnit :=  @Self.LngPack.LngUnits;
     end; // .if
-    LngUnitReader.Connect(Self.fCurrLngUnit, Self.StructMemoryBlockSize - (INTEGER(Self.fCurrLngUnit) - INTEGER(Self.LngPack)));
-    INC(INTEGER(Self.fCurrLngUnit), LngUnitReader.StructSize);
-    INC(Self.fCurrLngUnitInd);
+    LngUnitReader.Connect(Self.fCurrLngUnit, Self.StructMemoryBlockSize - (integer(Self.fCurrLngUnit) - integer(Self.LngPack)));
+    Inc(integer(Self.fCurrLngUnit), LngUnitReader.StructSize);
+    Inc(Self.fCurrLngUnitInd);
   end; // .if
 end; // .function TLngPackReader.ReadLngUnit 
 
-function TLngPackReader.FindLngUnit (const UnitName: string; Unicode: BOOLEAN; out LngUnitReader: CLngUnit.TLngUnitReader): BOOLEAN;
+function TLngPackReader.FindLngUnit (const UnitName: string; Unicode: boolean; out LngUnitReader: CLngUnit.TLngUnitReader): boolean;
 var
-          LngUnitInd: INTEGER;
+          LngUnitInd: integer;
 (* Un *)  LngUnit:    CLngUnit.PLngUnit;
 
 begin
@@ -270,7 +270,7 @@ begin
   if result then begin
     LngUnit       :=  POINTER(Self.fSearchIndex[Unicode].Objects[LngUnitInd]);
     LngUnitReader :=  CLngUnit.TLngUnitReader.Create;
-    LngUnitReader.Connect(LngUnit, Self.StructMemoryBlockSize - (INTEGER(LngUnit) - INTEGER(Self.LngPack)));
+    LngUnitReader.Connect(LngUnit, Self.StructMemoryBlockSize - (integer(LngUnit) - integer(Self.LngPack)));
   end; // .if
 end; // .function TLngPackReader.FindLngUnit
 

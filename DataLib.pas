@@ -24,62 +24,62 @@ type
   THashedList = class abstract
     protected
       function  GetItem (const Key: string): {Un} TObject; virtual; abstract;
-      function  GetKey (Ind: INTEGER): string; virtual; abstract;
-      function  GetValue (Ind: INTEGER): {Un} TObject; virtual; abstract;
-      procedure SetValue (Ind: INTEGER; {OUn} NewValue: TObject); virtual; abstract;
-      function  GetCount: INTEGER; virtual; abstract;
+      function  GetKey (Ind: integer): string; virtual; abstract;
+      function  GetValue (Ind: integer): {Un} TObject; virtual; abstract;
+      procedure SetValue (Ind: integer; {OUn} NewValue: TObject); virtual; abstract;
+      function  GetCount: integer; virtual; abstract;
       
     public
-      function  LinearFind (const Key: string; out Ind: INTEGER): BOOLEAN; virtual; abstract;
+      function  LinearFind (const Key: string; out Ind: integer): boolean; virtual; abstract;
       procedure InsertBefore
       (
               const Key:        string;
         {OUn}       Value:      TObject;
-                    BeforeInd:  INTEGER
+                    BeforeInd:  integer
       ); virtual; abstract;
 
-      function  Take (Ind: INTEGER): {OUn} TObject; virtual; abstract;
-      procedure Delete (Ind: INTEGER); virtual; abstract;
+      function  Take (Ind: integer): {OUn} TObject; virtual; abstract;
+      procedure Delete (Ind: integer); virtual; abstract;
       procedure Clear; virtual; abstract;
       procedure  Add (const Key: string; {OUn} Value: TObject);
 
-      property Count: INTEGER READ GetCount;
+      property Count: integer read GetCount;
       
-      property Items  [const Key: string]:  {n} TObject READ GetItem; default;
-      property Keys   [Ind: INTEGER]:       string READ GetKey;
-      property Values [Ind: INTEGER]:       {n} TObject READ GetValue WRITE SetValue;
+      property Items  [const Key: string]:  {n} TObject read GetItem; default;
+      property Keys   [Ind: integer]:       string read GetKey;
+      property Values [Ind: integer]:       {n} TObject read GetValue write SetValue;
   end; // .class THashedList
   
   IDictIterator = interface
     procedure BeginIterate ({U} Dict: TDict);
-    function  IterNext: BOOLEAN;
+    function  IterNext: boolean;
     procedure EndIterate;
     function  GetIterKey: string;
     function  GetIterValue: {Un} TObject;
     
-    property IterKey:   string READ GetIterKey;
-    property IterValue: {n} TObject READ GetIterValue;
+    property IterKey:   string read GetIterKey;
+    property IterValue: {n} TObject read GetIterValue;
   end; // .interface IDictIterator
   
   IObjDictIterator = interface
     procedure BeginIterate (aDict: TObjDict);
-    function  IterNext: BOOLEAN;
+    function  IterNext: boolean;
     procedure EndIterate;
     function  GetIterKey: {n} POINTER;
     function  GetIterValue: {n} TObject;
     
-    property IterKey:   POINTER READ GetIterKey;
-    property IterValue: {n} TObject READ GetIterValue;
+    property IterKey:   POINTER read GetIterKey;
+    property IterValue: {n} TObject read GetIterValue;
   end; // .interface IObjDictIterator
 
 
-function  NewDict (OwnsItems, CaseInsensitive: BOOLEAN): {O} TDict;
-function  NewObjDict (OwnsItems: BOOLEAN): {O} TObjDict;
-function  NewList (OwnsItems: BOOLEAN): {O} TList;
-function  NewStrList (OwnsItems: BOOLEAN; CaseInsensitive: BOOLEAN): {O} TStrList;
+function  NewDict (OwnsItems, CaseInsensitive: boolean): {O} TDict;
+function  NewObjDict (OwnsItems: boolean): {O} TObjDict;
+function  NewList (OwnsItems: boolean): {O} TList;
+function  NewStrList (OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 function  NewStrListFromStrArr (StrArr: Utils.TArrayOfString;
-                                OwnsItems: BOOLEAN; CaseInsensitive: BOOLEAN): {O} TStrList;
-function  NewHashedList (OwnsItems, CaseInsensitive: BOOLEAN): {O} THashedList;
+                                OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
+function  NewHashedList (OwnsItems, CaseInsensitive: boolean): {O} THashedList;
 function  IterateDict ({U} Dict: TDict): IDictIterator;
 function  IterateObjDict (aObjDict: TObjDict): IObjDictIterator;
 procedure JoinLists (MainList, DependentList: TList);
@@ -95,25 +95,25 @@ type
       {O} fItems:     {U}  TDict;
 
       function  GetItem (const Key: string): {Un} TObject; override;
-      function  GetKey (Ind: INTEGER): string; override;
-      function  GetValue (Ind: INTEGER): {Un} TObject; override;
-      procedure SetValue (Ind: INTEGER; {OUn} NewValue: TObject); override;
-      function  GetCount: INTEGER; override;
+      function  GetKey (Ind: integer): string; override;
+      function  GetValue (Ind: integer): {Un} TObject; override;
+      procedure SetValue (Ind: integer; {OUn} NewValue: TObject); override;
+      function  GetCount: integer; override;
 
     public
-      constructor Create (OwnsItems, CaseInsensitive: BOOLEAN);
+      constructor Create (OwnsItems, CaseInsensitive: boolean);
       destructor  Destroy; override;
 
-      function  LinearFind (const Key: string; out Ind: INTEGER): BOOLEAN; override;
+      function  LinearFind (const Key: string; out Ind: integer): boolean; override;
       procedure InsertBefore
       (
               const Key:        string;
         {OUn}       Value:      TObject;
-                    BeforeInd:  INTEGER
+                    BeforeInd:  integer
       ); override;
 
-      function  Take (Ind: INTEGER): {OUn} TObject; override;
-      procedure Delete (Ind: INTEGER); override;
+      function  Take (Ind: integer): {OUn} TObject; override;
+      procedure Delete (Ind: integer); override;
       procedure Clear; override;
   end; // .class TStdHashedList
   
@@ -122,11 +122,11 @@ type
       {U}   fDict:      TDict;
       {Un}  fIterValue: TObject;
             fIterKey:   string;
-            fIterating: BOOLEAN;
+            fIterating: boolean;
             
     public
       procedure BeginIterate ({U} Dict: TDict);
-      function  IterNext: BOOLEAN;
+      function  IterNext: boolean;
       procedure EndIterate;
       function  GetIterKey: string;
       function  GetIterValue: {Un} TObject;
@@ -137,18 +137,18 @@ type
       {U}   fObjDict:   TObjDict;
       {Un}  fIterValue: TObject;
       {Un}  fIterKey:   POINTER;
-            fIterating: BOOLEAN;
+            fIterating: boolean;
             
     public
       procedure BeginIterate ({U} aObjDict: TObjDict);
-      function  IterNext: BOOLEAN;
+      function  IterNext: boolean;
       procedure EndIterate;
       function  GetIterKey: {n} POINTER;
       function  GetIterValue: {n} TObject;
   end; // .class TObjDictIterator
 
 
-function NewDict (OwnsItems, CaseInsensitive: BOOLEAN): {O} TDict;
+function NewDict (OwnsItems, CaseInsensitive: boolean): {O} TDict;
 var
   KeyPreprocessFunc:  AssocArrays.TKeyPreprocessFunc;
 
@@ -171,7 +171,7 @@ begin
   );
 end; // .function NewDict
 
-function NewObjDict (OwnsItems: BOOLEAN): {O} TObjDict;
+function NewObjDict (OwnsItems: boolean): {O} TObjDict;
 begin
   result  :=  AssocArrays.NewObjArr
   (
@@ -182,7 +182,7 @@ begin
   );
 end; // .function NewObjDict
 
-function NewList (OwnsItems: BOOLEAN): {O} TList;
+function NewList (OwnsItems: boolean): {O} TList;
 begin
   result  :=  Lists.NewList
   (
@@ -193,7 +193,7 @@ begin
   );
 end; // .function NewList
 
-function NewStrList (OwnsItems: BOOLEAN; CaseInsensitive: BOOLEAN): {O} TStrList;
+function NewStrList (OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 begin
   result := Lists.NewStrList
   (
@@ -207,9 +207,9 @@ begin
 end; // .function NewStrList
 
 function NewStrListFromStrArr (StrArr: Utils.TArrayOfString;
-                               OwnsItems: BOOLEAN; CaseInsensitive: BOOLEAN): {O} TStrList;
+                               OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 var
-  i: INTEGER;
+  i: integer;
 
 begin
   result := NewStrList(OwnsItems, CaseInsensitive);
@@ -219,7 +219,7 @@ begin
   end; // .for
 end; // .function NewStrListFromStrArr
 
-function NewHashedList (OwnsItems, CaseInsensitive: BOOLEAN): {O} THashedList;
+function NewHashedList (OwnsItems, CaseInsensitive: boolean): {O} THashedList;
 begin
   result  :=  TStdHashedList.Create(OwnsItems, CaseInsensitive);
 end; // .function NewHashedList
@@ -229,7 +229,7 @@ begin
   Self.InsertBefore(Key, Value, Self.Count);
 end; // .procedure THashedList.Add
 
-constructor TStdHashedList.Create (OwnsItems, CaseInsensitive: BOOLEAN);
+constructor TStdHashedList.Create (OwnsItems, CaseInsensitive: boolean);
 begin
   Self.fItemList  :=  NewStrList(OwnsItems, CaseInsensitive);
   Self.fItems     :=  NewDict(not Utils.OWNS_ITEMS, CaseInsensitive);
@@ -246,28 +246,28 @@ begin
   result  :=  Self.fItems[Key];
 end; // .function TStdHashedList.GetItem
 
-function TStdHashedList.GetKey (Ind: INTEGER): string;
+function TStdHashedList.GetKey (Ind: integer): string;
 begin
   result  :=  Self.fItemList.Keys[Ind];
 end; // .function TStdHashedList.GetKey
 
-function TStdHashedList.GetValue (Ind: INTEGER): {Un} TObject;
+function TStdHashedList.GetValue (Ind: integer): {Un} TObject;
 begin
   result  :=  Self.fItemList.Values[Ind];
 end; // .function TStdHashedList.GetValue
 
-procedure TStdHashedList.SetValue (Ind: INTEGER; {OUn} NewValue: TObject);
+procedure TStdHashedList.SetValue (Ind: integer; {OUn} NewValue: TObject);
 begin
   Self.fItemList.Values[Ind]        :=  NewValue;
   Self.fItems[Self.fItemList[Ind]]  :=  NewValue;
 end; // .procedure TStdHashedList.SetValue
 
-function TStdHashedList.GetCount: INTEGER;
+function TStdHashedList.GetCount: integer;
 begin
   result  :=  Self.fItemList.Count;
 end; // .function TStdHashedList.GetCount
 
-function TStdHashedList.LinearFind (const Key: string; out Ind: INTEGER): BOOLEAN;
+function TStdHashedList.LinearFind (const Key: string; out Ind: integer): boolean;
 begin
   result  :=  Self.fItemList.Find(Key, Ind);
 end; // .function TStdHashedList.LinearFind 
@@ -276,7 +276,7 @@ procedure TStdHashedList.InsertBefore
 (
         const Key:        string;
   {OUn}       Value:      TObject;
-              BeforeInd:  INTEGER
+              BeforeInd:  integer
 );
 
 var
@@ -290,13 +290,13 @@ begin
   Self.fItems[Key]  :=  Value;
 end; // .procedure TStdHashedList.InsertBefore
 
-procedure TStdHashedList.Delete (Ind: INTEGER);  
+procedure TStdHashedList.Delete (Ind: integer);  
 begin
   Self.fItems.DeleteItem(Self.fItemList[Ind]);
   Self.fItemList.Delete(Ind);
 end; // .procedure TStdHashedList.Delete
 
-function TStdHashedList.Take (Ind: INTEGER): {OUn} TObject;
+function TStdHashedList.Take (Ind: integer): {OUn} TObject;
 begin
   result  :=  nil;
   Self.fItems.TakeValue(Self.fItemList[Ind], POINTER(result));
@@ -318,7 +318,7 @@ begin
   Dict.BeginIterate;
 end; // .procedure TDictIterator.BeginIterate
 
-function TDictIterator.IterNext: BOOLEAN;
+function TDictIterator.IterNext: boolean;
 begin
   {!} Assert(Self.fIterating);
   Self.fIterValue :=  nil;
@@ -371,7 +371,7 @@ begin
   aObjDict.BeginIterate;
 end; // .procedure TObjDictIterator.BeginIterate
 
-function TObjDictIterator.IterNext: BOOLEAN;
+function TObjDictIterator.IterNext: boolean;
 begin
   {!} Assert(Self.fIterating);
   Self.fIterKey   := nil;
@@ -418,7 +418,7 @@ end; // .function IterateObjDict
 
 procedure JoinLists (MainList, DependentList: TList);
 var
-  i: INTEGER;
+  i: integer;
    
 begin
   {!} Assert(MainList <> nil);

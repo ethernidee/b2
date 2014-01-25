@@ -21,49 +21,49 @@ const
 
 
 type
-  INT = INTEGER;
+  int = integer;
 
   (* Item pointers *)
-  POBJECT   = ^TObject;
-  PCLASS    = ^TClass;
-  PCharByte = ^CHAR;
-  PLONGBOOL = ^LONGBOOL;
+  pobject   = ^TObject;
+  pclass    = ^TClass;
+  PCharByte = ^char;
+  plongbool = ^LONGBOOL;
   
   (* array pointers *)
-  TEndlessByteArr       = array [0..MAXLONGINT div SIZEOF(BYTE) - 1] of BYTE;
+  TEndlessByteArr       = array [0..MAXLONGINT div sizeof(byte) - 1] of byte;
   PEndlessByteArr       = ^TEndlessByteArr;
-  TEndlessIntArr        = array [0..MAXLONGINT div SIZEOF(INTEGER) - 1] of INTEGER;
+  TEndlessIntArr        = array [0..MAXLONGINT div sizeof(integer) - 1] of integer;
   PEndlessIntArr        = ^TEndlessIntArr;
-  TEndlessBoolArr       = array [0..MAXLONGINT div SIZEOF(BOOLEAN) - 1] of BOOLEAN;
+  TEndlessBoolArr       = array [0..MAXLONGINT div sizeof(boolean) - 1] of boolean;
   PEndlessBoolArr       = ^TEndlessBoolArr;
-  TEndlessCharArr       = array [0..MAXLONGINT div SIZEOF(CHAR) - 1] of CHAR;
+  TEndlessCharArr       = array [0..MAXLONGINT div sizeof(char) - 1] of char;
   PEndlessCharArr       = ^TEndlessCharArr;
-  TEndlessWideCharArr   = array [0..MAXLONGINT div SIZEOF(WideChar) - 1] of WideChar;
+  TEndlessWideCharArr   = array [0..MAXLONGINT div sizeof(WideChar) - 1] of WideChar;
   PEndlessWideCharArr   = ^TEndlessWideCharArr;
-  TEndlessSingleArr     = array [0..MAXLONGINT div SIZEOF(SINGLE) - 1] of SINGLE;
+  TEndlessSingleArr     = array [0..MAXLONGINT div sizeof(single) - 1] of single;
   PEndlessSingleArr     = ^TEndlessSingleArr;
-  TEndlessExtArr        = array [0..MAXLONGINT div SIZEOF(EXTENDED) - 1] of EXTENDED;
+  TEndlessExtArr        = array [0..MAXLONGINT div sizeof(extended) - 1] of extended;
   PEndlessExtArr        = ^TEndlessExtArr;
-  TEndlessShortStrArr   = array [0..MAXLONGINT div SIZEOF(ShortString) - 1] of ShortString;
+  TEndlessShortStrArr   = array [0..MAXLONGINT div sizeof(ShortString) - 1] of ShortString;
   PEndlessShortStrArr   = ^TEndlessShortStrArr;
-  TEndlessPtrArr        = array [0..MAXLONGINT div SIZEOF(POINTER) - 1] of POINTER;
+  TEndlessPtrArr        = array [0..MAXLONGINT div sizeof(POINTER) - 1] of POINTER;
   PEndlessPtrArr        = ^TEndlessPtrArr;
-  TEndlessPCharArr      = array [0..MAXLONGINT div SIZEOF(PCHAR) - 1] of PCHAR;
+  TEndlessPCharArr      = array [0..MAXLONGINT div sizeof(pchar) - 1] of pchar;
   PEndlessPCharArr      = ^TEndlessPCharArr;
-  TEndlessPWideCharArr  = array [0..MAXLONGINT div SIZEOF(PWideChar) - 1] of PWideChar;
+  TEndlessPWideCharArr  = array [0..MAXLONGINT div sizeof(PWideChar) - 1] of PWideChar;
   PEndlessPWideCharArr  = ^TEndlessPWideCharArr;
-  TEndlessObjArr        = array [0..MAXLONGINT div SIZEOF(TObject) - 1] of TObject;
+  TEndlessObjArr        = array [0..MAXLONGINT div sizeof(TObject) - 1] of TObject;
   PEndlessObjArr        = ^TEndlessObjArr;
-  TEndlessCurrArr       = array [0..MAXLONGINT div SIZEOF(CURRENCY) - 1] of CURRENCY;
+  TEndlessCurrArr       = array [0..MAXLONGINT div sizeof(currency) - 1] of currency;
   PEndlessCurrArr       = ^TEndlessCurrArr;
-  TEndlessAnsiStrArr    = array [0..MAXLONGINT div SIZEOF(AnsiString) - 1] of AnsiString;
+  TEndlessAnsiStrArr    = array [0..MAXLONGINT div sizeof(AnsiString) - 1] of AnsiString;
   PEndlessAnsiStrArr    = ^TEndlessAnsiStrArr;
 
-  TArrayOfByte    = array of BYTE;
-  TArrayOfInteger = array of INTEGER;
+  TArrayOfByte    = array of byte;
+  TArrayOfInteger = array of integer;
   TArrayOfString  = array of string;
   
-  TCharSet  = set of CHAR;
+  TCharSet  = set of char;
   
   TEmptyRec = packed record end;
   
@@ -77,11 +77,11 @@ type
   
   (* Containers items guards *)
   TItemGuard      = TCloneable;
-  TItemGuardProc  = function ({n} Item: POINTER; ItemIsObject: BOOLEAN; {n} Guard: TCloneable): BOOLEAN;
+  TItemGuardProc  = function ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
   
   TDefItemGuard = class (TCloneable)
     ItemType: TClass;
-    AllowNIL: BOOLEAN;
+    AllowNIL: boolean;
     
     procedure Assign (Source: TCloneable); override;
   end; // .class TDefItemGuard
@@ -90,46 +90,46 @@ type
 
 
 (* Low level functions *)
-function  PtrOfs ({n} BasePtr: POINTER; Offset: INTEGER): POINTER; inline;
-function  IsValidBuf ({n} Buf: POINTER; BufSize: INTEGER): BOOLEAN;
-procedure CopyMem (Count: INTEGER; {n} Source, Destination: POINTER);
-procedure Exchange (var A, B: INTEGER);
-procedure SetPcharValue (What: PCHAR; const Value: string; BufSize: INTEGER);
+function  PtrOfs ({n} BasePtr: POINTER; Offset: integer): POINTER; inline;
+function  IsValidBuf ({n} Buf: POINTER; BufSize: integer): boolean;
+procedure CopyMem (Count: integer; {n} Source, Destination: POINTER);
+procedure Exchange (var A, B: integer);
+procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer);
 
 (* Extra system functions *)
-function  EVEN (Num: INTEGER): BOOLEAN;
+function  EVEN (Num: integer): boolean;
 
 (* Item guards *)
-function  NoItemGuardProc ({n} Item: POINTER; ItemIsObject: BOOLEAN; {n} Guard: TCloneable): BOOLEAN;
-function  DefItemGuardProc ({n} Item: POINTER; ItemIsObject: BOOLEAN; {n} Guard: TCloneable): BOOLEAN;
+function  NoItemGuardProc ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
+function  DefItemGuardProc ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 
-function  EqualMethods (A, B: TMethod): BOOLEAN;
+function  EqualMethods (A, B: TMethod): boolean;
 
 
 (***)  implementation  (***)
 
 
-function PtrOfs ({n} BasePtr: POINTER; Offset: INTEGER): POINTER;
+function PtrOfs ({n} BasePtr: POINTER; Offset: integer): POINTER;
 begin
-  result := POINTER(INTEGER(BasePtr) + Offset);
+  result := POINTER(integer(BasePtr) + Offset);
 end; // .function PtrOfs
 
-function IsValidBuf ({n} Buf: POINTER; BufSize: INTEGER): BOOLEAN;
+function IsValidBuf ({n} Buf: POINTER; BufSize: integer): boolean;
 begin
   {Buf <> NIL and BufSize = 0 is OK. Buf = NIL and BufSize > 0 is BAD. !BufSize >= 0}
   result := (BufSize >= 0) and ((Buf <> nil) or (BufSize = 0));
 end; // .function IsValidBuf
 
-procedure CopyMem (Count: INTEGER; {n} Source, Destination: POINTER);
+procedure CopyMem (Count: integer; {n} Source, Destination: POINTER);
 begin
   {!} Assert(Count >= 0);
   {!} Assert((Count = 0) or ((Source <> nil) and (Destination <> nil)));
   System.MOVE(Source^, Destination^, Count);
 end; // .procedure CopyMem
 
-procedure Exchange (var A, B: INTEGER);
+procedure Exchange (var A, B: integer);
 var
-  C:  INTEGER;
+  C:  integer;
 
 begin
   C :=  A;
@@ -137,17 +137,17 @@ begin
   B :=  C;
 end; // .procedure Exchange
 
-procedure SetPcharValue (What: PCHAR; const Value: string; BufSize: INTEGER);
+procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer);
 var
-  NumBytesToCopy: INTEGER;
+  NumBytesToCopy: integer;
    
 begin
   {!} Assert(What <> nil);
   {!} Assert(BufSize > 0);
-  NumBytesToCopy := Math.Min(LENGTH(Value), BufSize - 1);
+  NumBytesToCopy := Math.Min(Length(Value), BufSize - 1);
   
   if NumBytesToCopy > 0 then begin
-    CopyMem(LENGTH(Value), PCHAR(Value), What);
+    CopyMem(Length(Value), pchar(Value), What);
   end; // .if
   
   PCharByte(PtrOfs(What, NumBytesToCopy))^ := #0;
@@ -175,17 +175,17 @@ begin
   Self.AllowNIL := SrcItemGuard.AllowNIL;
 end; // .procedure TDefItemGuard.Assign
 
-function EVEN (Num: INTEGER): BOOLEAN;
+function EVEN (Num: integer): boolean;
 begin
   result := not ODD(Num);
 end; // .function EVEN
 
-function NoItemGuardProc ({n} Item: POINTER; ItemIsObject: BOOLEAN; {n} Guard: TCloneable): BOOLEAN;
+function NoItemGuardProc ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 begin
   result := TRUE;
 end; // .function NoItemGuardProc
 
-function DefItemGuardProc ({n} Item: POINTER; ItemIsObject: BOOLEAN; {n} Guard: TCloneable): BOOLEAN;
+function DefItemGuardProc ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 var
 (* U *) MyGuard:  TDefItemGuard;
   
@@ -199,7 +199,7 @@ begin
   end; // .if
 end; // .function DefItemGuardProc
 
-function EqualMethods (A, B: TMethod): BOOLEAN;
+function EqualMethods (A, B: TMethod): boolean;
 begin
   result := (A.Code = B.Code) and (A.Data = B.Data);
 end; // .function EqualMethods

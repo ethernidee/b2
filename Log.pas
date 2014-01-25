@@ -28,31 +28,31 @@ type
   end; // .record TLogRec
   
   TLogger = class abstract
-    function  Write (const EventSource, Operation, Description: string): BOOLEAN; virtual; abstract;
-    function  Read (out LogRec: TLogRec): BOOLEAN; virtual; abstract;
-    function  IsLocked: BOOLEAN; virtual; abstract;
+    function  Write (const EventSource, Operation, Description: string): boolean; virtual; abstract;
+    function  Read (out LogRec: TLogRec): boolean; virtual; abstract;
+    function  IsLocked: boolean; virtual; abstract;
     procedure Lock; virtual; abstract;
     procedure Unlock; virtual; abstract;
-    function  GetPos (out Pos: INTEGER): BOOLEAN; virtual; abstract;
-    function  Seek (NewPos: INTEGER): BOOLEAN; virtual; abstract;
-    function  GetCount (out Count: INTEGER): BOOLEAN; virtual; abstract;
+    function  GetPos (out Pos: integer): boolean; virtual; abstract;
+    function  Seek (NewPos: integer): boolean; virtual; abstract;
+    function  GetCount (out Count: integer): boolean; virtual; abstract;
   end; // .class TLogger
 
   TMemLogger = class (TLogger)
     (***) protected (***)
       (* O *) fListOfRecords: Classes.TList;
-              fPos:           INTEGER;
-              fLocked:        BOOLEAN;
+              fPos:           integer;
+              fLocked:        boolean;
     
     (***) public (***)
-      function  Write (const EventSource, Operation, Description: string): BOOLEAN; override;
-      function  Read (out LogRec: TLogRec): BOOLEAN; override;    
-      function  IsLocked: BOOLEAN; override;
+      function  Write (const EventSource, Operation, Description: string): boolean; override;
+      function  Read (out LogRec: TLogRec): boolean; override;    
+      function  IsLocked: boolean; override;
       procedure Lock; override;
       procedure Unlock; override;
-      function  GetPos (out Pos: INTEGER): BOOLEAN; override;
-      function  Seek (NewPos: INTEGER): BOOLEAN; override;
-      function  GetCount(out Count: INTEGER): BOOLEAN; override;
+      function  GetPos (out Pos: integer): boolean; override;
+      function  Seek (NewPos: integer): boolean; override;
+      function  GetCount(out Count: integer): boolean; override;
       
       constructor Create;
   end; // .class TMemLogger
@@ -60,19 +60,19 @@ type
   
 (*-----------------  unit WRAPPERS for TLOGGER METHODS  ----------------------*)
 
-function  Write (const EventSource, Operation, Description: string): BOOLEAN;
-function  Read (out LogRec: TLogRec): BOOLEAN;
-function  IsLocked: BOOLEAN;
+function  Write (const EventSource, Operation, Description: string): boolean;
+function  Read (out LogRec: TLogRec): boolean;
+function  IsLocked: boolean;
 procedure Lock;
 procedure Unlock;
-function  GetPos (out Pos: INTEGER): BOOLEAN;
-function  Seek (NewPos: INTEGER): BOOLEAN;
-function  GetCount(out Count: INTEGER): BOOLEAN;
+function  GetPos (out Pos: integer): boolean;
+function  Seek (NewPos: integer): boolean;
+function  GetCount(out Count: integer): boolean;
 
 (*----------------------------------------------------------------------------*)
 
 
-procedure InstallLogger (NewLogger: TLogger; FreeOldLogger: BOOLEAN);
+procedure InstallLogger (NewLogger: TLogger; FreeOldLogger: boolean);
 
 
 (***)  implementation  (***)
@@ -90,7 +90,7 @@ begin
   Self.fLocked        :=  FALSE;
 end; // .constructor TMemLogger.Create
   
-function TMemLogger.Write (const EventSource, Operation, Description: string): BOOLEAN;
+function TMemLogger.Write (const EventSource, Operation, Description: string): boolean;
 var
 (* U *) LogRec: PLogRec;
   
@@ -99,7 +99,7 @@ begin
   // * * * * * //
   result  :=  not Self.fLocked;
   if result then begin
-    NEW(LogRec);
+    New(LogRec);
     LogRec.TimeStamp    :=  SysUtils.Now;
     LogRec.EventSource  :=  EventSource;
     LogRec.Operation    :=  Operation;
@@ -108,16 +108,16 @@ begin
   end; // .if
 end; // .function TMemLogger.Write
 
-function TMemLogger.Read (out LogRec: TLogRec): BOOLEAN;
+function TMemLogger.Read (out LogRec: TLogRec): boolean;
 begin
   result  :=  Self.fPos < Self.fListOfRecords.Count;
   if result then begin
     LogRec  :=  PLogRec(Self.fListOfRecords[Self.fPos])^;
-    INC(Self.fPos);
+    Inc(Self.fPos);
   end; // .if
 end; // .function TMemLogger.Read
 
-function TMemLogger.IsLocked: BOOLEAN;
+function TMemLogger.IsLocked: boolean;
 begin
   result  :=  Self.fLocked;
 end; // .function TMemLogger.IsLocked
@@ -132,13 +132,13 @@ begin
   Self.fLocked  :=  FALSE;
 end; // .procedure TMemLogger.Unlock
 
-function TMemLogger.GetPos (out Pos: INTEGER): BOOLEAN;
+function TMemLogger.GetPos (out Pos: integer): boolean;
 begin
   result  :=  TRUE;
   Pos     :=  Self.fPos;
 end; // .function TMemLogger.GetPos
 
-function TMemLogger.Seek (NewPos: INTEGER): BOOLEAN;
+function TMemLogger.Seek (NewPos: integer): boolean;
 begin
   {!} Assert(NewPos >= 0);
   result  :=  NewPos < Self.fListOfRecords.Count;
@@ -147,27 +147,27 @@ begin
   end; // .if
 end; // .function TMemLogger.Seek
 
-function TMemLogger.GetCount (out Count: INTEGER): BOOLEAN;
+function TMemLogger.GetCount (out Count: integer): boolean;
 begin
   result  :=  TRUE;
   Count   :=  Self.fListOfRecords.Count;
 end; // .function TMemLogger.GetCount
 
-function Write (const EventSource, Operation, Description: string): BOOLEAN;
+function Write (const EventSource, Operation, Description: string): boolean;
 begin
   {!} Windows.EnterCriticalSection(LogMutex);
   result := Logger.Write(EventSource, Operation, Description);
   {!} Windows.LeaveCriticalSection(LogMutex);
 end; // .function Write
 
-function Read (out LogRec: TLogRec): BOOLEAN;
+function Read (out LogRec: TLogRec): boolean;
 begin
   {!} Windows.EnterCriticalSection(LogMutex);
   result := Logger.Read(LogRec);
   {!} Windows.LeaveCriticalSection(LogMutex);
 end; // .function Read
 
-function IsLocked: BOOLEAN;
+function IsLocked: boolean;
 begin
   {!} Windows.EnterCriticalSection(LogMutex);
   result := Logger.IsLocked;
@@ -188,28 +188,28 @@ begin
   {!} Windows.LeaveCriticalSection(LogMutex);
 end; // .procedure Unlock
 
-function GetPos (out Pos: INTEGER): BOOLEAN;
+function GetPos (out Pos: integer): boolean;
 begin
   {!} Windows.EnterCriticalSection(LogMutex);
   result := Logger.GetPos(Pos);
   {!} Windows.LeaveCriticalSection(LogMutex);
 end; // .function GetPos
 
-function Seek ({!} NewPos: INTEGER): BOOLEAN;
+function Seek ({!} NewPos: integer): boolean;
 begin
   {!} Windows.EnterCriticalSection(LogMutex);
   result := Logger.Seek(NewPos);
   {!} Windows.LeaveCriticalSection(LogMutex);
 end; // .function Seek
 
-function GetCount (out Count: INTEGER): BOOLEAN;
+function GetCount (out Count: integer): boolean;
 begin
   {!} Windows.EnterCriticalSection(LogMutex);
   result := Logger.GetCount(Count);
   {!} Windows.LeaveCriticalSection(LogMutex);
 end; // .function GetCount
 
-procedure InstallLogger (NewLogger: TLogger; FreeOldLogger: BOOLEAN);
+procedure InstallLogger (NewLogger: TLogger; FreeOldLogger: boolean);
 begin
   {!} Assert(NewLogger <> nil);
   {!} Windows.EnterCriticalSection(LogMutex);

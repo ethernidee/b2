@@ -14,12 +14,12 @@ const
 type
   TLangName = packed record
     Name:     array [0..CLang.LANGNAME_LEN - 1] of AnsiChar;
-    _Align4:  array [1..(4 - CLang.LANGNAME_LEN mod 4)] of BYTE;
+    _Align4:  array [1..(4 - CLang.LANGNAME_LEN mod 4)] of byte;
   end; // .record TLangName
 
   PLngStrArrExtHeader = ^TLngStrArrExtHeader;
   TLngStrArrExtHeader = packed record
-    NumBinStrings:  INTEGER;
+    NumBinStrings:  integer;
     LangName:       TLangName;  // !Assert LangName is unique in parent structure
     Unicode:        LONGBOOL;   // !Assert Unicode = Parent.Unicode
   end; // .record TLngStrArrExtHeader
@@ -36,33 +36,33 @@ type
       
   TLngStrArrReader = class
     (***) protected (***)
-                fConnected:             BOOLEAN;
+                fConnected:             boolean;
       (* Un *)  fLngStrArr:             PLngStrArr;
-                fStructMemoryBlockSize: INTEGER;
-                fCurrBinStringInd:      INTEGER;
+                fStructMemoryBlockSize: integer;
+                fCurrBinStringInd:      integer;
       (* Un *)  fCurrBinString:         CBinString.PBinString;
 
-      function  GetUnicode: BOOLEAN;
+      function  GetUnicode: boolean;
       function  GetLangName: string;
-      function  GetStructSize: INTEGER;
-      function  GetNumBinStrings: INTEGER;
+      function  GetStructSize: integer;
+      function  GetNumBinStrings: integer;
 
     (***) public (***)
-      procedure Connect (LngStrArr: PLngStrArr; StructMemoryBlockSize: INTEGER);
+      procedure Connect (LngStrArr: PLngStrArr; StructMemoryBlockSize: integer);
       procedure Disconnect;
-      function  Validate (out Error: string): BOOLEAN;
-      function  SeekBinString (SeekBinStringInd: INTEGER): BOOLEAN;
-      function  ReadBinString ((* n *) var BinStringReader: CBinString.TBinStringReader): BOOLEAN;
+      function  Validate (out Error: string): boolean;
+      function  SeekBinString (SeekBinStringInd: integer): boolean;
+      function  ReadBinString ((* n *) var BinStringReader: CBinString.TBinStringReader): boolean;
 
       constructor Create;
 
-      property  Connected:              BOOLEAN READ fConnected;
-      property  LngStrArr:              PLngStrArr READ fLngStrArr;
-      property  StructMemoryBlockSize:  INTEGER READ fStructMemoryBlockSize;
-      property  LangName:               string READ GetLangName;
-      property  StructSize:             INTEGER READ GetStructSize;
-      property  NumBinStrings:          INTEGER READ GetNumBinStrings;
-      property  Unicode:                BOOLEAN READ GetUnicode;
+      property  Connected:              boolean read fConnected;
+      property  LngStrArr:              PLngStrArr read fLngStrArr;
+      property  StructMemoryBlockSize:  integer read fStructMemoryBlockSize;
+      property  LangName:               string read GetLangName;
+      property  StructSize:             integer read GetStructSize;
+      property  NumBinStrings:          integer read GetNumBinStrings;
+      property  Unicode:                boolean read GetUnicode;
   end; // .class TLngStrArrReader
 
 
@@ -74,7 +74,7 @@ begin
   Self.fConnected :=  FALSE;
 end; // .constructor TLngStrArrReader.Create
 
-procedure TLngStrArrReader.Connect (LngStrArr: PLngStrArr; StructMemoryBlockSize: INTEGER);
+procedure TLngStrArrReader.Connect (LngStrArr: PLngStrArr; StructMemoryBlockSize: integer);
 begin
   {!} Assert((LngStrArr <> nil) or (StructMemoryBlockSize = 0));
   {!} Assert(StructMemoryBlockSize >= 0);
@@ -90,25 +90,25 @@ begin
   Self.fConnected :=  FALSE;
 end; // .procedure TLngStrArrReader.Disconnect
 
-function TLngStrArrReader.Validate (out Error: string): BOOLEAN;
+function TLngStrArrReader.Validate (out Error: string): boolean;
 var
-        NumBinStrings:    INTEGER;
-        Unicode:          BOOLEAN;
-        RealStructSize:   INTEGER;
+        NumBinStrings:    integer;
+        Unicode:          boolean;
+        RealStructSize:   integer;
 (* U *) BinString:        CBinString.PBinString;
 (* O *) BinStringReader:  CBinString.TBinStringReader;
-        i:                INTEGER;
+        i:                integer;
 
-  function ValidateNumBinStringsField: BOOLEAN;
+  function ValidateNumBinStringsField: boolean;
   begin
     NumBinStrings :=  Self.NumBinStrings;
-    result        :=  (NumBinStrings >= 0) and ((NumBinStrings * SIZEOF(TBinString) + SIZEOF(TLngStrArr)) <= Self.StructMemoryBlockSize);
+    result        :=  (NumBinStrings >= 0) and ((NumBinStrings * sizeof(TBinString) + sizeof(TLngStrArr)) <= Self.StructMemoryBlockSize);
     if not result then begin
       Error :=  'Invalid NumBinStrings field: ' + SysUtils.IntToStr(NumBinStrings);
     end; // .if
   end; // .function ValidateNumBinStringsField  
   
-  function ValidateLangNameField: BOOLEAN;
+  function ValidateLangNameField: boolean;
   var
     LangName: string;
 
@@ -126,14 +126,14 @@ begin
   RealStructSize  :=  -1;
   BinString       :=  nil;
   BinStringReader :=  CBinString.TBinStringReader.Create;
-  result          :=  CLang.ValidateLngStructHeader(@Self.LngStrArr.Header, Self.StructMemoryBlockSize, SIZEOF(TLngStrArr), LNGSTRARR_SIGNATURE, Error);
+  result          :=  CLang.ValidateLngStructHeader(@Self.LngStrArr.Header, Self.StructMemoryBlockSize, sizeof(TLngStrArr), LNGSTRARR_SIGNATURE, Error);
   // * * * * * //
   result  :=  result and
     ValidateNumBinStringsField and
     ValidateLangNameField;
   if result then begin
     Unicode         :=  Self.Unicode;
-    RealStructSize  :=  SIZEOF(TLngStrArr);
+    RealStructSize  :=  sizeof(TLngStrArr);
     if NumBinStrings > 0 then begin
       i         :=  0;
       BinString :=  @Self.LngStrArr.BinStrings;
@@ -142,9 +142,9 @@ begin
         result  :=  BinStringReader.Validate(Error);
         if result then begin
           RealStructSize  :=  RealStructSize + BinStringReader.StructSize;
-          INC(INTEGER(BinString), BinStringReader.StructSize);
+          Inc(integer(BinString), BinStringReader.StructSize);
         end; // .if
-        INC(i);
+        Inc(i);
       end; // .while
     end; // .if
   end; // .if
@@ -153,7 +153,7 @@ begin
   SysUtils.FreeAndNil(BinStringReader);
 end; // .function TLngStrArrReader.Validate
 
-function TLngStrArrReader.GetUnicode: BOOLEAN;
+function TLngStrArrReader.GetUnicode: boolean;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngStrArr.ExtHeader.Unicode;
@@ -165,19 +165,19 @@ begin
   result  :=  StrLib.BytesToAnsiString(@Self.LngStrArr.ExtHeader.LangName.Name[0], CLang.LANGNAME_LEN);
 end; // .function TLngStrArrReader.GetLangName
 
-function TLngStrArrReader.GetStructSize: INTEGER;
+function TLngStrArrReader.GetStructSize: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngStrArr.Header.StructSize;
 end; // .function TLngStrArrReader.GetStructSize
 
-function TLngStrArrReader.GetNumBinStrings: INTEGER;
+function TLngStrArrReader.GetNumBinStrings: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngStrArr.ExtHeader.NumBinStrings;
 end; // .function TLngStrArrReader.GetNumBinStrings
 
-function TLngStrArrReader.SeekBinString (SeekBinStringInd: INTEGER): BOOLEAN;
+function TLngStrArrReader.SeekBinString (SeekBinStringInd: integer): boolean;
 var
 (* on *)  BinStringReader: CBinString.TBinStringReader;
 
@@ -199,7 +199,7 @@ begin
   SysUtils.FreeAndNil(BinStringReader);
 end; // .function TLngStrArrReader.SeekBinString
 
-function TLngStrArrReader.ReadBinString ((* n *) var BinStringReader: CBinString.TBinStringReader): BOOLEAN;
+function TLngStrArrReader.ReadBinString ((* n *) var BinStringReader: CBinString.TBinStringReader): boolean;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.fCurrBinStringInd < Self.NumBinStrings;
@@ -210,9 +210,9 @@ begin
     if Self.fCurrBinStringInd = 0 then begin
       Self.fCurrBinString :=  @Self.LngStrArr.BinStrings;
     end; // .if
-    BinStringReader.Connect(Self.fCurrBinString, Self.StructMemoryBlockSize - (INTEGER(Self.fCurrBinString) - INTEGER(Self.LngStrArr)), Self.Unicode);
-    INC(INTEGER(Self.fCurrBinString), BinStringReader.StructSize);
-    INC(Self.fCurrBinStringInd);
+    BinStringReader.Connect(Self.fCurrBinString, Self.StructMemoryBlockSize - (integer(Self.fCurrBinString) - integer(Self.LngStrArr)), Self.Unicode);
+    Inc(integer(Self.fCurrBinString), BinStringReader.StructSize);
+    Inc(Self.fCurrBinStringInd);
   end; // .if
 end; // .function TLngStrArrReader.ReadBinString 
 

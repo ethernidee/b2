@@ -36,11 +36,11 @@ type
     
       var
         fMode:          TDeviceMode;
-        fHasKnownSize:  BOOLEAN;
-        fSizeIsConst:   BOOLEAN;
-        fSize:          INTEGER;
-        fPos:           INTEGER;
-        fEOF:           BOOLEAN;
+        fHasKnownSize:  boolean;
+        fSizeIsConst:   boolean;
+        fSize:          integer;
+        fPos:           integer;
+        fEOF:           boolean;
   
     (***) public (***)
       (* Core *)
@@ -48,55 +48,55 @@ type
       // Reads 1..Count bytes
       function  ReadUpTo
       (
-                Count:      INTEGER;
+                Count:      integer;
             {n} Buf:        POINTER;
-        out     BytesRead:  INTEGER
-      ): BOOLEAN; virtual; abstract;
+        out     BytesRead:  integer
+      ): boolean; virtual; abstract;
       
       // Writes 1..Count bytes
       function  WriteUpTo
       (
-                Count:        INTEGER;
+                Count:        integer;
             {n} Buf:          POINTER;
-        out     ByteWritten:  INTEGER
-      ): BOOLEAN; virtual; abstract;
+        out     ByteWritten:  integer
+      ): boolean; virtual; abstract;
 
-      function  Seek (NewPos: INTEGER): BOOLEAN; virtual; abstract;
+      function  Seek (NewPos: integer): boolean; virtual; abstract;
     
       (* Reading *)
-      function  Read (Count: INTEGER; {n} Buf: POINTER): BOOLEAN;
-      function  ReadByte (out Res: BYTE): BOOLEAN;
-      function  ReadInt (out Res: INTEGER): BOOLEAN;
-      function  ReadStr (Count: INTEGER; out Res: string): BOOLEAN;
-      function  ReadAllToBuf (out Buf: POINTER; out Size: INTEGER): BOOLEAN;
-      function  ReadAllToStr (out Str: string): BOOLEAN;
+      function  Read (Count: integer; {n} Buf: POINTER): boolean;
+      function  ReadByte (out Res: byte): boolean;
+      function  ReadInt (out Res: integer): boolean;
+      function  ReadStr (Count: integer; out Res: string): boolean;
+      function  ReadAllToBuf (out Buf: POINTER; out Size: integer): boolean;
+      function  ReadAllToStr (out Str: string): boolean;
 
       (* Writing *)
-      function  Write (Count: INTEGER; {n} Buf: POINTER): BOOLEAN;
-      function  WriteByte (Data: BYTE): BOOLEAN;
-      function  WriteWord (Data: WORD): BOOLEAN;
-      function  WriteInt (Data: INTEGER): BOOLEAN;
-      function  WriteStr (Data: string): BOOLEAN;
-      function  WriteFrom (Count: INTEGER; Source: TAbstractFile): BOOLEAN;
-      function  WriteAllFrom (Source: TAbstractFile): BOOLEAN;
+      function  Write (Count: integer; {n} Buf: POINTER): boolean;
+      function  WriteByte (Data: byte): boolean;
+      function  WriteWord (Data: word): boolean;
+      function  WriteInt (Data: integer): boolean;
+      function  WriteStr (Data: string): boolean;
+      function  WriteFrom (Count: integer; Source: TAbstractFile): boolean;
+      function  WriteAllFrom (Source: TAbstractFile): boolean;
 
-      property  Mode:         TDeviceMode READ fMode;
-      property  HasKnownSize: BOOLEAN READ fHasKnownSize;
-      property  SizeIsConst:  BOOLEAN READ fSizeIsConst;
-      property  Size:         INTEGER READ fSize;
-      property  Pos:          INTEGER READ fPos;
-      property  EOF:          BOOLEAN READ fEOF;
+      property  Mode:         TDeviceMode read fMode;
+      property  HasKnownSize: boolean read fHasKnownSize;
+      property  SizeIsConst:  boolean read fSizeIsConst;
+      property  Size:         integer read fSize;
+      property  Pos:          integer read fPos;
+      property  EOF:          boolean read fEOF;
   end; // .class TAbstractFile
   
   TItemInfo = class
-    IsDir:        BOOLEAN;
-    HasKnownSize: BOOLEAN;
-    FileSize:     INTEGER;
+    IsDir:        boolean;
+    HasKnownSize: boolean;
+    FileSize:     integer;
   end; // .class TItemInfo
   
   TAbstractLocator  = class
     (***) protected (***)
-      fNotEnd:      BOOLEAN;
+      fNotEnd:      boolean;
       fSearchMask:  string;
       
     (***) public (***)
@@ -108,20 +108,20 @@ type
       (
         const ItemName: string;
         out   ItemInfo: TItemInfo
-      ): BOOLEAN; virtual; abstract;
+      ): boolean; virtual; abstract;
       
-      property  NotEnd:     BOOLEAN READ fNotEnd;
-      property  SearchMask: string READ fSearchMask;
+      property  NotEnd:     boolean read fNotEnd;
+      property  SearchMask: string read fSearchMask;
   end; // .class TAbstractLocator
 
 
 (***) implementation (***)
 
 
-function TAbstractFile.Read (Count: INTEGER; {n} Buf: POINTER): BOOLEAN;
+function TAbstractFile.Read (Count: integer; {n} Buf: POINTER): boolean;
 var
-  TotalBytesRead: INTEGER;
-  BytesRead:      INTEGER;
+  TotalBytesRead: integer;
+  BytesRead:      integer;
 
 begin
   {!} Assert(Count >= 0);
@@ -137,20 +137,20 @@ begin
   result  :=  TotalBytesRead = Count;
 end; // .function TAbstractFile.Read
 
-function TAbstractFile.ReadByte (out Res: BYTE): BOOLEAN;
+function TAbstractFile.ReadByte (out Res: byte): boolean;
 var
-  BytesRead:  INTEGER;
+  BytesRead:  integer;
 
 begin
-  result  :=  Self.ReadUpTo(SIZEOF(Res), @Res, BytesRead);
+  result  :=  Self.ReadUpTo(sizeof(Res), @Res, BytesRead);
 end; // .function TAbstractFile.ReadByte
 
-function TAbstractFile.ReadInt (out Res: INTEGER): BOOLEAN;
+function TAbstractFile.ReadInt (out Res: integer): boolean;
 begin
-  result  :=  Self.Read(SIZEOF(Res), @Res);
+  result  :=  Self.Read(sizeof(Res), @Res);
 end; // .function TAbstractFile.ReadInt
 
-function TAbstractFile.ReadStr (Count: INTEGER; out Res: string): BOOLEAN;
+function TAbstractFile.ReadStr (Count: integer; out Res: string): boolean;
 begin
   SetLength(Res, Count);
   result  :=  Self.Read(Count, POINTER(Res));
@@ -160,11 +160,11 @@ begin
   end; // .if
 end; // .function TAbstractFile.ReadStr
 
-function TAbstractFile.ReadAllToBuf (out Buf: POINTER; out Size: INTEGER): BOOLEAN;
+function TAbstractFile.ReadAllToBuf (out Buf: POINTER; out Size: integer): boolean;
 var
-  TotalBytesRead: INTEGER;
-  BytesRead:      INTEGER;
-  BufSize:        INTEGER;
+  TotalBytesRead: integer;
+  BytesRead:      integer;
+  BufSize:        integer;
 
 begin
   {!} Assert(Buf = nil);
@@ -202,11 +202,11 @@ begin
   end; // .if
 end; // .function TAbstractFile.ReadAllToBuf
 
-function TAbstractFile.ReadAllToStr (out Str: string): BOOLEAN;
+function TAbstractFile.ReadAllToStr (out Str: string): boolean;
 var
-  TotalBytesRead: INTEGER;
-  BytesRead:      INTEGER;
-  StrLen:         INTEGER;
+  TotalBytesRead: integer;
+  BytesRead:      integer;
+  StrLen:         integer;
 
 begin
   if Self.HasKnownSize then begin
@@ -241,10 +241,10 @@ begin
   end; // .if
 end; // .function TAbstractFile.ReadAllToStr
 
-function TAbstractFile.Write (Count: INTEGER; {n} Buf: POINTER): BOOLEAN;
+function TAbstractFile.Write (Count: integer; {n} Buf: POINTER): boolean;
 var
-  TotalBytesWritten:  INTEGER;
-  BytesWritten:       INTEGER;
+  TotalBytesWritten:  integer;
+  BytesWritten:       integer;
 
 begin
   {!} Assert(Count >= 0);
@@ -260,35 +260,35 @@ begin
   result  :=  TotalBytesWritten = Count;
 end; // .function TAbstractFile.Write
 
-function TAbstractFile.WriteByte (Data: BYTE): BOOLEAN;
+function TAbstractFile.WriteByte (Data: byte): boolean;
 var
-  BytesWritten: INTEGER;
+  BytesWritten: integer;
 
 begin
-  result  :=  Self.WriteUpTo(SIZEOF(Data), @Data, BytesWritten);
+  result  :=  Self.WriteUpTo(sizeof(Data), @Data, BytesWritten);
 end; // .function TAbstractFile.WriteByte
 
-function TAbstractFile.WriteWord (Data: WORD): BOOLEAN;
+function TAbstractFile.WriteWord (Data: word): boolean;
 begin
-  result  :=  Self.Write(SIZEOF(Data), @Data);
+  result  :=  Self.Write(sizeof(Data), @Data);
 end; // .function TAbstractFile.WriteByte
 
-function TAbstractFile.WriteInt (Data: INTEGER): BOOLEAN;
+function TAbstractFile.WriteInt (Data: integer): boolean;
 begin
-  result  :=  Self.Write(SIZEOF(Data), @Data);
+  result  :=  Self.Write(sizeof(Data), @Data);
 end; // .function TAbstractFile.WriteInt
 
-function TAbstractFile.WriteStr (Data: string): BOOLEAN;
+function TAbstractFile.WriteStr (Data: string): boolean;
 begin
-  result  :=  Self.Write(LENGTH(Data), POINTER(Data));
+  result  :=  Self.Write(Length(Data), POINTER(Data));
 end; // .function TAbstractFile.WriteStr
 
-function TAbstractFile.WriteFrom (Count: INTEGER; Source: TAbstractFile): BOOLEAN;
+function TAbstractFile.WriteFrom (Count: integer; Source: TAbstractFile): boolean;
 var
   StrBuf:           string;
-  NumWriteOpers:    INTEGER;
-  NumBytesToWrite:  INTEGER;
-  i:                INTEGER;
+  NumWriteOpers:    integer;
+  NumBytesToWrite:  integer;
+  i:                integer;
 
 begin
   {!} Assert(Count >= 0);
@@ -315,15 +315,15 @@ begin
         Source.Read(NumBytesToWrite, POINTER(StrBuf)) and
         Self.Write(NumBytesToWrite, POINTER(StrBuf));
       
-      INC(i);
+      Inc(i);
     end; // .while
   end; // .else
 end; // .function TAbstractFile.WriteFrom
 
-function TAbstractFile.WriteAllFrom (Source: TAbstractFile): BOOLEAN;
+function TAbstractFile.WriteAllFrom (Source: TAbstractFile): boolean;
 var
   StrBuf:     string;
-  BytesRead:  INTEGER;
+  BytesRead:  integer;
 
 begin
   {!} Assert(Source <> nil);

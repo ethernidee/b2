@@ -7,7 +7,7 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 (***)  interface  (***)
 
 const
-  Crc32Table: array[0..255] of CARDINAL =
+  Crc32Table: array[0..255] of cardinal =
   (
     $00000000, $77073096, $EE0E612C, $990951BA,
     $076DC419, $706AF48F, $E963A535, $9E6495A3,
@@ -75,7 +75,7 @@ const
     $B40BBE37, $C30C8EA1, $5A05DF1B, $2D02EF8D
   ); // Crc32Table
 
-  ByteRedirTable: array [0..255] of BYTE  =
+  ByteRedirTable: array [0..255] of byte  =
   (
     168,  196,  081,  104,  062,  151,  178,  175,
     249,  163,  001,  217,  187,  205,  207,  215,
@@ -111,7 +111,7 @@ const
     130,  195,  242,  243,  089,  025,  202,  050
   );
   
-  RevByteRedirTable:  array [0..255] of BYTE  =
+  RevByteRedirTable:  array [0..255] of byte  =
   (
     115,  010,  246,  089,  231,  049,  176,  132,
     209,  029,  091,  227,  101,  131,  113,  145,
@@ -149,7 +149,7 @@ const
 
 
 type
-  TInt32 = packed array [0..3] of BYTE;
+  TInt32 = packed array [0..3] of byte;
 
 
 {
@@ -161,43 +161,43 @@ XorOut: 0xFFFFFFFF
 Check : 0xCBF43926  ("123456789")
 MaxLen: 268 435 455 байт (2 147 483 647 бит) - detects single, double, packet and all odd errors
 }
-function  CRC32 (PStr: PCHAR; StrLen: INTEGER): INTEGER;
-function  AnsiCRC32 (const Str: string): INTEGER;
+function  CRC32 (PStr: pchar; StrLen: integer): integer;
+function  AnsiCRC32 (const Str: string): integer;
 {
 Name:         Bb2011
 Version:      1.0
 Author:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 Discription:  Generates reversable unique int-to-int hash with high bits distribution
 }
-function  Bb2011Encode (Value: INTEGER): INTEGER;
-function  Bb2011Decode (Encoded: INTEGER): INTEGER;
+function  Bb2011Encode (Value: integer): integer;
+function  Bb2011Decode (Encoded: integer): integer;
 
 
 (***)  implementation  (***)
 
 
-function CRC32 (PStr: PCHAR; StrLen: INTEGER): INTEGER;
+function CRC32 (PStr: pchar; StrLen: integer): integer;
 var
-  i: INTEGER;
+  i: integer;
 
 begin
   {!} Assert((StrLen >= 0) and ((PStr <> nil) or (StrLen = 0)));
   result  :=  -1;
   
   for i := 1 to StrLen do begin
-    result  :=  (result shr 8) xor INTEGER(Crc32Table[(result xor ORD(PStr^)) and $FF]);
-    INC(PStr);
+    result  :=  (result shr 8) xor integer(Crc32Table[(result xor ORD(PStr^)) and $FF]);
+    Inc(PStr);
   end;
   
   result  :=  result xor -1;
 end; // .function CRC32
 
-function AnsiCRC32 (const Str: string): INTEGER;
+function AnsiCRC32 (const Str: string): integer;
 begin
-  result  :=  CRC32(POINTER(Str), LENGTH(Str));
+  result  :=  CRC32(POINTER(Str), Length(Str));
 end; // .function AnsiCRC32
 
-function Bb2011Encode (Value: INTEGER): INTEGER;
+function Bb2011Encode (Value: integer): integer;
 begin
   TInt32(result)[3] :=  ByteRedirTable[TInt32(Value)[0]];
   TInt32(result)[0] :=  ByteRedirTable[TInt32(Value)[3]];
@@ -205,7 +205,7 @@ begin
   TInt32(result)[2] :=  ByteRedirTable[TInt32(Value)[1]];
 end; // .function Bb2011Encode
 
-function Bb2011Decode (Encoded: INTEGER): INTEGER;
+function Bb2011Decode (Encoded: integer): integer;
 begin
   TInt32(result)[0] :=  RevByteRedirTable[TInt32(Encoded)[3]];
   TInt32(result)[3] :=  RevByteRedirTable[TInt32(Encoded)[0]];

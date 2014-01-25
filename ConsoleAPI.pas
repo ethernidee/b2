@@ -11,91 +11,91 @@ uses Windows, SysUtils;
 type
   PWin32Cell = ^TWin32Cell;
   TWin32Cell = packed record
-    Ch:     WORD;
-    Attr:   WORD;
+    Ch:     word;
+    Attr:   word;
   end;
 
   TMenu = record
-    Count: INTEGER;
+    Count: integer;
     Start: PAnsiString;
-    Interval: INTEGER;
+    Interval: integer;
   end; // .record TMenu
   
   PMenu = ^TMenu;
 
   TConsoleBuffer = record
-    Width, Height: INTEGER;
+    Width, Height: integer;
   end; // .record TConsoleBuffer
 
   TCodePage = (cp1251, cp866);
 
   TConsole = class
     {*} protected {*}
-    fWidth: INTEGER;
-    fHeight: INTEGER;
-    fBufWidth: INTEGER;
-    fBufHeight: INTEGER;
+    fWidth: integer;
+    fHeight: integer;
+    fBufWidth: integer;
+    fBufHeight: integer;
     fTitle: string;
-    fColor: BYTE;
-    fBack: BYTE;
+    fColor: byte;
+    fBack: byte;
     TIR: TInputRecord;
     {*} public {*}
     { FIELDS }
-    hIn, hOut: INTEGER;
-    hWnd: INTEGER;
+    hIn, hOut: integer;
+    hWnd: integer;
     CodePage: TCodePage;
     { PROCEDURES }
-    procedure SetWindowSize(NewWidth, NewHeight: INTEGER);
-    procedure SetWidth(NewWidth: INTEGER);
-    procedure SetHeight(NewHeight: INTEGER);
-    procedure SetBufferSize(NewWidth, NewHeight: INTEGER);
-    procedure SetBufferWidth(NewWidth: INTEGER);
-    procedure SetBufferHeight(NewHeight: INTEGER);
+    procedure SetWindowSize(NewWidth, NewHeight: integer);
+    procedure SetWidth(NewWidth: integer);
+    procedure SetHeight(NewHeight: integer);
+    procedure SetBufferSize(NewWidth, NewHeight: integer);
+    procedure SetBufferWidth(NewWidth: integer);
+    procedure SetBufferHeight(NewHeight: integer);
     function  GetTitle: string;
     procedure SetTitle(NewTitle: string);
-    procedure SetColors(NewColor, NewBack: BYTE);
-    procedure SetColor(NewColor: BYTE);
-    procedure SetBack(NewBack: BYTE);
+    procedure SetColors(NewColor, NewBack: byte);
+    procedure SetColor(NewColor: byte);
+    procedure SetBack(NewBack: byte);
     procedure Clear;
-    procedure GotoXY(x,y: INTEGER);
-    procedure GotoX(x: INTEGER);
-    procedure GotoY(y: INTEGER);
-    function  WhereX: INTEGER;
-    function  WhereY: INTEGER;
-    procedure SetWindowPos(x,y: INTEGER);
-    procedure MoveWindow(dx, dy: INTEGER);
+    procedure GotoXY(x,y: integer);
+    procedure GotoX(x: integer);
+    procedure GotoY(y: integer);
+    function  WhereX: integer;
+    function  WhereY: integer;
+    procedure SetWindowPos(x,y: integer);
+    procedure MoveWindow(dx, dy: integer);
     procedure Center;
-    procedure WriteC(Attr: BYTE; Txt: string);
+    procedure WriteC(Attr: byte; Txt: string);
     procedure Print(Txt: string);
-    procedure SetCodePage(NewCodePage: INTEGER);
-    function ReadKey: CHAR;
-    function ReadCode: CHAR;
+    procedure SetCodePage(NewCodePage: integer);
+    function ReadKey: char;
+    function ReadCode: char;
     function Read: string;
-    procedure HideArea(x1, y1, x2, y2: INTEGER; col, back: BYTE);
+    procedure HideArea(x1, y1, x2, y2: integer; col, back: byte);
     function Menu(TitleCol, TitleBack, ItemCol, ItemBack, ChosenCol, ChosenBack,
-                          FooterCol, FooterBack: BYTE;
-                          const Title: string; const Footer: string; Items: PMenu): INTEGER;
-    constructor Create(Title: string; WinWidth, WinHeight, BufWidth, BufHeight: INTEGER);
+                          FooterCol, FooterBack: byte;
+                          const Title: string; const Footer: string; Items: PMenu): integer;
+    constructor Create(Title: string; WinWidth, WinHeight, BufWidth, BufHeight: integer);
     { PROPERTIES }
-    property Width: INTEGER READ fWidth WRITE SetWidth;
-    property Height: INTEGER READ fHeight WRITE SetHeight;
-    property BufWidth: INTEGER READ fBufWidth WRITE SetBufferWidth;
-    property BufHeight: INTEGER READ fBufHeight WRITE SetBufferHeight;
-    property Title: string READ GetTitle WRITE SetTitle;
-    property Color: BYTE READ fColor WRITE SetColor;
-    property Back: BYTE READ fBack WRITE SetBack;
-    property CurX: INTEGER READ WhereX WRITE GotoX;
-    property CurY: INTEGER READ WhereY WRITE GotoY;
+    property Width: integer read fWidth write SetWidth;
+    property Height: integer read fHeight write SetHeight;
+    property BufWidth: integer read fBufWidth write SetBufferWidth;
+    property BufHeight: integer read fBufHeight write SetBufferHeight;
+    property Title: string read GetTitle write SetTitle;
+    property Color: byte read fColor write SetColor;
+    property Back: byte read fBack write SetBack;
+    property CurX: integer read WhereX write GotoX;
+    property CurY: integer read WhereY write GotoY;
   end; // .class TConsole
 
 implementation
 
-function PackColors(col, back: BYTE): BYTE;inline;
+function PackColors(col, back: byte): byte;inline;
 begin
   result:=(back shl 4) or col;
 end; // .function PackColors
 
-procedure TConsole.SetWindowSize(NewWidth, NewHeight: INTEGER);
+procedure TConsole.SetWindowSize(NewWidth, NewHeight: integer);
 var
   sr: TSmallRect;
 
@@ -109,19 +109,19 @@ begin
   SetConsoleWindowInfo(hOut, TRUE, sr);
 end; // .procedure TConsole.SetWindowSize
 
-procedure TConsole.SetWidth(NewWidth: INTEGER);
+procedure TConsole.SetWidth(NewWidth: integer);
 begin
   fWidth:=NewWidth;
   SetWindowSize(NewWidth, Height);
 end; // .procedure TConsole.SetWidth
 
-procedure TConsole.SetHeight(NewHeight: INTEGER);
+procedure TConsole.SetHeight(NewHeight: integer);
 begin
   fHeight:=NewHeight;
   SetWindowSize(Width, NewHeight);
 end; // .procedure TConsole.SetHeight
 
-procedure TConsole.SetBufferSize(NewWidth, NewHeight: INTEGER);
+procedure TConsole.SetBufferSize(NewWidth, NewHeight: integer);
 var
   tc: TCoord;
 
@@ -133,13 +133,13 @@ begin
   SetConsoleScreenBufferSize(hOut, tc);
 end; // .procedure TConsole.SetBufferSize
 
-procedure TConsole.SetBufferWidth(NewWidth: INTEGER);
+procedure TConsole.SetBufferWidth(NewWidth: integer);
 begin
   fBufWidth:=NewWidth;
   SetBufferSize(NewWidth, BufHeight);
 end; // .procedure TConsole.SetBufferWidth
 
-procedure TConsole.SetBufferHeight(NewHeight: INTEGER);
+procedure TConsole.SetBufferHeight(NewHeight: integer);
 begin
   fBufHeight:=NewHeight;
   SetBufferSize(BufWidth, NewHeight);
@@ -148,7 +148,7 @@ end; // .procedure TConsole.SetBufferHeight
 function TConsole.GetTitle: string;
 var
   NewTitle: string;
-  C: CHAR;
+  C: char;
 
 begin
   NewTitle:=fTitle;
@@ -167,20 +167,20 @@ begin
   Windows.SetConsoleTitle(@fTitle[1]);
 end; // .procedure TConsole.SetTitle
 
-procedure TConsole.SetColors(NewColor, NewBack: BYTE);
+procedure TConsole.SetColors(NewColor, NewBack: byte);
 begin
   fColor:=NewColor;
   fBack:=NewBack;
   SetConsoleTextAttribute(hOut, PackColors(NewColor, NewBack));
 end; // .procedure TConsole.SetColors
 
-procedure TConsole.SetColor(NewColor: BYTE);
+procedure TConsole.SetColor(NewColor: byte);
 begin
   fColor:=NewColor;
   SetColors(NewColor, Back);
 end; // .procedure TConsole.SetColor
 
-procedure TConsole.SetBack(NewBack: BYTE);
+procedure TConsole.SetBack(NewBack: byte);
 begin
   fBack:=NewBack;
   SetColors(Color, NewBack);
@@ -205,7 +205,7 @@ begin
   GotoXY(0,0);
 end; // .procedure TConsole.Clear
 
-procedure TConsole.GotoXY(x, y: INTEGER);
+procedure TConsole.GotoXY(x, y: integer);
 var
   pos: TCoord;
 
@@ -215,17 +215,17 @@ begin
   SetConsoleCursorPosition(hOut, pos);
 end; // .procedure TConsole.GotoXY
 
-procedure TConsole.GotoX(x: INTEGER);
+procedure TConsole.GotoX(x: integer);
 begin
   GotoXY(x, CurY);
 end; // .procedure TConsole.GotoX
 
-procedure TConsole.GotoY(y: INTEGER);
+procedure TConsole.GotoY(y: integer);
 begin
   GotoXY(CurX, y);
 end; // .procedure TConsole.GotoY
 
-function TConsole.WhereX: INTEGER;
+function TConsole.WhereX: integer;
 var
   info: TConsoleScreenBufferInfo;
 
@@ -234,7 +234,7 @@ begin
   result:=info.dwCursorPosition.x;
 end; // .function TConsole.WhereX
 
-function TConsole.WhereY: INTEGER;
+function TConsole.WhereY: integer;
 var
   info: TConsoleScreenBufferInfo;
 
@@ -243,9 +243,9 @@ begin
   result:=info.dwCursorPosition.y;
 end; // .function TConsole.WhereY
 
-function GetConsoleWindow: INTEGER; external 'kernel32.dll' NAME 'GetConsoleWindow';
+function GetConsoleWindow: integer; external 'kernel32.dll' NAME 'GetConsoleWindow';
 
-procedure TConsole.SetWindowPos(x, y: INTEGER);
+procedure TConsole.SetWindowPos(x, y: integer);
 var
   r: TRect;
 
@@ -254,7 +254,7 @@ begin
   Windows.MoveWindow(hWnd, x, y, r.Right-r.Left+1, r.Bottom-r.Top+1, TRUE);
 end; // .procedure TConsole.SetWindowPos
 
-procedure TConsole.MoveWindow(dx, dy: INTEGER);
+procedure TConsole.MoveWindow(dx, dy: integer);
 var
   r: TRect;
 
@@ -266,7 +266,7 @@ end; // .procedure TConsole.MoveWindow
 procedure TConsole.Center;
 var
   r: TRect;
-  w, h, x, y: INTEGER;
+  w, h, x, y: integer;
 
 begin
   GetWindowRect(hWnd, r);
@@ -279,9 +279,9 @@ begin
   if (x>0) then Windows.MoveWindow(hWnd, x, y, w, h, TRUE);
 end; // .procedure TConsole.Center
 
-procedure TConsole.WriteC(Attr: BYTE; Txt: string);
+procedure TConsole.WriteC(Attr: byte; Txt: string);
 var
-  col: BYTE;
+  col: byte;
 
 begin
   col:=Color;
@@ -309,14 +309,14 @@ begin
   end; // .else 
 end; // .procedure TConsole.Print
 
-procedure TConsole.SetCodePage(NewCodePage: INTEGER);
+procedure TConsole.SetCodePage(NewCodePage: integer);
 begin
   CodePage:=TCodePage(NewCodePage);
 end; // .procedure SetCodePage
 
-function TConsole.ReadKey: CHAR;
+function TConsole.ReadKey: char;
 var
-  Temp: INTEGER;
+  Temp: integer;
   
 begin
   repeat
@@ -325,15 +325,15 @@ begin
   result:=TIR.Event.KeyEvent.AsciiChar;
 end; // .function ReadKey
 
-function TConsole.ReadCode: CHAR;
+function TConsole.ReadCode: char;
 begin
-  result:=CHAR(BYTE(TIR.Event.KeyEvent.wVirtualScanCode));
+  result:=char(byte(TIR.Event.KeyEvent.wVirtualScanCode));
 end; // .function ReadCode
 
 function TConsole.Read: string;
 var
   s: string;
-  temp: INTEGER;
+  temp: integer;
 
 begin
   SetLength(s, 256);
@@ -342,10 +342,10 @@ begin
   result:=s;
 end; // .function Read
 
-procedure TConsole.HideArea(x1, y1, x2, y2: INTEGER; col, back: BYTE);
+procedure TConsole.HideArea(x1, y1, x2, y2: integer; col, back: byte);
 var
   tc: TCoord;
-  temp: INTEGER;
+  temp: integer;
   
 begin
   tc.x:=x1;
@@ -353,23 +353,23 @@ begin
   FillConsoleOutputAttribute(hOut, PackColors(col, back), (y2-y1+1)*(Width)-x1, tc, DWORD(temp));
 end; // .procedure HideArea
 
-function TConsole.Menu(TitleCol, TitleBack, ItemCol, ItemBack, ChosenCol, ChosenBack, FooterCol, FooterBack: BYTE;
-                      const Title: string; const Footer: string; Items: PMenu): INTEGER;
+function TConsole.Menu(TitleCol, TitleBack, ItemCol, ItemBack, ChosenCol, ChosenBack, FooterCol, FooterBack: byte;
+                      const Title: string; const Footer: string; Items: PMenu): integer;
 
 const
   C_ERROR_TOO_LARGE = -2;
   C_ESC = -1;
 
 var
-  Count: INTEGER; // Кол-во элементов меню
-  X, Y: INTEGER; // Верхняя граница первого элемента меню
-  index: INTEGER;
-  bExit: BOOLEAN;
-  i: INTEGER;
-  C: CHAR;
-  Chosen: INTEGER;
+  Count: integer; // Кол-во элементов меню
+  X, Y: integer; // Верхняя граница первого элемента меню
+  index: integer;
+  bExit: boolean;
+  i: integer;
+  C: char;
+  Chosen: integer;
   P: POINTER;
-  Interval: INTEGER;
+  Interval: integer;
   
 begin
   // Определяем, а вместится ли наше меню в экран, если нет, то не отображаем
@@ -389,10 +389,10 @@ begin
     GotoXY(X, Y);
     for i:=0 to Count-1 do begin
       if i=index then begin
-        WriteC(PackColors(ChosenCol, ChosenBack), PAnsiString(INTEGER(P)+i*Interval)^); GotoXY(X, Y+i+1);
+        WriteC(PackColors(ChosenCol, ChosenBack), PAnsiString(integer(P)+i*Interval)^); GotoXY(X, Y+i+1);
       end // .if 
       else begin
-        WriteC(PackColors(ItemCol, ItemBack), PAnsiString(INTEGER(P)+i*Interval)^); GotoXY(X, Y+i+1);
+        WriteC(PackColors(ItemCol, ItemBack), PAnsiString(integer(P)+i*Interval)^); GotoXY(X, Y+i+1);
       end; // .else 
     end; // .for - конец цикла отрисовки
     WriteC(PackColors(FooterCol, FooterBack), Footer);
@@ -418,7 +418,7 @@ begin
             case C of 
               #72:
                 begin
-                  DEC(index);
+                  Dec(index);
                   if index<0 then begin
                     index:=Count-1;
                   end; // .if 
@@ -426,7 +426,7 @@ begin
                 end;
               #80:
                 begin
-                  INC(index);
+                  Inc(index);
                   if index=Count then begin
                     index:=0;
                   end; // .if 
@@ -438,13 +438,13 @@ begin
     end; // .while 
   end; // .while
   // Очищаем экран от меню и восстанавливаем положение курсора
-  DEC(Y);
+  Dec(Y);
   HideArea(X, Y, Width-1, Y+Count+1, Self.Back, Self.Back);
   GotoXY(X, Y);
   result:=Chosen;
 end; // .function Menu
 
-constructor TConsole.Create(Title: string; WinWidth, WinHeight, BufWidth, BufHeight: INTEGER);
+constructor TConsole.Create(Title: string; WinWidth, WinHeight, BufWidth, BufHeight: integer);
 begin
   AllocConsole;
   hWnd:=GetConsoleWindow;
