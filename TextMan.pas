@@ -126,7 +126,7 @@ begin
   // * * * * * //
   result  :=  DataFile.Open(FilePath, CFiles.MODE_READ) and DataFile.ReadAllToStr(FileContents);
   if result then begin
-    Text.Connect(FileContents, Settings);
+    Text.Connect(FileContents, TObject(Settings));
   end; // .if
   SysUtils.FreeAndNil(DataFile);
 end; // .function LoadFromFile
