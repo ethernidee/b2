@@ -11,9 +11,9 @@ type
     fCritSection: Windows.TRTLCriticalSection;
 
    public
-    procedure Init; inline;
-    procedure Enter; inline;
-    procedure Leave; inline;
+    procedure Init;
+    procedure Enter;
+    procedure Leave;
   end; // .record TCritSection
 
 
