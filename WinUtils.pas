@@ -136,9 +136,9 @@ var
           GetIconInfo(hCursor, IconInfo);
           DrawIcon(ImageDeviceContext,
                    CursorInfo.ptScreenPos.x - WindowInfo.rcWindow.Left - VisibleRect.Left
-                     - IconInfo.xHotspot,
+                     - integer(IconInfo.xHotspot),
                    CursorInfo.ptScreenPos.y - WindowInfo.rcWindow.Top - VisibleRect.Top
-                     - IconInfo.yHotspot,
+                     - integer(IconInfo.yHotspot),
                    CursorInfo.hCursor);
           DestroyIcon(hCursor);
         end; // .if
