@@ -383,7 +383,9 @@ begin
   WriteC(PackColors(TitleCol, TitleBack), Title); GotoXY(X, CurY+1);
   Y:=CurY;
   index:=0;
-  bExit:=FALSE; 
+  bExit:=FALSE;
+  Chosen := -1;
+
   while not bExit do begin
     // Цикл отрисовки
     GotoXY(X, Y);
