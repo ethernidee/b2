@@ -1,6 +1,6 @@
 unit Trn;
 (* Author:      EtherniDee aka Berserker
-   Desctiption: Light-weight non-unicode internationalization support *)
+   Description: Light-weight non-unicode internationalization support *)
 
 (*
 Language file format (extended ini)
