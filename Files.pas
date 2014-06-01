@@ -105,6 +105,7 @@ type
 
 function  ReadFileContents (const FilePath: string; out FileContents: string): boolean;
 function  WriteFileContents (const FileContents, FilePath: string): boolean;
+function  AppendFileContents (const FileContents, FilePath: string): boolean;
 function  DeleteDir (const DirPath: string): boolean;
 function  GetFileSize (const FilePath: string; out Res: integer): boolean;
 function  Scan
@@ -298,8 +299,9 @@ function TFile.CreateNew (const FilePath: string): boolean;
 begin
   Self.Close;
   result  :=  WinWrappers.FileCreate(FilePath, Self.fhFile);
+  
   if not result then begin
-    Log.Write('FileSystem', 'CloseFile', 'Cannot close file "' + Self.FilePath + '"');
+    Log.Write('FileSystem', 'CreateFile', 'Cannot create file "' + Self.FilePath + '"');
   end // .if
   else begin
     Self.fMode          :=  MODE_READWRITE;
@@ -452,6 +454,24 @@ begin
   // * * * * * //
   SysUtils.FreeAndNil(MyFile);
 end; // .function WriteFileContents
+
+function AppendFileContents (const FileContents, FilePath: string): boolean;
+var
+{O} MyFile: TFile;
+
+begin
+  MyFile := TFile.Create;
+  // * * * * * //
+  if SysUtils.FileExists(FilePath) then begin
+    result := MyFile.Open(FilePath, MODE_WRITE) and MyFile.Seek(MyFile.Size);
+  end else begin
+    result := MyFile.CreateNew(FilePath);
+  end; // .else
+
+  result := result and MyFile.WriteStr(FileContents);
+  // * * * * * //
+  SysUtils.FreeAndNil(MyFile);
+end; // .function AppendFileContents
 
 function DeleteDir (const DirPath: string): boolean;
 var
