@@ -105,6 +105,7 @@ function  ExtractBaseFileName (const FilePath: string): string;
 function  SubstrBeforeChar (const Str: string; Ch: char): string;
 function  Match (const Str, Pattern: string): boolean;
 function  ExtractFromPchar (Str: pchar; Count: integer): string;
+function  BufToStr ({n} Buf: pointer; BufSize: integer): string;
 
 
 (***) implementation (***)
@@ -848,5 +849,15 @@ begin
     Utils.CopyMem(StrLen, Buf, POINTER(result));
   end; // .if
 end; // .function ExtractFromPchar
+
+function BufToStr ({n} Buf: pointer; BufSize: integer): string;
+begin
+  {!} Assert(Utils.IsValidBuf(Buf, BufSize));
+  SetLength(result, BufSize);
+
+  if BufSize > 0 then begin
+    Utils.CopyMem(BufSize, Buf, @result[1]);
+  end; // .if
+end; // .function BufToStr
 
 end.
