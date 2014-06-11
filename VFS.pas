@@ -911,7 +911,8 @@ begin
     end; // .else
   end; // .if
   
-  Log.Write('VFS', 'InstallHook', 'Installing GetFullPathNameA hook');
+  
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFullPathNameA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'GetFullPathNameA')),
@@ -921,7 +922,7 @@ begin
     @Hook_GetFullPathNameA,
   );
 
-  Log.Write('VFS', 'InstallHook', 'Installing CreateFileA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateFileA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'CreateFileA')),
@@ -931,7 +932,7 @@ begin
     @Hook_CreateFileA,
   );
   
-  Log.Write('VFS', 'InstallHook', 'Installing GetFileAttributesA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFileAttributesA hook');
   NativeGetFileAttributes := Ptr(Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'GetFileAttributesA')),
@@ -941,7 +942,7 @@ begin
     @Hook_GetFileAttributesA,
   ).GetDefaultFunc);
 
-  Log.Write('VFS', 'InstallHook', 'Installing LoadLibraryA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadLibraryA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'LoadLibraryA')),
@@ -951,7 +952,7 @@ begin
     @Hook_LoadLibraryA,
   );
 
-  Log.Write('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'GetPrivateProfileStringA')),
@@ -961,7 +962,7 @@ begin
     @Hook_GetPrivateProfileStringA,
   );
   
-  Log.Write('VFS', 'InstallHook', 'Installing CreateDirectoryA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateDirectoryA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'CreateDirectoryA')),
@@ -971,7 +972,7 @@ begin
     @Hook_CreateDirectoryA,
   );
 
-  Log.Write('VFS', 'InstallHook', 'Installing RemoveDirectoryA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing RemoveDirectoryA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'RemoveDirectoryA')),
@@ -981,7 +982,7 @@ begin
     @Hook_RemoveDirectoryA,
   );
   
-  Log.Write('VFS', 'InstallHook', 'Installing DeleteFileA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing DeleteFileA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'DeleteFileA')),
@@ -991,7 +992,7 @@ begin
     @Hook_DeleteFileA,
   );
   
-  Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'FindFirstFileA')),
@@ -1001,7 +1002,7 @@ begin
     @Hook_FindFirstFileA,
   );
 
-  Log.Write('VFS', 'InstallHook', 'Installing FindNextFileA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'FindNextFileA')),
@@ -1011,7 +1012,7 @@ begin
     @Hook_FindNextFileA,
   );
 
-  Log.Write('VFS', 'InstallHook', 'Installing FindClose hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindClose hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'FindClose')),
@@ -1021,7 +1022,7 @@ begin
     @Hook_FindClose,
   );
   
-  Log.Write('VFS', 'InstallHook', 'Installing LoadCursorFromFileA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadCursorFromFileA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(User32Handle, 'LoadCursorFromFileA')),
@@ -1031,7 +1032,7 @@ begin
     @Hook_LoadCursorFromFileA,
   );
   
-  Log.Write('VFS', 'InstallHook', 'Installing PlaySoundA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing PlaySoundA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Windows.LoadLibrary('winmm.dll'), 'PlaySoundA')),
@@ -1041,7 +1042,7 @@ begin
     @Hook_PlaySoundA,
   );
   
-  Log.Write('VFS', 'InstallHook', 'Installing GetCurrentDirectoryA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetCurrentDirectoryA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'GetCurrentDirectoryA')),
@@ -1051,7 +1052,7 @@ begin
     @Hook_GetCurrentDirectoryA,
   );
   
-  Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryA hook');
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryA hook');
   Core.p.WriteHiHook
   (
     integer(Windows.GetProcAddress(Kernel32Handle, 'SetCurrentDirectoryA')),
