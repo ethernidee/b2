@@ -81,6 +81,8 @@ var
   
   DebugOpt: boolean;
 
+procedure Init;
+
 implementation
 
 const
