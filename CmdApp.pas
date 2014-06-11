@@ -1,4 +1,4 @@
-UNIT CmdApp;
+unit CmdApp;
 {
 DESCRIPTION:  Provides new-style command line handling and some inter-process functions
 AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
@@ -11,97 +11,97 @@ Argument names are case-insensitive.
 Duplicate arguments override the previous ones.
 *)
 
-(***)  INTERFACE  (***)
-USES Windows, SysUtils, Utils, TypeWrappers, Crypto, TextScan, AssocArrays, Lists;
+(***)  interface  (***)
+uses Windows, SysUtils, Utils, TypeWrappers, Crypto, TextScan, AssocArrays, Lists;
 
-CONST
+const
   (* RunProcess *)
   WAIT_PROCESS_END  = TRUE;
 
 
-TYPE
+type
   (* IMPORT *)
   TString = TypeWrappers.TString;
 
 
-FUNCTION  ArgExists (CONST ArgName: STRING): BOOLEAN;
-FUNCTION  GetArg (CONST ArgName: STRING): STRING;
-PROCEDURE SetArg (CONST ArgName, NewArgValue: STRING);
-FUNCTION  RunProcess (CONST ExeFilePath, ExeArgs, ExeCurrentDir: STRING; WaitEnd: BOOLEAN): BOOLEAN;
+function  ArgExists (const ArgName: string): boolean;
+function  GetArg (const ArgName: string): string;
+procedure SetArg (const ArgName, NewArgValue: string);
+function  RunProcess (const ExeFilePath, ExeArgs, ExeCurrentDir: string; WaitEnd: boolean): boolean;
 
 
-VAR
+var
 {O} Args:     {O} AssocArrays.TAssocArray {OF TString};
 {O} ArgsList: Lists.TStringList;
-    AppPath:  STRING;
+    AppPath:  string;
 
 
-(***)  IMPLEMENTATION  (***)
+(***)  implementation  (***)
 
 
-FUNCTION ArgExists (CONST ArgName: STRING): BOOLEAN;
-BEGIN
-  RESULT  :=  Args[ArgName] <> NIL;
-END; // .FUNCTION ArgExists
+function ArgExists (const ArgName: string): boolean;
+begin
+  result  :=  Args[ArgName] <> nil;
+end; // .function ArgExists
 
-FUNCTION GetArg (CONST ArgName: STRING): STRING;
-VAR
+function GetArg (const ArgName: string): string;
+var
 {U} ArgValue: TString;
 
-BEGIN
+begin
   ArgValue  :=  Args[ArgName];
   // * * * * * //
-  IF ArgValue <> NIL THEN BEGIN
-    RESULT  :=  ArgValue.Value;
-  END // .IF
-  ELSE BEGIN
-    RESULT  :=  '';
-  END; // .ELSE
-END; // .FUNCTION GetArg
+  if ArgValue <> nil then begin
+    result  :=  ArgValue.Value;
+  end // .if
+  else begin
+    result  :=  '';
+  end; // .else
+end; // .function GetArg
 
-PROCEDURE SetArg (CONST ArgName, NewArgValue: STRING);
-VAR
+procedure SetArg (const ArgName, NewArgValue: string);
+var
 {U} ArgValue: TString;
   
-BEGIN
+begin
   ArgValue  :=  Args[ArgName];
   // * * * * * //
-  IF ArgValue <> NIL THEN BEGIN
+  if ArgValue <> nil then begin
     ArgValue.Value  :=  NewArgValue;
-  END // .IF
-  ELSE BEGIN
+  end // .if
+  else begin
     Args[ArgName] :=  TString.Create(NewArgValue);
-  END; // .ELSE
-END; // .PROCEDURE SetArg
+  end; // .else
+end; // .procedure SetArg
 
-PROCEDURE ProcessArgs;
-CONST
+procedure ProcessArgs;
+const
   BLANKS    = [#0..#32];
   ARGDELIM  = BLANKS + ['='];
 
-VAR
+var
 {O} Scanner:  TextScan.TTextScanner;
-    CmdLine:  STRING;
-    ArgName:  STRING;
-    ArgValue: STRING;
-    SavedPos: INTEGER;
-    c:        CHAR;
+    CmdLine:  string;
+    ArgName:  string;
+    ArgValue: string;
+    SavedPos: integer;
+    c:        char;
 
-  FUNCTION ReadToken (CONST ArgDelimCharset: Utils.TCharSet): STRING;
-  BEGIN
-    {!} ASSERT(Scanner.GetCurrChar(c));
+  function ReadToken (const ArgDelimCharset: Utils.TCharSet): string;
+  begin
+    {!} Assert(Scanner.GetCurrChar(c));
     
-    IF c = '"' THEN BEGIN
+    if c = '"' then begin
       Scanner.GotoNextChar;
-      Scanner.ReadTokenTillDelim(['"'], RESULT);
+      Scanner.ReadTokenTillDelim(['"'], result);
       Scanner.GotoNextChar;
-    END // .IF
-    ELSE BEGIN
-      Scanner.ReadTokenTillDelim(ArgDelimCharset, RESULT);
-    END; // .ELSE
-  END; // .FUNCTION ReadToken
+    end // .if
+    else begin
+      Scanner.ReadTokenTillDelim(ArgDelimCharset, result);
+    end; // .else
+  end; // .function ReadToken
 
-BEGIN
+begin
   Scanner :=  TextScan.TTextScanner.Create;
   // * * * * * //
   CmdLine   :=  System.CmdLine;
@@ -109,70 +109,70 @@ BEGIN
   ArgsList  :=  Lists.NewSimpleStrList;
   Scanner.Connect(CmdLine, #10);
   
-  IF Scanner.SkipCharset(BLANKS) THEN BEGIN
+  if Scanner.SkipCharset(BLANKS) then begin
     AppPath :=  ReadToken(BLANKS);
-  END; // .IF
+  end; // .if
   
-  WHILE Scanner.SkipCharset(BLANKS) DO BEGIN
+  while Scanner.SkipCharset(BLANKS) do begin
     SavedPos  :=  Scanner.Pos;
     ArgsList.Add(ReadToken(BLANKS));
     Scanner.GotoPos(SavedPos);
     ArgName :=  ReadToken(ARGDELIM);
     
-    IF Scanner.GetCurrChar(c) THEN BEGIN
-      IF c = '=' THEN BEGIN
+    if Scanner.GetCurrChar(c) then begin
+      if c = '=' then begin
         Scanner.GotoNextChar;
         ArgValue  :=  ReadToken(BLANKS);
-      END // .IF
-      ELSE BEGIN
+      end // .if
+      else begin
         ArgValue  :=  '1';
-      END; // .ELSE
-    END // .IF
-    ELSE BEGIN
+      end; // .else
+    end // .if
+    else begin
       ArgValue  :=  '1';
-    END; // .ELSE
+    end; // .else
     
     Args[ArgName] :=  TString.Create(ArgValue);
-  END; // .WHILE
+  end; // .while
   // * * * * * //
   SysUtils.FreeAndNil(Scanner);
-END; // .PROCEDURE ProcessArgs
+end; // .procedure ProcessArgs
 
-FUNCTION RunProcess (CONST ExeFilePath, ExeArgs, ExeCurrentDir: STRING; WaitEnd: BOOLEAN): BOOLEAN;
-CONST
-  NO_APPLICATION_NAME         = NIL;
-  DEFAULT_PROCESS_ATTRIBUTES  = NIL;
-  DEFAULT_THREAD_ATTRIBUTES   = NIL;
+function RunProcess (const ExeFilePath, ExeArgs, ExeCurrentDir: string; WaitEnd: boolean): boolean;
+const
+  NO_APPLICATION_NAME         = nil;
+  DEFAULT_PROCESS_ATTRIBUTES  = nil;
+  DEFAULT_THREAD_ATTRIBUTES   = nil;
   INHERIT_HANDLES             = TRUE;
   NO_CREATION_FLAGS           = 0;
-  INHERIT_ENVIROMENT          = NIL;
+  INHERIT_ENVIROMENT          = nil;
 
-VAR
+var
   StartupInfo:  Windows.TStartupInfo;
   ProcessInfo:  Windows.TProcessInformation;
   
-BEGIN
-  FillChar(StartupInfo, SIZEOF(StartupInfo), #0);
-  StartupInfo.cb  :=  SIZEOF(StartupInfo);
-  RESULT          :=  Windows.CreateProcess
+begin
+  FillChar(StartupInfo, sizeof(StartupInfo), #0);
+  StartupInfo.cb  :=  sizeof(StartupInfo);
+  result          :=  Windows.CreateProcess
   (
     NO_APPLICATION_NAME,
-    PCHAR('"' + ExeFilePath + '" ' + ExeArgs),
+    pchar('"' + ExeFilePath + '" ' + ExeArgs),
     DEFAULT_PROCESS_ATTRIBUTES,
     DEFAULT_THREAD_ATTRIBUTES,
-    NOT INHERIT_HANDLES,
+    not INHERIT_HANDLES,
     NO_CREATION_FLAGS,
     INHERIT_ENVIROMENT,
-    POINTER(ExeCurrentDir),
+    pointer(ExeCurrentDir),
     StartupInfo,
     ProcessInfo
   );
   
-  IF RESULT AND WaitEnd THEN BEGIN
+  if result and WaitEnd then begin
     Windows.WaitForSingleObject(ProcessInfo.hProcess, Windows.INFINITE);
-  END; // .IF
-END; // .FUNCTION RunProcess
+  end; // .if
+end; // .function RunProcess
 
-BEGIN
+begin
   ProcessArgs;
-END.
+end.

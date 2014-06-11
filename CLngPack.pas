@@ -206,7 +206,7 @@ begin
     SavedLngUnitInd :=  Self.CurrLngUnitInd;
     Self.SeekLngUnit(0);
     while Self.ReadLngUnit(LngUnitReader) do begin
-      Self.fSearchIndex[LngUnitReader.Unicode].AddObject(LngUnitReader.UnitName, POINTER(LngUnitReader.LngUnit));
+      Self.fSearchIndex[LngUnitReader.Unicode].AddObject(LngUnitReader.UnitName, pointer(LngUnitReader.LngUnit));
     end; // .while
     Self.SeekLngUnit(SavedLngUnitInd);
   end; // .if
@@ -268,7 +268,7 @@ begin
   LngUnitInd  :=  Self.fSearchIndex[Unicode].IndexOf(UnitName);
   result      :=  LngUnitInd <> -1;
   if result then begin
-    LngUnit       :=  POINTER(Self.fSearchIndex[Unicode].Objects[LngUnitInd]);
+    LngUnit       :=  pointer(Self.fSearchIndex[Unicode].Objects[LngUnitInd]);
     LngUnitReader :=  CLngUnit.TLngUnitReader.Create;
     LngUnitReader.Connect(LngUnit, Self.StructMemoryBlockSize - (integer(LngUnit) - integer(Self.LngPack)));
   end; // .if

@@ -37,7 +37,7 @@ type
     (***) public (***)
       destructor  Destroy; override;
       procedure Append (const Str: string);
-      procedure AppendBuf (BufSize: integer; {n} Buf: POINTER);
+      procedure AppendBuf (BufSize: integer; {n} Buf: pointer);
       function  BuildStr: string;
       procedure Clear;
       
@@ -118,10 +118,10 @@ end; // .destructor TStrBuilder.Destroy
 
 procedure TStrBuilder.Append (const Str: string);
 begin
-  Self.AppendBuf(Length(Str), POINTER(Str));
+  Self.AppendBuf(Length(Str), pointer(Str));
 end; // .procedure TStrBuilder.Append
 
-procedure TStrBuilder.AppendBuf (BufSize: integer; {n} Buf: POINTER);
+procedure TStrBuilder.AppendBuf (BufSize: integer; {n} Buf: pointer);
 var
   LeftPartSize:   integer;
   RightPartSize:  integer;
@@ -162,7 +162,7 @@ end; // .procedure TStrBuilder.AppendBuf
 
 function TStrBuilder.BuildStr: string;
 var
-{U} Res:      POINTER;
+{U} Res:      pointer;
 {U} CurrItem: PListItem;
     Pos:      integer;
 
@@ -171,7 +171,7 @@ begin
   CurrItem  :=  Self.fRootItem;
   // * * * * * //
   SetLength(result, Self.fSize);
-  Res :=  POINTER(result);
+  Res :=  pointer(result);
   Pos :=  0;
   while CurrItem <> nil do begin
     Utils.CopyMem(CurrItem.DataSize, @CurrItem.Data[0], Utils.PtrOfs(Res, Pos));
@@ -209,7 +209,7 @@ begin
   {!} Assert(PBytes <> nil);
   {!} Assert(NumBytes >= 0);
   SetLength(result, NumBytes);
-  Utils.CopyMem(NumBytes, PBytes, POINTER(result));
+  Utils.CopyMem(NumBytes, PBytes, pointer(result));
 end; // .function BytesToAnsiString
 
 function BytesToWideString (PBytes: PBYTE; NumBytes: integer): WideString;
@@ -218,7 +218,7 @@ begin
   {!} Assert(NumBytes >= 0);
   {!} Assert(Utils.EVEN(NumBytes));
   SetLength(result, NumBytes shr 1);
-  Utils.CopyMem(NumBytes, PBytes, POINTER(result));
+  Utils.CopyMem(NumBytes, PBytes, pointer(result));
 end; // .function BytesToWideString
 
 function FindCharEx (Ch: char; const Str: string; StartPos: integer; out CharPos: integer): boolean;
@@ -347,11 +347,11 @@ begin
       NumDelims   :=  0;
       DelimPos    :=  1;
       while (NumDelims < DelimsLimit) and FindSubstrEx(Delim, Str, DelimPos, DelimPos) do begin
-        DelimPosList.Add(POINTER(DelimPos));
+        DelimPosList.Add(pointer(DelimPos));
         Inc(DelimPos);
         Inc(NumDelims);
       end; // .while
-      DelimPosList.Add(POINTER(StrLen + 1));
+      DelimPosList.Add(pointer(StrLen + 1));
       SetLength(result, NumDelims + 1);
       TokenStartPos :=  1;
       for i:=0 to NumDelims do begin
@@ -376,7 +376,7 @@ end; // .function Explode
 
 function Join (const Arr: TArrayOfString; const Glue: string): string;
 var
-(* U *) Mem:        POINTER;
+(* U *) Mem:        pointer;
         ArrLen:     integer;
         GlueLen:    integer;
         NumPairs:   integer;
@@ -396,22 +396,22 @@ begin
     end; // .for
     ResultSize  :=  ResultSize + NumPairs * GlueLen;
     SetLength(result, ResultSize);
-    Mem :=  POINTER(result);
+    Mem :=  pointer(result);
     if GlueLen = 0 then begin
       for i:=0 to NumPairs - 1 do begin
-        Utils.CopyMem(Length(Arr[i]), POINTER(Arr[i]), Mem);
+        Utils.CopyMem(Length(Arr[i]), pointer(Arr[i]), Mem);
         Mem :=  Utils.PtrOfs(Mem, Length(Arr[i]));
       end; // .for
     end // .if
     else begin
       for i:=0 to NumPairs - 1 do begin
-        Utils.CopyMem(Length(Arr[i]), POINTER(Arr[i]), Mem);
+        Utils.CopyMem(Length(Arr[i]), pointer(Arr[i]), Mem);
         Mem :=  Utils.PtrOfs(Mem, Length(Arr[i]));
-        Utils.CopyMem(Length(Glue), POINTER(Glue), Mem);
+        Utils.CopyMem(Length(Glue), pointer(Glue), Mem);
         Mem :=  Utils.PtrOfs(Mem, Length(Glue));
       end; // .for
     end; // .else
-    Utils.CopyMem(Length(Arr[NumPairs]), POINTER(Arr[NumPairs]), Mem);
+    Utils.CopyMem(Length(Arr[NumPairs]), pointer(Arr[NumPairs]), Mem);
   end; // .if
 end; // .function Join
 
@@ -518,7 +518,7 @@ begin
     end; // .else
   end; // .while
   SetLength(result, BufSize);
-  Utils.CopyMem(BufSize, @Buffer[0], POINTER(result));
+  Utils.CopyMem(BufSize, @Buffer[0], pointer(result));
 end; // .function CharsetToStr
 
 function IntToRoman (Value: integer): string;
@@ -595,7 +595,7 @@ begin
   for i:=0 to High(Strings) do begin
     StrLen  :=  Length(Strings[i]);
     if StrLen > 0 then begin
-      Utils.CopyMem(StrLen, POINTER(Strings[i]), Utils.PtrOfs(POINTER(result), Offset));
+      Utils.CopyMem(StrLen, pointer(Strings[i]), Utils.PtrOfs(pointer(result), Offset));
       Offset  :=  Offset + StrLen;
     end; // .if
   end; // .for
@@ -846,7 +846,7 @@ begin
     
     StrLen := Str - Buf;
     SetLength(result, StrLen);
-    Utils.CopyMem(StrLen, Buf, POINTER(result));
+    Utils.CopyMem(StrLen, Buf, pointer(result));
   end; // .if
 end; // .function ExtractFromPchar
 

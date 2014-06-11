@@ -186,7 +186,7 @@ begin
   if CachedIni <> nil then begin
     CachedIni.BeginIterate;
     
-    while CachedIni.IterateNext(SectionName, POINTER(Section)) do begin
+    while CachedIni.IterateNext(SectionName, pointer(Section)) do begin
       SectionNames.AddObj(SectionName, Section);
       Section :=  nil;
     end; // .while
@@ -206,7 +206,7 @@ begin
       
       Section.BeginIterate;
       
-      while Section.IterateNext(Key, POINTER(Value)) do begin
+      while Section.IterateNext(Key, pointer(Value)) do begin
         SectionKeys.AddObj(Key, Value);
         Value :=  nil;
       end; // .while

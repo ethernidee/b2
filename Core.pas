@@ -38,7 +38,7 @@ type
   PHookHandlerArgs  = ^THookHandlerArgs;
   THookHandlerArgs  = packed record
     EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX: integer;
-    RetAddr:                                POINTER;
+    RetAddr:                                pointer;
   end; // .record THookHandlerArgs
 
   PContext = PHookHandlerArgs;
@@ -49,32 +49,32 @@ type
   end; // .record TAPIArg
 
 
-function  WriteAtCode (Count: integer; Src, Dst: POINTER): boolean; stdcall;
+function  WriteAtCode (Count: integer; Src, Dst: pointer): boolean; stdcall;
 
 (* in BRIDGE mode hook functions return address to call original routine *)
 function  Hook
 (
-  HandlerAddr:  POINTER;
+  HandlerAddr:  pointer;
   HookType:     integer;
   PatchSize:    integer;
-  CodeAddr:     POINTER
-): {n} POINTER; stdcall;
+  CodeAddr:     pointer
+): {n} pointer; stdcall;
 
 function  ApiHook
 (
-  HandlerAddr:  POINTER;
+  HandlerAddr:  pointer;
   HookType:     integer;
-  CodeAddr:     POINTER
-): {n} POINTER; stdcall;
+  CodeAddr:     pointer
+): {n} pointer; stdcall;
 
 function  APIArg (Context: PHookHandlerArgs; ArgN: integer): PAPIArg; inline;
-function  GetOrigAPIAddr (HookAddr: POINTER): POINTER; stdcall;
+function  GetOrigAPIAddr (HookAddr: pointer): pointer; stdcall;
 function  RecallAPI (Context: PHookHandlerArgs; NumArgs: integer): integer; stdcall;
 procedure KillThisProcess; stdcall;
 procedure FatalError (const Err: string); stdcall;
 
 // Returns address of assember ret-routine which will clean the arguments and return
-function  Ret (NumArgs: integer): POINTER;
+function  Ret (NumArgs: integer): pointer;
 
 
 var
@@ -94,7 +94,7 @@ var
 {O} Hooker: Files.TFixedBuf;
 
 
-function WriteAtCode (Count: integer; Src, Dst: POINTER): boolean;
+function WriteAtCode (Count: integer; Src, Dst: pointer): boolean;
 var
   OldPageProtect: integer;
 
@@ -112,11 +112,11 @@ end; // .function WriteAtCode
 
 function Hook
 (
-  HandlerAddr:  POINTER;
+  HandlerAddr:  pointer;
   HookType:     integer;
   PatchSize:    integer;
-  CodeAddr:     POINTER
-): {n} POINTER;
+  CodeAddr:     pointer
+): {n} pointer;
 
 const
   MIN_BRIDGE_SIZE = 25;
@@ -125,12 +125,12 @@ type
   TBytes  = array of byte;
 
 var
-{U} BridgeCode: POINTER;
+{U} BridgeCode: pointer;
     HookRec:    THookRec;
     NopCount:   integer;
     NopBuf:     string;
     
- function PreprocessCode (CodeSize: integer; OldCodeAddr, NewCodeAddr: POINTER): TBytes;
+ function PreprocessCode (CodeSize: integer; OldCodeAddr, NewCodeAddr: pointer): TBytes;
  var
    Delta:   integer;
    BufPos:  integer;
@@ -218,11 +218,11 @@ begin
   if NopCount > 0 then begin
     SetLength(NopBuf, NopCount);
     FillChar(NopBuf[1], NopCount, CHR($90));
-    {!} Assert(WriteAtCode(NopCount, POINTER(NopBuf), Utils.PtrOfs(CodeAddr, sizeof(THookRec))));
+    {!} Assert(WriteAtCode(NopCount, pointer(NopBuf), Utils.PtrOfs(CodeAddr, sizeof(THookRec))));
   end; // .if
 end; // .function Hook
 
-function CalcHookSize (Code: POINTER): integer;
+function CalcHookSize (Code: pointer): integer;
 var
   Disasm: hde32.TDisasm;
 
@@ -237,7 +237,7 @@ begin
   end; // .while
 end; // .function CalcHookSize
 
-function ApiHook (HandlerAddr: POINTER; HookType: integer; CodeAddr: POINTER): {n} POINTER;
+function ApiHook (HandlerAddr: pointer; HookType: integer; CodeAddr: pointer): {n} pointer;
 begin
   result  :=  Hook(HandlerAddr, HookType, CalcHookSize(CodeAddr), CodeAddr);
 end; // .function ApiHook
@@ -247,10 +247,10 @@ begin
   result :=  Ptr(Context.ESP + (4 + 4 * ArgN));
 end; // .function APIArg
 
-function GetOrigAPIAddr (HookAddr: POINTER): POINTER;
+function GetOrigAPIAddr (HookAddr: pointer): pointer;
 begin
   {!} Assert(HookAddr <> nil);
-  result  :=  POINTER
+  result  :=  pointer
   (
     integer(HookAddr)                 +
     sizeof(THookRec)                  +
@@ -261,7 +261,7 @@ end; // .function GetOrigAPIAddr
 
 function RecallAPI (Context: PHookHandlerArgs; NumArgs: integer): integer;
 var
-  APIAddr:  POINTER;
+  APIAddr:  pointer;
   PtrArgs:  integer;
   APIRes:   integer;
    
@@ -345,7 +345,7 @@ asm
   RET 32
 end; // .procedure Ret32
 
-function Ret (NumArgs: integer): POINTER;
+function Ret (NumArgs: integer): pointer;
 begin
   case NumArgs of 
     0:  result  :=  @Ret0;

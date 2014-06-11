@@ -26,7 +26,7 @@ type
   PAssocArrayItem = ^TAssocArrayItem;
   TAssocArrayItem = record
           Key:      string;
-    {OUn} Value:    POINTER;
+    {OUn} Value:    pointer;
     {On}  NextItem: PAssocArrayItem;
   end; // .record TAssocArrayItem
 
@@ -108,27 +108,27 @@ type
       procedure Assign (Source: Utils.TCloneable); override;
       procedure Clear;
       function  GetPreprocessedKey (const Key: string): string;
-      function  IsValidValue ({n} Value: POINTER): boolean;
+      function  IsValidValue ({n} Value: pointer): boolean;
       function  CalcCritDepth: integer;
       procedure Rebuild;
-      function  GetValue (Key: string): {n} POINTER;
-      function  GetExistingValue (Key: string; out {Un} Res: POINTER): boolean;
-      procedure SetValue (Key: string; {OUn} NewValue: POINTER);
+      function  GetValue (Key: string): {n} pointer;
+      function  GetExistingValue (Key: string; out {Un} Res: pointer): boolean;
+      procedure SetValue (Key: string; {OUn} NewValue: pointer);
       function  DeleteItem (Key: string): boolean;
       
       (* Returns value with specified key and NILify it in the array *)
-      function  TakeValue (Key: string; out {OUn} Value: POINTER): boolean;
+      function  TakeValue (Key: string; out {OUn} Value: pointer): boolean;
       
       (* Returns old value *)
       function  ReplaceValue
       (
                   Key:      string;
-            {OUn} NewValue: POINTER;
-        out {OUn} OldValue: POINTER
+            {OUn} NewValue: pointer;
+        out {OUn} OldValue: pointer
       ): boolean;
       
       procedure BeginIterate;
-      function  IterateNext (out Key: string; out {Un} Value: POINTER): boolean;
+      function  IterateNext (out Key: string; out {Un} Value: pointer): boolean;
       procedure EndIterate;
 
       property  HashFunc:           THashFunc read fHashFunc;
@@ -139,13 +139,13 @@ type
       property  ItemGuardProc:      Utils.TItemGuardProc read fItemGuardProc;
       property  NodeCount:          integer read fNodeCount;
       property  Locked:             boolean read fLocked;
-      property  Items[Key: string]: POINTER read {n} GetValue write {OUn} SetValue; default;
+      property  Items[Key: string]: pointer read {n} GetValue write {OUn} SetValue; default;
   end; // .class TAssocArray
 
   PObjArrayNode = ^TObjArrayNode;
   TObjArrayNode = record
-          Hash:       integer;  // Hash is encoded {U} Key: POINTER
-    {OUn} Value:      POINTER;
+          Hash:       integer;  // Hash is encoded {U} Key: pointer
+    {OUn} Value:      pointer;
           ChildNodes: array [LEFT_CHILD..RIGHT_CHILD] of {On} PObjArrayNode;
   end; // .record TObjArrayItem
   
@@ -168,8 +168,8 @@ type
             fIterNodeInd:     integer;
             fLocked:          boolean;
       
-      function  HashToKey (Hash: integer): {n} POINTER;
-      function  KeyToHash (Key: {n} POINTER): integer;
+      function  HashToKey (Hash: integer): {n} pointer;
+      function  KeyToHash (Key: {n} pointer): integer;
       procedure FreeNodeValue (Node: PObjArrayNode);
       procedure FreeNode ({IN} var {n} Node: PObjArrayNode);
       procedure RemoveNode ({n} ParentNode: PObjArrayNode; Node: PObjArrayNode);
@@ -183,7 +183,7 @@ type
 
       function  FindItem
       (
-            {n}   Key:        POINTER;
+            {n}   Key:        pointer;
         out {ni}  ParentNode: PObjArrayNode;
         out {ni}  ItemNode:   PObjArrayNode
       ): boolean;
@@ -199,27 +199,27 @@ type
       destructor  Destroy; override;
       procedure Assign (Source: Utils.TCloneable); override;
       procedure Clear;
-      function  IsValidValue ({n} Value: POINTER): boolean;
+      function  IsValidValue ({n} Value: pointer): boolean;
       function  CalcCritDepth: integer;
       procedure Rebuild;
-      function  GetValue ({n} Key: POINTER): {n} POINTER;
-      function  GetExistingValue ({n} Key: POINTER; out {Un} Res: POINTER): boolean;
-      procedure SetValue ({n} Key: POINTER; {OUn} NewValue: POINTER);
-      function  DeleteItem ({n} Key: POINTER): boolean;
+      function  GetValue ({n} Key: pointer): {n} pointer;
+      function  GetExistingValue ({n} Key: pointer; out {Un} Res: pointer): boolean;
+      procedure SetValue ({n} Key: pointer; {OUn} NewValue: pointer);
+      function  DeleteItem ({n} Key: pointer): boolean;
       
       (* Returns value with specified key and NILify it in the array *)
-      function  TakeValue ({n} Key: POINTER; out {OUn} Value: POINTER): boolean;
+      function  TakeValue ({n} Key: pointer; out {OUn} Value: pointer): boolean;
       
       {Returns old value}
       function  ReplaceValue
       (
-            {n}   Key:      POINTER;
-            {OUn} NewValue: POINTER;
-        out {OUn} OldValue: POINTER
+            {n}   Key:      pointer;
+            {OUn} NewValue: pointer;
+        out {OUn} OldValue: pointer
       ): boolean;
 
       procedure BeginIterate;
-      function  IterateNext (out {Un} Key: POINTER; out {Un} Value: POINTER): boolean;
+      function  IterateNext (out {Un} Key: pointer; out {Un} Value: pointer): boolean;
       procedure EndIterate;
 
       property  OwnsItems:                boolean read fOwnsItems;
@@ -228,7 +228,7 @@ type
       property  ItemGuardProc:            Utils.TItemGuardProc read fItemGuardProc;
       property  NodeCount:                integer read fNodeCount;
       property  Locked:                   boolean read fLocked;
-      property  Items[{n} Key: POINTER]:  {OUn} POINTER read GetValue write SetValue; default;
+      property  Items[{n} Key: pointer]:  {OUn} pointer read GetValue write SetValue; default;
   end; // .class TObjArray
 
 function  NewAssocArr
@@ -523,7 +523,7 @@ begin
   end; // .else
 end; // .function TAssocArray.GetPreprocessedKey
 
-function TAssocArray.IsValidValue ({n} Value: POINTER): boolean;
+function TAssocArray.IsValidValue ({n} Value: pointer): boolean;
 begin
   result  :=  Self.ItemGuardProc(Value, Self.ItemsAreObjects, Utils.TItemGuard(Self.fItemGuard));
 end; // .function TAssocArray.IsValidValue 
@@ -595,7 +595,7 @@ begin
     Self.fRoot      :=  nil;
     Self.fNodeCount :=  0;
     Self.fItemCount :=  0;
-    Alg.CustomQuickSort(POINTER(Res.NodeArray), 0, Res.NodeCount - 1, AssocArrayCompareNodes);
+    Alg.CustomQuickSort(pointer(Res.NodeArray), 0, Res.NodeCount - 1, AssocArrayCompareNodes);
   end; // .if
 end; // .procedure TAssocArray.ConvertToLinearNodeArray
 
@@ -716,7 +716,7 @@ begin
   end; // .if
 end; // .function TAssocArray.FindItem
 
-function TAssocArray.GetValue (Key: string): {n} POINTER;
+function TAssocArray.GetValue (Key: string): {n} pointer;
 var
 {U} ItemNode:   PAssocArrayNode;
 {U} ParentNode: PAssocArrayNode;
@@ -741,7 +741,7 @@ begin
   end; // .else
 end; // .function TAssocArray.GetValue
 
-function TAssocArray.GetExistingValue (Key: string; out {Un} Res: POINTER): boolean;
+function TAssocArray.GetExistingValue (Key: string; out {Un} Res: pointer): boolean;
 var
 {U} ItemNode:   PAssocArrayNode;
 {U} ParentNode: PAssocArrayNode;
@@ -765,7 +765,7 @@ begin
   end; // .if
 end; // .function TAssocArray.GetExistingValue
 
-procedure TAssocArray.SetValue (Key: string; {OUn} NewValue: POINTER);
+procedure TAssocArray.SetValue (Key: string; {OUn} NewValue: pointer);
 var
 {U} ItemNode:         PAssocArrayNode;
 {U} ParentNode:       PAssocArrayNode;
@@ -846,7 +846,7 @@ begin
   end; // .if
 end; // .function TAssocArray.DeleteItem
 
-function TAssocArray.TakeValue (Key: string; out {OUn} Value: POINTER): boolean;
+function TAssocArray.TakeValue (Key: string; out {OUn} Value: pointer): boolean;
 var
 {U} ParentNode:       PAssocArrayNode;
 {U} ItemNode:         PAssocArrayNode;
@@ -876,8 +876,8 @@ end; // .function TAssocArray.TakeValue
 function TAssocArray.ReplaceValue
 (
             Key:      string;
-      {OUn} NewValue: POINTER;
-  out {OUn} OldValue: POINTER
+      {OUn} NewValue: pointer;
+  out {OUn} OldValue: pointer
 ): boolean;
 
 var
@@ -936,7 +936,7 @@ begin
   Self.fLocked  :=  TRUE;
 end; // .procedure TAssocArray.BeginIterate
 
-function TAssocArray.IterateNext (out Key: string; out {Un} Value: POINTER): boolean;
+function TAssocArray.IterateNext (out Key: string; out {Un} Value: pointer): boolean;
 var
 {U} IterNode: PAssocArrayNode;  
 
@@ -993,17 +993,17 @@ begin
   SysUtils.FreeAndNil(Self.fItemGuard);
 end; // .destructor TObjArray.Destroy
 
-function TObjArray.KeyToHash ({n} Key: POINTER): integer;
+function TObjArray.KeyToHash ({n} Key: pointer): integer;
 begin
   result  :=  Crypto.Bb2011Encode(integer(Key));
 end; // .function TObjArray.KeyToHash
 
-function TObjArray.HashToKey (Hash: integer): {n} POINTER;
+function TObjArray.HashToKey (Hash: integer): {n} pointer;
 begin
-  result  :=  POINTER(Crypto.Bb2011Decode(Hash));
+  result  :=  pointer(Crypto.Bb2011Decode(Hash));
 end; // .function TObjArray.HashToKey
 
-function TObjArray.IsValidValue ({n} Value: POINTER): boolean;
+function TObjArray.IsValidValue ({n} Value: pointer): boolean;
 begin
   result  :=  Self.ItemGuardProc(Value, Self.ItemsAreObjects, Utils.TItemGuard(Self.fItemGuard));
 end; // .function TObjArray.IsValidValue 
@@ -1225,7 +1225,7 @@ begin
     
     Self.fRoot      :=  nil;
     Self.fNodeCount :=  0;
-    Alg.CustomQuickSort(POINTER(Res.NodeArray), 0, Res.NodeCount - 1, ObjArrayCompareNodes);
+    Alg.CustomQuickSort(pointer(Res.NodeArray), 0, Res.NodeCount - 1, ObjArrayCompareNodes);
   end; // .if
 end; // .procedure TObjArray.ConvertToLinearNodeArray
 
@@ -1294,7 +1294,7 @@ end; // .procedure TObjArray.Rebuild
 
 function TObjArray.FindItem
 (
-      {n}   Key:        POINTER;
+      {n}   Key:        pointer;
   out {ni}  ParentNode: PObjArrayNode;
   out {ni}  ItemNode:   PObjArrayNode
 ): boolean;
@@ -1332,7 +1332,7 @@ begin
   end; // .if
 end; // .function TObjArray.FindItem
 
-function TObjArray.GetValue ({n} Key: POINTER): {n} POINTER;
+function TObjArray.GetValue ({n} Key: pointer): {n} pointer;
 var
 {U} ItemNode:   PObjArrayNode;
 {U} ParentNode: PObjArrayNode;
@@ -1349,7 +1349,7 @@ begin
   end; // .else
 end; // .function TObjArray.GetValue
 
-function TObjArray.GetExistingValue ({n} Key: POINTER; out {Un} Res: POINTER): boolean;
+function TObjArray.GetExistingValue ({n} Key: pointer; out {Un} Res: pointer): boolean;
 var
 {U} ItemNode:   PObjArrayNode;
 {U} ParentNode: PObjArrayNode;
@@ -1366,7 +1366,7 @@ begin
   end; // .if
 end; // .function TObjArray.GetExistingValue
 
-procedure TObjArray.SetValue ({n} Key: POINTER; {OUn} NewValue: POINTER);
+procedure TObjArray.SetValue ({n} Key: pointer; {OUn} NewValue: pointer);
 var
 {U} ItemNode:   PObjArrayNode;
 {U} ParentNode: PObjArrayNode;
@@ -1401,7 +1401,7 @@ begin
   end; // .else   
 end; // .procedure TObjArray.SetValue
 
-function TObjArray.DeleteItem ({n} Key: POINTER): boolean;
+function TObjArray.DeleteItem ({n} Key: pointer): boolean;
 var
 {U} ParentNode: PObjArrayNode;
 {U} ItemNode:   PObjArrayNode;
@@ -1419,7 +1419,7 @@ begin
   end; // .if
 end; // .function TObjArray.DeleteItem
 
-function TObjArray.TakeValue ({n} Key: POINTER; out {OUn} Value: POINTER): boolean;
+function TObjArray.TakeValue ({n} Key: pointer; out {OUn} Value: pointer): boolean;
 var
 {U} ParentNode: PObjArrayNode;
 {U} ItemNode:   PObjArrayNode;
@@ -1440,9 +1440,9 @@ end; // .function TObjArray.TakeValue
 
 function TObjArray.ReplaceValue
 (
-      {n}   Key:      POINTER;
-      {OUn} NewValue: POINTER;
-  out {OUn} OldValue: POINTER
+      {n}   Key:      pointer;
+      {OUn} NewValue: pointer;
+  out {OUn} OldValue: pointer
 ): boolean;
 
 var
@@ -1492,7 +1492,7 @@ begin
   Self.fLocked  :=  TRUE;
 end; // .procedure TObjArray.BeginIterate
 
-function TObjArray.IterateNext (out {Un} Key: POINTER; out {Un} Value: POINTER): boolean;
+function TObjArray.IterateNext (out {Un} Key: pointer; out {Un} Value: pointer): boolean;
 var
 {U} IterNode: PObjArrayNode;  
 

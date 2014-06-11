@@ -39,12 +39,12 @@ function  AskYesNoCancel (const Question: string): integer;
 function  AskOkCancel (const Question: string): boolean;
 function  VarToString (const VarRec: TVarRec): string;
 function  ToString (const Vars: array of const): string;
-function  PArrItemToString (var PArrItem: POINTER; VarType: integer): string;
-function  PVarToString (PVar: POINTER; VarType: integer): string;
+function  PArrItemToString (var PArrItem: pointer; VarType: integer): string;
+function  PVarToString (PVar: pointer; VarType: integer): string;
 procedure VarDump (const Vars: array of const; const Title: string);
 procedure ArrDump
 (
-  const Arr:        POINTER;
+  const Arr:        pointer;
         Count:      integer;
   const ElemsType:  integer;
   const Title:      string
@@ -152,7 +152,7 @@ begin
     vtWideChar:   result  :=  'WIDECHAR: ' + VarRec.vWideChar;
     vtExtended:   result  :=  'REAL: ' + SysUtils.FloatToStr(VarRec.vExtended^);
     vtString:     result  :=  'string: ' + VarRec.vString^;
-    vtPointer:    result  :=  'POINTER: $' + SysUtils.Format('%x',[integer(VarRec.vPointer)]);
+    vtPointer:    result  :=  'pointer: $' + SysUtils.Format('%x',[integer(VarRec.vPointer)]);
     vtPChar:      result  :=  'pchar: ' + VarRec.vPChar;
     vtPWideChar:  result  :=  'PWIDECHAR: ' + VarRec.vPWideChar;
     vtObject:     result  :=  'object: ' + VarRec.vObject.ClassName;
@@ -183,7 +183,7 @@ begin
   result  :=  StrLib.Join(ResArr, #13#10);
 end; // .function ToString
 
-function PArrItemToString (var PArrItem: POINTER; VarType: integer): string;
+function PArrItemToString (var PArrItem: pointer; VarType: integer): string;
 var
   VarRec: TVarRec;
 
@@ -216,9 +216,9 @@ begin
   result  :=  VarToString(VarRec);
 end; // .function PArrItemToString
 
-function PVarToString (PVar: POINTER; VarType: integer): string;
+function PVarToString (PVar: pointer; VarType: integer): string;
 var
-{U} Temp: POINTER;
+{U} Temp: pointer;
 
 begin
   {!} Assert(Math.InRange(VarType, 0, vtInt64));
@@ -234,7 +234,7 @@ end; // .procedure VarDump
 
 procedure ArrDump
 (
-  const Arr:        POINTER;
+  const Arr:        pointer;
         Count:      integer;
   const ElemsType:  integer;
   const Title:      string
@@ -244,7 +244,7 @@ const
   NUM_ITEMS_PER_DISPLAY = 20;
 
 var
-{U} CurrItem:           POINTER;
+{U} CurrItem:           pointer;
     CurrItemInd:        integer;
     StrArr:             Utils.TArrayOfString; 
     DisplayN:           integer;

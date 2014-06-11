@@ -18,7 +18,7 @@ function  FileRead (hFile: integer; var Buffer; StrictCount: integer): boolean;
 function  GetModuleHandle (const ModuleName: string; out hModule: integer): boolean;
 function  FindResource (hModule: integer; const ResName: string; ResType: pchar; out hResource: integer): boolean;
 function  LoadResource (hModule, hResource: integer; out hMem: integer): boolean;
-function  LockResource (hMem: integer; out ResData: POINTER): boolean;
+function  LockResource (hMem: integer; out ResData: pointer): boolean;
 function  SizeOfResource (hResource, hInstance: integer; out ResSize: integer): boolean;
 function  FindFirstFile (const Path: string; out hSearch: integer; out FindData: Windows.TWin32FindData): boolean;
 function  FindNextFile (hSearch: integer; var FindData: Windows.TWin32FindData): boolean;
@@ -68,7 +68,7 @@ begin
   result  :=  hMem <> 0;
 end; // .function LoadResource
 
-function LockResource (hMem: integer; out ResData: POINTER): boolean;
+function LockResource (hMem: integer; out ResData: pointer): boolean;
 begin
   {!} Assert(ResData = nil);
   ResData :=  Windows.LockResource(hMem);

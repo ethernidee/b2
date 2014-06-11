@@ -276,7 +276,7 @@ var
   LinePos:      integer;
   NumCharsLeft: integer;
   ChunkLen:     integer;
-  Dest:         POINTER;
+  Dest:         pointer;
 
 begin
   {!} Assert(StrLen >= 0);
@@ -287,7 +287,7 @@ begin
   if StrLen > 0 then begin
     LineN         :=  Self.LineN;
     LinePos       :=  Self.LinePos;
-    Dest          :=  POINTER(result);
+    Dest          :=  pointer(result);
     NumCharsLeft  :=  StrLen;
     while NumCharsLeft > 0 do begin
       ChunkLen  :=  Math.Min(LinePos + NumCharsLeft, Self.GetLineLength(LineN) + 1) - LinePos;
@@ -295,7 +295,7 @@ begin
         Utils.CopyMem
         (
           ChunkLen,
-          POINTER(@Self.fLines[LineN - 1][LinePos]), Utils.PtrOfs(Dest, StrLen - NumCharsLeft)
+          pointer(@Self.fLines[LineN - 1][LinePos]), Utils.PtrOfs(Dest, StrLen - NumCharsLeft)
         );
         NumCharsLeft  :=  NumCharsLeft - ChunkLen;
       end; // .if
@@ -698,7 +698,7 @@ end; // .function TTextBlocks.GetCurrChar
 function TTextBlocks.GetStr (StrLen: integer): string;
 var
 {U} ThisBlock:    PTextBlock; 
-{U} Dest:         POINTER;
+{U} Dest:         pointer;
     ThisBlockPos: integer;
     NumCharsLeft: integer;
     ChunkLen:     integer;
@@ -712,14 +712,14 @@ begin
   SetLength(result, StrLen);
   if StrLen > 0 then begin
     ThisBlockPos  :=  Self.fCurrBlockPos;
-    Dest          :=  POINTER(result);
+    Dest          :=  pointer(result);
     NumCharsLeft  :=  StrLen;
     while NumCharsLeft > 0 do begin
       ChunkLen  :=  Math.Min(NumCharsLeft, ThisBlock.Len - ThisBlockPos);
       Utils.CopyMem
       (
         ChunkLen,
-        POINTER(@ThisBlock.Data[ThisBlock.StartPos + ThisBlockPos]),
+        pointer(@ThisBlock.Data[ThisBlock.StartPos + ThisBlockPos]),
         Utils.PtrOfs(Dest, StrLen - NumCharsLeft)
       );
       NumCharsLeft  :=  NumCharsLeft - ChunkLen;

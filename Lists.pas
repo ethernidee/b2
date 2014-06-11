@@ -25,8 +25,8 @@ type
       (* on *)  fItemGuard:       Utils.TItemGuard;   
 
       procedure FreeItem (Ind: integer);
-      procedure Put (Ind: integer; (* OUn *) Item: POINTER);
-      function  Get (Ind: integer): (* n *) POINTER;
+      procedure Put (Ind: integer; (* OUn *) Item: pointer);
+      function  Get (Ind: integer): (* n *) pointer;
       function  AddEmpty: integer;
     
     (***) public (***)
@@ -34,26 +34,26 @@ type
       destructor  Destroy; override;
       procedure Assign (Source: Utils.TCloneable); override;
       procedure Clear;
-      function  IsValidItem ((* n *) Item: POINTER): boolean;
+      function  IsValidItem ((* n *) Item: pointer): boolean;
       procedure SetGrowthRate (NewGrowthRate: integer);
       procedure SetCapacity (NewCapacity: integer);
       procedure SetCount (NewCount: integer);
-      function  Add ((* OUn *) Item: POINTER): integer;
-      function  Top: (* n *) POINTER;
-      function  Pop: (* OUn *) POINTER;
+      function  Add ((* OUn *) Item: pointer): integer;
+      function  Top: (* n *) pointer;
+      function  Pop: (* OUn *) pointer;
       procedure Delete (Ind: integer);
-      procedure Insert ((* OUn *) Item: POINTER; Ind: integer);
+      procedure Insert ((* OUn *) Item: pointer; Ind: integer);
       procedure Exchange (SrcInd, DstInd: integer);
       procedure Move (SrcInd, DstInd: integer);
       procedure Shift (StartInd, Count, ShiftBy: integer);
       {Returns item with specified index and NILify it in the list}
-      function  Take (Ind: integer): (* OUn *) POINTER;
+      function  Take (Ind: integer): (* OUn *) pointer;
       {Returns old item}
-      function  Replace (Ind: integer; (* OUn *) NewValue: POINTER): (* OUn *) POINTER;
+      function  Replace (Ind: integer; (* OUn *) NewValue: pointer): (* OUn *) pointer;
       procedure Pack;
-      function  Find ((* n *) Item: POINTER; out Ind: integer): boolean;
+      function  Find ((* n *) Item: pointer; out Ind: integer): boolean;
       {Binary search assuming list is sorted}
-      function  QuickFind ((* n *) Item: POINTER; out Ind: integer): boolean;
+      function  QuickFind ((* n *) Item: pointer; out Ind: integer): boolean;
       procedure Sort;
       procedure CustomSort (Compare: Alg.TCompareFunc);
       
@@ -63,7 +63,7 @@ type
       property  OwnsItems:            boolean read fOwnsItems;
       property  ItemsAreObjects:      boolean read fItemsAreObjects;
       property  ItemGuardProc:        Utils.TItemGuardProc read fItemGuardProc;
-      property  Items[Ind: integer]:  (* n *) POINTER read Get write Put; default;
+      property  Items[Ind: integer]:  (* n *) pointer read Get write Put; default;
   end; // .class TList
   
   TStringList = class;
@@ -94,8 +94,8 @@ type
       function  ValidateKey (const Key: string): boolean;
       procedure PutKey (Ind: integer; const Key: string);
       function  GetKey (Ind: integer): string;
-      procedure PutValue (Ind: integer; (* OUn *) Item: POINTER);
-      function  GetValue (Ind: integer): (* n *) POINTER;
+      procedure PutValue (Ind: integer; (* OUn *) Item: pointer);
+      function  GetValue (Ind: integer): (* n *) pointer;
       function  AddEmpty: integer;
       procedure QuickSort (MinInd, MaxInd: integer);
       function  QuickFind (const Key: string; (* i *) out Ind: integer): boolean;
@@ -103,32 +103,32 @@ type
       procedure EnsureNoDuplicates;
       procedure SetCaseInsensitive (NewCaseInsensitive: boolean);
       procedure SetForbidDuplicates (NewForbidDuplicates: boolean);
-      function  GetItem (const Key: string): (* n *) POINTER;
-      procedure PutItem (const Key: string; (* OUn *) Value: POINTER);
+      function  GetItem (const Key: string): (* n *) pointer;
+      procedure PutItem (const Key: string; (* OUn *) Value: pointer);
     
     (***) public (***)
       constructor Create (OwnsItems: boolean; ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc; (* n *) var {IN} ItemGuard: Utils.TItemGuard);
       destructor  Destroy; override;
       procedure Assign (Source: Utils.TCloneable); override;
       procedure Clear;
-      function  IsValidItem ((* n *) Item: POINTER): boolean;
+      function  IsValidItem ((* n *) Item: pointer): boolean;
       procedure SetGrowthRate (NewGrowthRate: integer);
       procedure SetCapacity (NewCapacity: integer);
       procedure SetCount (NewCount: integer);
-      function  AddObj (const Key: string; (* OUn *) Value: POINTER): integer;
+      function  AddObj (const Key: string; (* OUn *) Value: pointer): integer;
       function  Add (const Key: string): integer;
       function  Top: string;
-      function  Pop ((* OUn *) out Item: POINTER): string;
+      function  Pop ((* OUn *) out Item: pointer): string;
       procedure Delete (Ind: integer);
-      procedure InsertObj (const Key: string; Value: (* OUn *) POINTER; Ind: integer);
+      procedure InsertObj (const Key: string; Value: (* OUn *) pointer; Ind: integer);
       procedure Insert (const Key: string; Ind: integer);
       procedure Exchange (SrcInd, DstInd: integer);
       procedure Move (SrcInd, DstInd: integer);
       procedure Shift (StartInd, Count, ShiftBy: integer);
       {Returns value with specified index and NILify it in the list}
-      function  TakeValue (Ind: integer): (* OUn *) POINTER;
+      function  TakeValue (Ind: integer): (* OUn *) pointer;
       {Returns old value}
-      function  ReplaceValue (Ind: integer; (* OUn *) NewValue: POINTER): (* OUn *) POINTER;
+      function  ReplaceValue (Ind: integer; (* OUn *) NewValue: pointer): (* OUn *) pointer;
       procedure Pack;
       function  CompareStrings (const Str1, Str2: string): integer;
       {If not success then returns index, where new item should be insert to keep list sorted}
@@ -144,11 +144,11 @@ type
       property  ItemsAreObjects:          boolean read fItemsAreObjects;
       property  ItemGuardProc:            Utils.TItemGuardProc read fItemGuardProc;
       property  Keys[Ind: integer]:       string read GetKey write PutKey; default;
-      property  Values[Ind: integer]:     (* n *) POINTER read GetValue write PutValue;
+      property  Values[Ind: integer]:     (* n *) pointer read GetValue write PutValue;
       property  CaseInsensitive:          boolean read fCaseInsensitive write SetCaseInsensitive;
       property  ForbidDuplicates:         boolean read fForbidDuplicates write SetForbidDuplicates;
       property  Sorted:                   boolean read fSorted write SetSorted;
-      property  Items[const Key: string]: (* n *) POINTER read GetItem write PutItem;
+      property  Items[const Key: string]: (* n *) pointer read GetItem write PutItem;
   end; // .class TStringList
 
 
@@ -198,7 +198,7 @@ begin
     Self.fItemsAreObjects :=  SrcList.ItemsAreObjects;
     Self.fItemGuardProc   :=  SrcList.ItemGuardProc;
     Self.fItemGuard       :=  SrcList.fItemGuard.Clone;
-    GetMem(Self.fData, Self.Capacity * sizeof(POINTER));
+    GetMem(Self.fData, Self.Capacity * sizeof(pointer));
     for i:=0 to SrcList.Count - 1 do begin
       if (SrcList.fData[i] = nil) or (not Self.OwnsItems) then begin
         Self.fData[i] :=  SrcList.fData[i];
@@ -240,12 +240,12 @@ begin
   Self.fCount     :=  0;
 end; // .procedure TList.Clear
 
-function TList.IsValidItem ((* n *) Item: POINTER): boolean;
+function TList.IsValidItem ((* n *) Item: pointer): boolean;
 begin
   result  :=  Self.ItemGuardProc(Item, Self.ItemsAreObjects, Self.fItemGuard);
 end; // .function TList.IsValidItem
 
-procedure TList.Put (Ind: integer; (* OUn *) Item: POINTER);
+procedure TList.Put (Ind: integer; (* OUn *) Item: pointer);
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   {!} Assert(Self.IsValidItem(Item));
@@ -253,7 +253,7 @@ begin
   Self.fData[Ind] :=  Item;
 end; // .procedure TList.Put
 
-function TList.Get (Ind: integer): (* n *) POINTER;
+function TList.Get (Ind: integer): (* n *) pointer;
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   result  :=  Self.fData[Ind];
@@ -277,7 +277,7 @@ begin
     end; // .for
   end; // .if
   Self.fCapacity  :=  NewCapacity;
-  ReallocMem(Self.fData, Self.Capacity * sizeof(POINTER));
+  ReallocMem(Self.fData, Self.Capacity * sizeof(pointer));
 end; // .procedure TList.SetCapacity
 
 procedure TList.SetCount (NewCount: integer);
@@ -312,26 +312,26 @@ begin
     else begin
       Self.fCapacity  :=  Math.Max(Self.Capacity + 1, INT64(Self.Capacity) * Self.GrowthRate div 100);
     end; // .else
-    ReallocMem(Self.fData, Self.Capacity * sizeof(POINTER));
+    ReallocMem(Self.fData, Self.Capacity * sizeof(pointer));
   end; // .if
   Self.fData[Self.Count]  :=  nil;
   Inc(Self.fCount);
 end; // .function TList.AddEmpty
 
-function TList.Add ((* OUn *) Item: POINTER): integer;
+function TList.Add ((* OUn *) Item: pointer): integer;
 begin
   {!} Assert(Self.IsValidItem(Item));
   result              :=  Self.AddEmpty;
   Self.fData[result]  :=  Item;
 end; // .function TList.Add
 
-function TList.Top: (* n *) POINTER;
+function TList.Top: (* n *) pointer;
 begin
   {!} Assert(Self.Count > 0);
   result  :=  Self.fData[Self.Count - 1];
 end; // .function TList.Top
 
-function TList.Pop: (* OUn *) POINTER;
+function TList.Pop: (* OUn *) pointer;
 begin
   result  :=  Self.Top;
   Dec(Self.fCount);
@@ -343,11 +343,11 @@ begin
   Self.FreeItem(Ind);
   Dec(Self.fCount);
   if Ind < Self.Count then begin
-    Utils.CopyMem((Self.Count - Ind) * sizeof(POINTER), @Self.fData[Ind + 1], @Self.fData[Ind]);
+    Utils.CopyMem((Self.Count - Ind) * sizeof(pointer), @Self.fData[Ind + 1], @Self.fData[Ind]);
   end; // .if
 end; // .procedure TList.Delete
 
-procedure TList.Insert ((* OUn *) Item: POINTER; Ind: integer);
+procedure TList.Insert ((* OUn *) Item: pointer; Ind: integer);
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count));
   if Ind = Self.Count then begin
@@ -356,7 +356,7 @@ begin
   else begin
     {!} Assert(Self.IsValidItem(Item));
     Self.AddEmpty;
-    Utils.CopyMem((Self.Count - Ind - 1) * sizeof(POINTER), @Self.fData[Ind], @Self.fData[Ind + 1]);
+    Utils.CopyMem((Self.Count - Ind - 1) * sizeof(pointer), @Self.fData[Ind], @Self.fData[Ind + 1]);
     Self.fData[Ind] :=  Item;
   end; // .else
 end; // .procedure TList.Insert
@@ -370,7 +370,7 @@ end; // .procedure TList.Exchange
 
 procedure TList.Move (SrcInd, DstInd: integer);
 var
-(* Un *)  SrcItem:  POINTER;
+(* Un *)  SrcItem:  pointer;
           Dist:     integer;
   
 begin
@@ -384,10 +384,10 @@ begin
     else begin
       SrcItem :=  Self.fData[SrcInd];
       if DstInd > SrcInd then begin
-        Utils.CopyMem(Dist * sizeof(POINTER), @Self.fData[SrcInd + 1],  @Self.fData[SrcInd]);
+        Utils.CopyMem(Dist * sizeof(pointer), @Self.fData[SrcInd + 1],  @Self.fData[SrcInd]);
       end // .if
       else begin
-        Utils.CopyMem(Dist * sizeof(POINTER), @Self.fData[DstInd],      @Self.fData[DstInd + 1]);
+        Utils.CopyMem(Dist * sizeof(pointer), @Self.fData[DstInd],      @Self.fData[DstInd + 1]);
       end; // .else
       Self.fData[DstInd]  :=  SrcItem;
     end; // .else
@@ -421,7 +421,7 @@ begin
   end; // .if
 end; // .procedure TList.Shift
 
-function TList.Take (Ind: integer): (* OUn *) POINTER;
+function TList.Take (Ind: integer): (* OUn *) pointer;
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   {!} Assert(Self.IsValidItem(nil));
@@ -429,7 +429,7 @@ begin
   Self.fData[Ind] :=  nil;
 end; // .function TList.Take
 
-function TList.Replace (Ind: integer; (* OUn *) NewValue: POINTER): (* OUn *) POINTER;
+function TList.Replace (Ind: integer; (* OUn *) NewValue: pointer): (* OUn *) pointer;
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   {!} Assert(Self.IsValidItem(NewValue));
@@ -459,7 +459,7 @@ begin
   end; // .if
 end; // .procedure TList.Pack
 
-function TList.Find ((* n *) Item: POINTER; out Ind: integer): boolean;
+function TList.Find ((* n *) Item: pointer; out Ind: integer): boolean;
 begin
   Ind :=  0;
   while (Ind < Self.Count) and (Self.fData[Ind] <> Item) do begin
@@ -469,7 +469,7 @@ begin
 end; // .function TList.Find
 
 // !FIXME if duplicates are allowed, then what???
-function TList.QuickFind ((* n *) Item: POINTER; out Ind: integer): boolean;
+function TList.QuickFind ((* n *) Item: pointer; out Ind: integer): boolean;
 var
   LeftInd:    integer;
   RightInd:   integer;
@@ -558,7 +558,7 @@ begin
     Self.fCaseInsensitive   :=  SrcList.CaseInsensitive;
     Self.fForbidDuplicates  :=  SrcList.ForbidDuplicates;
     Self.fSorted            :=  SrcList.Sorted;
-    GetMem(Self.fValues, Self.Count * sizeof(POINTER));
+    GetMem(Self.fValues, Self.Count * sizeof(pointer));
     for i:=0 to SrcList.Count - 1 do begin
       if (SrcList.fValues[i] = nil) or (not Self.OwnsItems) then begin
         Self.fValues[i] :=  SrcList.fValues[i];
@@ -601,7 +601,7 @@ begin
   Self.fCount     :=  0;
 end; // .procedure TStringList.Clear
 
-function TStringList.IsValidItem ((* n *) Item: POINTER): boolean;
+function TStringList.IsValidItem ((* n *) Item: pointer): boolean;
 begin
   result  :=  Self.ItemGuardProc(Item, Self.ItemsAreObjects, Self.fItemGuard);
 end; // .function TStringList.IsValidItem
@@ -633,7 +633,7 @@ begin
   result  :=  Self.fKeys[Ind];
 end; // .function TStringList.GetKey
 
-procedure TStringList.PutValue (Ind: integer; (* OUn *) Item: POINTER);
+procedure TStringList.PutValue (Ind: integer; (* OUn *) Item: pointer);
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   if Item <> Self.fValues[Ind] then begin
@@ -643,7 +643,7 @@ begin
   end; // .if
 end; // .procedure TStringList.PutValue
 
-function TStringList.GetValue (Ind: integer): (* n *) POINTER;
+function TStringList.GetValue (Ind: integer): (* n *) pointer;
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   result  :=  Self.fValues[Ind];
@@ -659,7 +659,7 @@ begin
     else begin
       Self.fCapacity  :=  Math.Max(Self.Capacity + 1, INT64(Self.Capacity) * Self.GrowthRate div 100);
     end; // .else
-    ReallocMem(Self.fValues, Self.Capacity * sizeof(POINTER));
+    ReallocMem(Self.fValues, Self.Capacity * sizeof(pointer));
     SetLength(Self.fKeys, Self.Capacity);
   end; // .if
   Self.fKeys[Self.Count]    :=  '';
@@ -685,7 +685,7 @@ begin
     end; // .for
   end; // .if
   Self.fCapacity  :=  NewCapacity;
-  ReallocMem(Self.fValues, Self.Capacity * sizeof(POINTER));
+  ReallocMem(Self.fValues, Self.Capacity * sizeof(pointer));
   SetLength(Self.fKeys, Self.Capacity);
 end; // .procedure TStringList.SetCapacity
 
@@ -712,7 +712,7 @@ begin
   Self.fCount :=  NewCount;
 end; // .procedure TStringList.SetCount
 
-function TStringList.AddObj (const Key: string; (* OUn *) Value: POINTER): integer;
+function TStringList.AddObj (const Key: string; (* OUn *) Value: pointer): integer;
 var
   KeyInd:     integer;
   KeyFound:   boolean;
@@ -747,7 +747,7 @@ begin
   result  :=  Self.fKeys[Self.Count - 1];
 end; // .function TStringList.Top
 
-function TStringList.Pop ((* OUn *) out Item: POINTER): string;
+function TStringList.Pop ((* OUn *) out Item: pointer): string;
 begin
   {!} Assert(Item = nil);
   {!} Assert(Self.Count > 0);
@@ -764,12 +764,12 @@ begin
   Dec(Self.fCount);
   if Ind < Self.Count then begin
     Utils.CopyMem((Self.Count - Ind) * sizeof(string),  @Self.fKeys[Ind + 1],   @Self.fKeys[Ind]);
-    POINTER(Self.fKeys[Self.Count]) :=  nil;
-    Utils.CopyMem((Self.Count - Ind) * sizeof(POINTER), @Self.fValues[Ind + 1], @Self.fValues[Ind]);
+    pointer(Self.fKeys[Self.Count]) :=  nil;
+    Utils.CopyMem((Self.Count - Ind) * sizeof(pointer), @Self.fValues[Ind + 1], @Self.fValues[Ind]);
   end; // .if
 end; // .procedure TStringList.Delete
 
-procedure TStringList.InsertObj (const Key: string; Value: (* OUn *) POINTER; Ind: integer);
+procedure TStringList.InsertObj (const Key: string; Value: (* OUn *) pointer; Ind: integer);
 var
   LastInd:  integer;
 
@@ -783,8 +783,8 @@ begin
     {!} Assert(Self.IsValidItem(Value));
     LastInd :=  Self.AddEmpty;
     Utils.CopyMem((LastInd - Ind) * sizeof(string),   @Self.fKeys[Ind],   @Self.fKeys[Ind + 1]);
-    Utils.CopyMem((LastInd - Ind) * sizeof(POINTER),  @Self.fValues[Ind], @Self.fValues[Ind + 1]);
-    POINTER(Self.fKeys[Ind])  :=  nil;
+    Utils.CopyMem((LastInd - Ind) * sizeof(pointer),  @Self.fValues[Ind], @Self.fValues[Ind + 1]);
+    pointer(Self.fKeys[Ind])  :=  nil;
     Self.fKeys[Ind]           :=  Key;
     Self.fValues[Ind]         :=  Value;
   end; // .else
@@ -808,8 +808,8 @@ end; // .procedure TStringList.Exchange
 
 procedure TStringList.Move (SrcInd, DstInd: integer);
 var
-(* Un *)  SrcValue: POINTER;
-          SrcKey:   POINTER;
+(* Un *)  SrcValue: pointer;
+          SrcKey:   pointer;
           Dist:     integer;
   
 begin
@@ -825,11 +825,11 @@ begin
       Self.Exchange(SrcInd, DstInd);
     end // .if
     else begin
-      SrcKey    :=  POINTER(Self.fKeys[SrcInd]);
+      SrcKey    :=  pointer(Self.fKeys[SrcInd]);
       SrcValue  :=  Self.fValues[SrcInd];
       Utils.CopyMem(ABS(Dist) * sizeof(string),   @Self.fKeys[DstInd],    @Self.fKeys[DstInd + Math.Sign(Dist)]);
-      Utils.CopyMem(ABS(Dist) * sizeof(POINTER),  @Self.fValues[DstInd],  @Self.fValues[DstInd + Math.Sign(Dist)]);
-      POINTER(Self.fKeys[DstInd]) :=  SrcKey;
+      Utils.CopyMem(ABS(Dist) * sizeof(pointer),  @Self.fValues[DstInd],  @Self.fValues[DstInd + Math.Sign(Dist)]);
+      pointer(Self.fKeys[DstInd]) :=  SrcKey;
       Self.fValues[DstInd]        :=  SrcValue;
     end; // .else
   end; // .if
@@ -864,7 +864,7 @@ begin
   end; // .if
 end; // .procedure TStringList.Shift
 
-function TStringList.TakeValue (Ind: integer): (* OUn *) POINTER;
+function TStringList.TakeValue (Ind: integer): (* OUn *) pointer;
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   {!} Assert(Self.IsValidItem(nil));
@@ -872,7 +872,7 @@ begin
   Self.fValues[Ind] :=  nil;
 end; // .function TStringList.TakeValue
 
-function TStringList.ReplaceValue (Ind: integer; (* OUn *) NewValue: POINTER): (* OUn *) POINTER;
+function TStringList.ReplaceValue (Ind: integer; (* OUn *) NewValue: pointer): (* OUn *) pointer;
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   {!} Assert(Self.IsValidItem(NewValue));
@@ -894,7 +894,7 @@ begin
     if i > 0 then begin
       Utils.CopyMem(i * sizeof(string), @Self.fKeys[i], @Self.fKeys[0]);
       System.FillChar(Self.fKeys[Count - i], i * sizeof(string), 0);
-      Utils.CopyMem(i * sizeof(POINTER), @Self.fValues[i], @Self.fValues[0]);
+      Utils.CopyMem(i * sizeof(pointer), @Self.fValues[i], @Self.fValues[0]);
       Self.fCount :=  Self.fCount - i;
     end; // .if
   end // .if
@@ -1109,8 +1109,8 @@ begin
   Self.fKeys      :=  StrLib.Explode(Text, EndOfLineMarker);
   Self.fCapacity  :=  Length(Self.fKeys);
   Self.fCount     :=  Self.Capacity;
-  GetMem(Self.fValues, Self.Count * sizeof(POINTER));
-  System.FillChar(Self.fValues[0], Self.Count * sizeof(POINTER), 0);
+  GetMem(Self.fValues, Self.Count * sizeof(pointer));
+  System.FillChar(Self.fValues[0], Self.Count * sizeof(pointer), 0);
   if Self.Sorted then begin
     Self.fSorted  :=  FALSE;
     Self.Sort;
@@ -1135,7 +1135,7 @@ begin
   end; // .else
 end; // .function TStringList.ToText
 
-function TStringList.GetItem (const Key: string): (* n *) POINTER;
+function TStringList.GetItem (const Key: string): (* n *) pointer;
 var
   Ind:  integer;
 
@@ -1148,7 +1148,7 @@ begin
   end; // .else
 end; // .function TStringList.GetItem
 
-procedure TStringList.PutItem (const Key: string; (* OUn *) Value: POINTER);
+procedure TStringList.PutItem (const Key: string; (* OUn *) Value: pointer);
 var
   Ind:  integer;
 

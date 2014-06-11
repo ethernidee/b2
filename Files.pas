@@ -25,19 +25,19 @@ type
   
   TFixedBuf = class (CFiles.TAbstractFile)
     (***) protected (***)
-      {OUn} fBuf:     POINTER;
+      {OUn} fBuf:     pointer;
             fOwnsMem: boolean;
     
     (***) public (***)
       destructor  Destroy; override;
-      procedure Open ({n} Buf: POINTER; BufSize: integer; DeviceMode: TDeviceMode);
+      procedure Open ({n} Buf: pointer; BufSize: integer; DeviceMode: TDeviceMode);
       procedure Close;
       procedure CreateNew (BufSize: integer);
-      function  ReadUpTo (Count: integer; {n} Buf: POINTER; out BytesRead: integer): boolean; override;
-      function  WriteUpTo (Count: integer; {n} Buf: POINTER; out ByteWritten: integer): boolean; override;
+      function  ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean; override;
+      function  WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: integer): boolean; override;
       function  Seek (NewPos: integer): boolean; override;
       
-      property  Buf:      POINTER read fBuf;
+      property  Buf:      pointer read fBuf;
       property  OwnsMem:  boolean read fOwnsMem;
   end; // .class TFixedBuf
   
@@ -51,8 +51,8 @@ type
       function  Open (const FilePath: string; DeviceMode: TDeviceMode): boolean;
       procedure Close;
       function  CreateNew (const FilePath: string): boolean;
-      function  ReadUpTo (Count: integer; {n} Buf: POINTER; out BytesRead: integer): boolean; override;
-      function  WriteUpTo (Count: integer; {n} Buf: POINTER; out ByteWritten: integer): boolean; override;
+      function  ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean; override;
+      function  WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: integer): boolean; override;
       function  Seek (NewPos: integer): boolean; override;
       
       property  hFile:    integer read fhFile;
@@ -156,7 +156,7 @@ begin
   Self.Close;
 end; // .destructor TFixedBuf.Destroy
 
-procedure TFixedBuf.Open ({n} Buf: POINTER; BufSize: integer; DeviceMode: TDeviceMode);
+procedure TFixedBuf.Open ({n} Buf: pointer; BufSize: integer; DeviceMode: TDeviceMode);
 begin
   {!} Assert(Utils.IsValidBuf(Buf, BufSize));
   {!} Assert(DeviceMode <> MODE_OFF);
@@ -181,7 +181,7 @@ end; // .procedure TFixedBuf.Close
 
 procedure TFixedBuf.CreateNew (BufSize: integer);
 var
-(* on *)  NewBuf: POINTER;
+(* on *)  NewBuf: pointer;
   
 begin
   {!} Assert(BufSize >= 0);
@@ -194,7 +194,7 @@ begin
   Self.fOwnsMem :=  TRUE;
 end; // .procedure TFixedBuf.CreateNew
 
-function TFixedBuf.ReadUpTo (Count: integer; {n} Buf: POINTER; out BytesRead: integer): boolean;
+function TFixedBuf.ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  ((Self.Mode = MODE_READ) or (Self.Mode = MODE_READWRITE)) and (not Self.EOF) and (Count > 0);
@@ -206,7 +206,7 @@ begin
   end; // .if
 end; // .function TFixedBuf.ReadUpTo
 
-function TFixedBuf.WriteUpTo (Count: integer; {n} Buf: POINTER; out ByteWritten: integer): boolean;
+function TFixedBuf.WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  ((Self.Mode = MODE_WRITE) or (Self.Mode = MODE_READWRITE)) and (not Self.EOF);
@@ -314,7 +314,7 @@ begin
   end; // .else
 end; // .function TFile.CreateNew
 
-function TFile.ReadUpTo (Count: integer; {n} Buf: POINTER; out BytesRead: integer): boolean;
+function TFile.ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  ((Self.Mode = MODE_READ) or (Self.Mode = MODE_READWRITE)) and (not Self.EOF);
@@ -329,7 +329,7 @@ begin
   end; // .if
 end; // .function TFile.ReadUpTo
 
-function TFile.WriteUpTo (Count: integer; {n} Buf: POINTER; out ByteWritten: integer): boolean;
+function TFile.WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  (Self.Mode = MODE_WRITE) or (Self.Mode = MODE_READWRITE);

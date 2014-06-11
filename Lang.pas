@@ -56,8 +56,8 @@ type
               DefLangName:  string;
               Unicode:      boolean;
               NumStrings:   integer;
-    (* UO *)  LngVar:       PPOINTER; // Pointer to client's Lng variable which is pointer to array of strings
-    (* U *)   DefStrArr:    POINTER;  // Pointer to client's default array of language strings
+    (* UO *)  LngVar:       PPOINTER; // pointer to client's Lng variable which is pointer to array of strings
+    (* U *)   DefStrArr:    pointer;  // pointer to client's default array of language strings
   end; // .record TClient
 
 
@@ -79,8 +79,8 @@ procedure RegisterClient
   const DefLangName:  string;
         Unicode:      boolean;
         NumStrings:   integer;
-        LngVar:       POINTER;  // Pointer to client's Lng variable which is pointer to array of strings
-        DefStrArr:    POINTER   // Pointer to client's default array of language strings
+        LngVar:       pointer;  // pointer to client's Lng variable which is pointer to array of strings
+        DefStrArr:    pointer   // pointer to client's default array of language strings
 );
 procedure UnloadFilePack;
 function  LoadFilePack: boolean;
@@ -115,7 +115,7 @@ begin
   ClientInd :=  ClientList.IndexOf(ClientName);
   result    :=  ClientInd <> -1;
   if result then begin
-    Client  :=  POINTER(ClientList.Objects[ClientInd]);
+    Client  :=  pointer(ClientList.Objects[ClientInd]);
   end; // .if
 end; // .function FindClient
 
@@ -155,8 +155,8 @@ procedure RegisterClient
   const DefLangName:  string;
         Unicode:      boolean;
         NumStrings:   integer;
-        LngVar:       POINTER;
-        DefStrArr:    POINTER
+        LngVar:       pointer;
+        DefStrArr:    pointer
 );
 var
 (* O *) Client: PClient;
@@ -179,7 +179,7 @@ begin
   Client.NumStrings   :=  NumStrings;
   Client.LngVar       :=  LngVar;
   Client.DefStrArr    :=  DefStrArr;
-  ClientList.AddObject(ClientName, POINTER(Client)); Client:=nil;
+  ClientList.AddObject(ClientName, pointer(Client)); Client:=nil;
 end; // .procedure RegisterClient
 
 procedure ResetClientLang (Client: PClient);
@@ -224,7 +224,7 @@ begin
     if SysUtils.FileExists(FilePackPath) then begin
       result  :=
         FileObj.Open(LangDir + '\' + FilePackName, Files.MODE_READ) and
-        FileObj.ReadAllToBuf(POINTER(FilePack), FilePackSize);
+        FileObj.ReadAllToBuf(pointer(FilePack), FilePackSize);
       if not result then begin
         Log.Write('LanguageSystem', 'LoadFilePack', 'Cannot load language pack "' + FilePackPath + '"');
       end; // .if
@@ -364,7 +364,7 @@ begin
   if AllowLoadFromFiles and SysUtils.FileExists(FileUnitPath) then begin
     result  :=
       FileObj.Open(FileUnitPath, Files.MODE_READ) and
-      FileObj.ReadAllToBuf(POINTER(LngUnit), FileUnitSize);
+      FileObj.ReadAllToBuf(pointer(LngUnit), FileUnitSize);
     if not result then begin
       Log.Write('LanguageSystem', 'LoadClientLangFromFileUnit', 'Cannot load language unit "' + FileUnitPath + '"');
     end // .if
@@ -411,7 +411,7 @@ begin
   if AllowLoadFromFiles and SysUtils.FileExists(FileStrArrPath) then begin
     result  :=
       FileObj.Open(FileStrArrPath, Files.MODE_READ) and
-      FileObj.ReadAllToBuf(POINTER(LngStrArr), FileStrArrSize);
+      FileObj.ReadAllToBuf(pointer(LngStrArr), FileStrArrSize);
     if not result then begin
       Log.Write('LanguageSystem', 'LoadClientLangFromFileStrArr', 'Cannot load language strings array "' + FileStrArrPath + '"');
     end // .if
@@ -456,7 +456,7 @@ var
 begin
   Language  :=  '';
   for i:=0 to ClientList.Count - 1 do begin
-    ResetClientLang(POINTER(ClientList.Objects[i]));
+    ResetClientLang(pointer(ClientList.Objects[i]));
   end; // .for
 end; // .procedure ResetLanguage
 
@@ -467,7 +467,7 @@ var
 begin
   {!} Assert(CLang.IsValidLangName(NewLanguage));
   for i:=0 to ClientList.Count - 1 do begin
-    SetClientLang(POINTER(ClientList.Objects[i]), NewLanguage)
+    SetClientLang(pointer(ClientList.Objects[i]), NewLanguage)
   end; // .for
 end; // .procedure SetLanguage
 

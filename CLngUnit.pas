@@ -154,7 +154,7 @@ begin
     RealStructSize  :=  sizeof(TLngUnit) + UnitNameLen;
     if NumLngStrArrays > 0 then begin
       i         :=  0;
-      LngStrArr :=  POINTER(integer(@Self.LngUnit.Header) + RealStructSize);
+      LngStrArr :=  pointer(integer(@Self.LngUnit.Header) + RealStructSize);
       while result and (i < NumLngStrArrays) do begin
         LngStrArrReader.Connect(LngStrArr, Self.StructMemoryBlockSize - RealStructSize);
         result  :=  LngStrArrReader.Validate(Error);
@@ -241,7 +241,7 @@ begin
       LngStrArrReader :=  CLngStrArr.TLngStrArrReader.Create;
     end; // .if
     if Self.fCurrLngStrArrInd = 0 then begin
-      Self.fCurrLngStrArr :=  POINTER(integer(@Self.LngUnit.ExtHeader.UnitName) + Self.LngUnit.ExtHeader.UnitNameLen);
+      Self.fCurrLngStrArr :=  pointer(integer(@Self.LngUnit.ExtHeader.UnitName) + Self.LngUnit.ExtHeader.UnitNameLen);
     end; // .if
     LngStrArrReader.Connect(Self.fCurrLngStrArr, Self.StructMemoryBlockSize - (integer(Self.fCurrLngStrArr) - integer(Self.LngUnit)));
     Inc(integer(Self.fCurrLngStrArr), LngStrArrReader.StructSize);

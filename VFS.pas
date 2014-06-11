@@ -199,7 +199,7 @@ begin
     Log.Write('VFS', 'FindVFSPath', 'Original: ' + RelativePath);
   end; // .if
   
-  if CachedPaths.GetExistingValue(RelativePath, POINTER(RedirectedPathValue)) then begin
+  if CachedPaths.GetExistingValue(RelativePath, pointer(RedirectedPathValue)) then begin
     result := RedirectedPathValue.Value <> '';
     
     if result then begin
@@ -339,7 +339,7 @@ end; // .function MyFindNextFile
 
 function Hook_GetFullPathNameA (Hook: PatchApi.THiHook; lpFileName: pchar;
                                 nBufferLength: integer; lpBuffer: pchar;
-                                lpFilePart: POINTER): integer; stdcall;
+                                lpFilePart: pointer): integer; stdcall;
 var
   FilePath: string;
   ApiRes:   string;
@@ -869,7 +869,7 @@ begin
   end; // .if
 end; // .function Hook_SetCurrentDirectoryA
 
-procedure AssertHandler (const Mes, FileName: string; LineNumber: integer; Address: POINTER);
+procedure AssertHandler (const Mes, FileName: string; LineNumber: integer; Address: pointer);
 var
   CrashMes: string;
 

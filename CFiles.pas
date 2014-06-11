@@ -49,7 +49,7 @@ type
       function  ReadUpTo
       (
                 Count:      integer;
-            {n} Buf:        POINTER;
+            {n} Buf:        pointer;
         out     BytesRead:  integer
       ): boolean; virtual; abstract;
       
@@ -57,22 +57,22 @@ type
       function  WriteUpTo
       (
                 Count:        integer;
-            {n} Buf:          POINTER;
+            {n} Buf:          pointer;
         out     ByteWritten:  integer
       ): boolean; virtual; abstract;
 
       function  Seek (NewPos: integer): boolean; virtual; abstract;
     
       (* Reading *)
-      function  Read (Count: integer; {n} Buf: POINTER): boolean;
+      function  Read (Count: integer; {n} Buf: pointer): boolean;
       function  ReadByte (out Res: byte): boolean;
       function  ReadInt (out Res: integer): boolean;
       function  ReadStr (Count: integer; out Res: string): boolean;
-      function  ReadAllToBuf (out Buf: POINTER; out Size: integer): boolean;
+      function  ReadAllToBuf (out Buf: pointer; out Size: integer): boolean;
       function  ReadAllToStr (out Str: string): boolean;
 
       (* Writing *)
-      function  Write (Count: integer; {n} Buf: POINTER): boolean;
+      function  Write (Count: integer; {n} Buf: pointer): boolean;
       function  WriteByte (Data: byte): boolean;
       function  WriteWord (Data: word): boolean;
       function  WriteInt (Data: integer): boolean;
@@ -118,7 +118,7 @@ type
 (***) implementation (***)
 
 
-function TAbstractFile.Read (Count: integer; {n} Buf: POINTER): boolean;
+function TAbstractFile.Read (Count: integer; {n} Buf: pointer): boolean;
 var
   TotalBytesRead: integer;
   BytesRead:      integer;
@@ -153,14 +153,14 @@ end; // .function TAbstractFile.ReadInt
 function TAbstractFile.ReadStr (Count: integer; out Res: string): boolean;
 begin
   SetLength(Res, Count);
-  result  :=  Self.Read(Count, POINTER(Res));
+  result  :=  Self.Read(Count, pointer(Res));
   
   if not result then begin
     Res :=  '';
   end; // .if
 end; // .function TAbstractFile.ReadStr
 
-function TAbstractFile.ReadAllToBuf (out Buf: POINTER; out Size: integer): boolean;
+function TAbstractFile.ReadAllToBuf (out Buf: pointer; out Size: integer): boolean;
 var
   TotalBytesRead: integer;
   BytesRead:      integer;
@@ -241,7 +241,7 @@ begin
   end; // .if
 end; // .function TAbstractFile.ReadAllToStr
 
-function TAbstractFile.Write (Count: integer; {n} Buf: POINTER): boolean;
+function TAbstractFile.Write (Count: integer; {n} Buf: pointer): boolean;
 var
   TotalBytesWritten:  integer;
   BytesWritten:       integer;
@@ -280,7 +280,7 @@ end; // .function TAbstractFile.WriteInt
 
 function TAbstractFile.WriteStr (Data: string): boolean;
 begin
-  result  :=  Self.Write(Length(Data), POINTER(Data));
+  result  :=  Self.Write(Length(Data), pointer(Data));
 end; // .function TAbstractFile.WriteStr
 
 function TAbstractFile.WriteFrom (Count: integer; Source: TAbstractFile): boolean;
@@ -298,8 +298,8 @@ begin
   
   if Count <= MAX_BUF_SIZE then begin
     result  :=
-      Source.Read(Count, POINTER(StrBuf)) and
-      Self.Write(Count, POINTER(StrBuf));
+      Source.Read(Count, pointer(StrBuf)) and
+      Self.Write(Count, pointer(StrBuf));
   end // .if
   else begin
     NumWriteOpers   :=  Math.Ceil(Count / MAX_BUF_SIZE);
@@ -312,8 +312,8 @@ begin
       end; // .if
       
       result  :=
-        Source.Read(NumBytesToWrite, POINTER(StrBuf)) and
-        Self.Write(NumBytesToWrite, POINTER(StrBuf));
+        Source.Read(NumBytesToWrite, pointer(StrBuf)) and
+        Self.Write(NumBytesToWrite, pointer(StrBuf));
       
       Inc(i);
     end; // .while
@@ -335,8 +335,8 @@ begin
   else begin
     SetLength(StrBuf, Self.MAX_BUF_SIZE);
     
-    while result and Source.ReadUpTo(Self.MAX_BUF_SIZE, POINTER(StrBuf), BytesRead) do begin
-      result  :=  Self.Write(BytesRead, POINTER(StrBuf));
+    while result and Source.ReadUpTo(Self.MAX_BUF_SIZE, pointer(StrBuf), BytesRead) do begin
+      result  :=  Self.Write(BytesRead, pointer(StrBuf));
     end; // .while
     
     result  :=  result and Source.EOF;

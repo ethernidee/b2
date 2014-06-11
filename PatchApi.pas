@@ -107,7 +107,7 @@ type
 
 // все адреса и часть указателей определены этим типом,
 // если вам удобнее по-другому, можете заменить _ptr_
-// на любой другой четырехбайтовый тип: Pointer или integer например
+// на любой другой четырехбайтовый тип: pointer или integer например
   _ptr_ = _dword_;
 
 // Структура HookContext
@@ -595,7 +595,7 @@ type
 	// т.н. дизассемблер длин опкодов
 	// возвращает длину в байтах опкода по адресу p_opcode
 	// возвращает 0, если опкод неизвестен
-   	function GetOpcodeLength(p_opcode: Pointer): integer; virtual; stdcall; abstract;
+   	function GetOpcodeLength(p_opcode: pointer): integer; virtual; stdcall; abstract;
 
 	///////////////////////////////////////////////////
 	// метод MemCopyCode
@@ -606,7 +606,7 @@ type
 	// что корректно копирует опкоды E8 (call), E9 (jmp long), 0F80 - 0F8F (j** long)
 	// c относительной адресацией не сбивая в них адреса, если инструкции 
 	// направляют за пределы копируемого блокая.
-    procedure MemCopyCode(dst, src: Pointer; size: cardinal); virtual; stdcall; abstract;
+    procedure MemCopyCode(dst, src: pointer; size: cardinal); virtual; stdcall; abstract;
 
 
 	///////////////////////////////////////////////////
@@ -628,7 +628,7 @@ type
 	// соответствующие E9 (jmp long), 0F80 - 0F8F (j** long) опкоды.
 	// Внимание! Из-за этого размер скопированного кода может оказаться значительно 
 	// больше копируемого.
-    function MemCopyCodeEx(dst, src: Pointer; size: cardinal): integer; virtual; stdcall; abstract;
+    function MemCopyCodeEx(dst, src: pointer; size: cardinal): integer; virtual; stdcall; abstract;
 
 	////////////////////////////////////////////////////////////////////
 	// метод WriteComplexData

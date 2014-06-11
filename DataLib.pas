@@ -65,10 +65,10 @@ type
     procedure BeginIterate (aDict: TObjDict);
     function  IterNext: boolean;
     procedure EndIterate;
-    function  GetIterKey: {n} POINTER;
+    function  GetIterKey: {n} pointer;
     function  GetIterValue: {n} TObject;
     
-    property IterKey:   POINTER read GetIterKey;
+    property IterKey:   pointer read GetIterKey;
     property IterValue: {n} TObject read GetIterValue;
   end; // .interface IObjDictIterator
 
@@ -136,14 +136,14 @@ type
     protected
       {U}   fObjDict:   TObjDict;
       {Un}  fIterValue: TObject;
-      {Un}  fIterKey:   POINTER;
+      {Un}  fIterKey:   pointer;
             fIterating: boolean;
             
     public
       procedure BeginIterate ({U} aObjDict: TObjDict);
       function  IterNext: boolean;
       procedure EndIterate;
-      function  GetIterKey: {n} POINTER;
+      function  GetIterKey: {n} pointer;
       function  GetIterValue: {n} TObject;
   end; // .class TObjDictIterator
 
@@ -285,7 +285,7 @@ var
 begin
   OldValue  :=  nil;
   // * * * * * //
-  {!} Assert(not Self.fItems.GetExistingValue(Key, POINTER(OldValue)));
+  {!} Assert(not Self.fItems.GetExistingValue(Key, pointer(OldValue)));
   Self.fItemList.InsertObj(Key, Value, BeforeInd);
   Self.fItems[Key]  :=  Value;
 end; // .procedure TStdHashedList.InsertBefore
@@ -299,7 +299,7 @@ end; // .procedure TStdHashedList.Delete
 function TStdHashedList.Take (Ind: integer): {OUn} TObject;
 begin
   result  :=  nil;
-  Self.fItems.TakeValue(Self.fItemList[Ind], POINTER(result));
+  Self.fItems.TakeValue(Self.fItemList[Ind], pointer(result));
   Self.fItemList.TakeValue(Ind);
 end; // .function TStdHashedList.Take
 
@@ -322,7 +322,7 @@ function TDictIterator.IterNext: boolean;
 begin
   {!} Assert(Self.fIterating);
   Self.fIterValue :=  nil;
-  result          :=  Self.fDict.IterateNext(Self.fIterKey, POINTER(Self.fIterValue));
+  result          :=  Self.fDict.IterateNext(Self.fIterKey, pointer(Self.fIterValue));
   
   if not result then begin
     Self.EndIterate;
@@ -376,7 +376,7 @@ begin
   {!} Assert(Self.fIterating);
   Self.fIterKey   := nil;
   Self.fIterValue := nil;
-  result          := Self.fObjDict.IterateNext(Self.fIterKey, POINTER(Self.fIterValue));
+  result          := Self.fObjDict.IterateNext(Self.fIterKey, pointer(Self.fIterValue));
   
   if not result then begin
     Self.EndIterate;
@@ -392,7 +392,7 @@ begin
   end; // .if
 end; // .procedure TObjDictIterator.EndIterate
 
-function TObjDictIterator.GetIterKey: {n} POINTER;
+function TObjDictIterator.GetIterKey: {n} pointer;
 begin
   {!} Assert(Self.fIterating);
   result := Self.fIterKey;

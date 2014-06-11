@@ -46,7 +46,7 @@ type
   PEndlessExtArr        = ^TEndlessExtArr;
   TEndlessShortStrArr   = array [0..MAXLONGINT div sizeof(ShortString) - 1] of ShortString;
   PEndlessShortStrArr   = ^TEndlessShortStrArr;
-  TEndlessPtrArr        = array [0..MAXLONGINT div sizeof(POINTER) - 1] of POINTER;
+  TEndlessPtrArr        = array [0..MAXLONGINT div sizeof(pointer) - 1] of pointer;
   PEndlessPtrArr        = ^TEndlessPtrArr;
   TEndlessPCharArr      = array [0..MAXLONGINT div sizeof(pchar) - 1] of pchar;
   PEndlessPCharArr      = ^TEndlessPCharArr;
@@ -77,7 +77,7 @@ type
   
   (* Containers items guards *)
   TItemGuard      = TCloneable;
-  TItemGuardProc  = function ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
+  TItemGuardProc  = function ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
   
   TDefItemGuard = class (TCloneable)
     ItemType: TClass;
@@ -90,9 +90,9 @@ type
 
 
 (* Low level functions *)
-function  PtrOfs ({n} BasePtr: POINTER; Offset: integer): POINTER; inline;
-function  IsValidBuf ({n} Buf: POINTER; BufSize: integer): boolean;
-procedure CopyMem (Count: integer; {n} Source, Destination: POINTER);
+function  PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer; inline;
+function  IsValidBuf ({n} Buf: pointer; BufSize: integer): boolean;
+procedure CopyMem (Count: integer; {n} Source, Destination: pointer);
 procedure Exchange (var A, B: integer);
 procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer);
 
@@ -100,8 +100,8 @@ procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer);
 function  EVEN (Num: integer): boolean;
 
 (* Item guards *)
-function  NoItemGuardProc ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
-function  DefItemGuardProc ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
+function  NoItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
+function  DefItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 
 function  EqualMethods (A, B: TMethod): boolean;
 
@@ -109,18 +109,18 @@ function  EqualMethods (A, B: TMethod): boolean;
 (***)  implementation  (***)
 
 
-function PtrOfs ({n} BasePtr: POINTER; Offset: integer): POINTER;
+function PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer;
 begin
-  result := POINTER(integer(BasePtr) + Offset);
+  result := pointer(integer(BasePtr) + Offset);
 end; // .function PtrOfs
 
-function IsValidBuf ({n} Buf: POINTER; BufSize: integer): boolean;
+function IsValidBuf ({n} Buf: pointer; BufSize: integer): boolean;
 begin
   {Buf <> NIL and BufSize = 0 is OK. Buf = NIL and BufSize > 0 is BAD. !BufSize >= 0}
   result := (BufSize >= 0) and ((Buf <> nil) or (BufSize = 0));
 end; // .function IsValidBuf
 
-procedure CopyMem (Count: integer; {n} Source, Destination: POINTER);
+procedure CopyMem (Count: integer; {n} Source, Destination: pointer);
 begin
   {!} Assert(Count >= 0);
   {!} Assert((Count = 0) or ((Source <> nil) and (Destination <> nil)));
@@ -180,12 +180,12 @@ begin
   result := not ODD(Num);
 end; // .function EVEN
 
-function NoItemGuardProc ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
+function NoItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 begin
   result := TRUE;
 end; // .function NoItemGuardProc
 
-function DefItemGuardProc ({n} Item: POINTER; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
+function DefItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 var
 (* U *) MyGuard:  TDefItemGuard;
   

@@ -368,7 +368,7 @@ var
   i: integer;
   C: char;
   Chosen: integer;
-  P: POINTER;
+  P: pointer;
   Interval: integer;
   
 begin

@@ -194,7 +194,7 @@ end; // .function CRC32
 
 function AnsiCRC32 (const Str: string): integer;
 begin
-  result  :=  CRC32(POINTER(Str), Length(Str));
+  result  :=  CRC32(pointer(Str), Length(Str));
 end; // .function AnsiCRC32
 
 function Bb2011Encode (Value: integer): integer;

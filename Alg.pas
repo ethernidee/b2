@@ -21,7 +21,7 @@ type
 function  IntLog2 (Num: integer): integer; {=> Ceil(Log2(N)), N > 0}
 function  IntCompare (Int1, Int2: integer): integer;
 function  CardCompare (Card1, Card2: cardinal): integer;
-function  PtrCompare (Ptr1, Ptr2: POINTER): integer;
+function  PtrCompare (Ptr1, Ptr2: pointer): integer;
 function  Int64To32 (Value: INT64): integer; {No overflow, bounds to LOW(INT32)..HIGH(IN32)}
 procedure QuickSort (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer);
 procedure CustomQuickSort
@@ -78,7 +78,7 @@ begin
   end; // .else
 end; // .function CardCompare
 
-function PtrCompare (Ptr1, Ptr2: POINTER): integer;
+function PtrCompare (Ptr1, Ptr2: pointer): integer;
 begin
   if cardinal(Ptr1) > cardinal(Ptr2) then begin
     result := +1;
@@ -192,7 +192,7 @@ var
 begin
   RangeLen := MaxInd - MinInd + 1;
   {!} Assert(RangeLen >= 0);
-  {!} Assert(Utils.IsValidBuf(POINTER(Obj), RangeLen));
+  {!} Assert(Utils.IsValidBuf(pointer(Obj), RangeLen));
   {!} Assert(MinInd >= 0);
   
   while MinInd < MaxInd do begin
