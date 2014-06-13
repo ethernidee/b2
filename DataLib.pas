@@ -83,6 +83,7 @@ function  NewHashedList (OwnsItems, CaseInsensitive: boolean): {O} THashedList;
 function  IterateDict ({U} Dict: TDict): IDictIterator;
 function  IterateObjDict (aObjDict: TObjDict): IObjDictIterator;
 procedure JoinLists (MainList, DependentList: TList);
+function  DictToStrList ({n} Dict: TDict; CaseInsensitive: boolean): {O} TStrList {U};
 
 
 (***) implementation (***)
@@ -427,5 +428,16 @@ begin
     MainList.Add(DependentList[i]);
   end; // .for
 end; // .procedure JoinLists
+
+function DictToStrList ({n} Dict: TDict; CaseInsensitive: boolean): {O} TStrList {U};
+begin
+  result := NewStrList(not Utils.OWNS_ITEMS, CaseInsensitive);
+
+  with IterateDict(Dict) do begin
+    while IterNext do begin
+      result.AddObj(IterKey, IterValue);
+    end;
+  end; // .with
+end; // .function DictToStrList
 
 end.
