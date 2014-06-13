@@ -30,6 +30,8 @@ type
     procedure RawLine (const Str: string);
     // Same as Write([indentation]) * [indent level] + RawLine(Str)
     procedure Line (const Str: string);
+    // Same as Write([line end marker])
+    procedure EmptyLine;
 
     property Indentation:   string write SetIndentation;
     property LineEndMarker: string write SetLineEndMarker;
@@ -49,16 +51,12 @@ type
 
     procedure SetIndentation (const aIndentation: string);
     procedure SetLineEndMarker (const aLineEndMarker: string);
-
-    // Increase or decrease indentation
     procedure Indent;
     procedure Unindent;
-    
     procedure Write (const Str: string);
-    // Same as Write + Write([line end marker])
     procedure RawLine (const Str: string);
-    // Same as Write([indentation]) * [indent level] + RawLine(Str)
     procedure Line (const Str: string);
+    procedure EmptyLine;
   end; // .class TFileFormattedOutput
   
 
@@ -131,6 +129,11 @@ begin
   fOutputBuf.Append(Str);
   fOutputBuf.Append(fLineEndMarker);
 end; // .procedure TFileFormattedOutput.Line
+
+procedure TFileFormattedOutput.EmptyLine;
+begin
+  fOutputBuf.Append(fLineEndMarker);
+end; // .procedure TFileFormattedOutput.EmptyLine
 
 function GetFileList (const MaskedPath: string; SearchSubj: TSearchSubj): {O} TStrList;
 begin
