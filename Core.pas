@@ -6,8 +6,12 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 
 (***)  interface  (***)
 uses
-  Windows, Math, Utils, DlgMes, CFiles, Files, hde32,
-  PatchApi;
+  Windows, PsApi, Math, StrUtils, SysUtils,
+  Utils, WinWrappers, DlgMes, CFiles, Files, DataLib, hde32, PatchApi;
+
+type
+  (* Import *)
+  TStrList = DataLib.TStrList;
 
 const
   (* Hooks *)
@@ -48,6 +52,19 @@ type
     v:  integer;
   end; // .record TAPIArg
 
+  TModuleInfo = class
+    Name:       string;  // lower case
+    Path:       string;  // original case
+    BaseAddr:   pointer;
+    EndAddr:    pointer; // calculated
+    EntryPoint: pointer;
+    Size:       integer;
+    IsExe:      boolean; // calculated
+
+    procedure EvaluateDerivatives;
+    function  OwnsAddr ({n} Addr: pointer): boolean;
+  end; // .class TModuleInfo
+
 
 function  WriteAtCode (Count: integer; Src, Dst: pointer): boolean; stdcall;
 
@@ -76,23 +93,34 @@ procedure FatalError (const Err: string); stdcall;
 // Returns address of assember ret-routine which will clean the arguments and return
 function  Ret (NumArgs: integer): pointer;
 
+function GetModuleList: {O} TStrList {of TModuleInfo};
+function FindModuleByAddr ({n} Addr: pointer; ModuleList: TStrList {of TModuleInfo};
+                           out ModuleInd: integer): boolean;
 
 var
   (* Patching provider *)
   GlobalPatcher: PatchApi.TPatcher;
   p: PatchApi.TPatcherInstance;
 
-
-(***) implementation (***)
-
+implementation
 
 const
   BRIDGE_DEF_CODE_OFS = 17;
 
-
 var
 {O} Hooker: Files.TFixedBuf;
 
+procedure TModuleInfo.EvaluateDerivatives;
+begin
+  EndAddr := Utils.PtrOfs(BaseAddr, Size);
+  Name    := AnsiLowerCase(ExtractFileName(Path));
+  IsExe   := StrUtils.AnsiEndsStr('.exe', Name);
+end; // .procedure TModuleInfo.EvaluateDerivatives
+
+function TModuleInfo.OwnsAddr ({n} Addr: pointer): boolean;
+begin
+  result := (cardinal(Addr) >= cardinal(BaseAddr)) and (cardinal(Addr) < cardinal(EndAddr));
+end; // .function TModuleInfo.OwnsAddr
 
 function WriteAtCode (Count: integer; Src, Dst: pointer): boolean;
 var
@@ -363,8 +391,78 @@ begin
   end; // .SWITCH NumArgs
 end; // .function Ret
 
+function GetModuleList: {O} TStrList {of TModuleInfo};
+var
+{O} ModuleInfo:     TModuleInfo;
+    ModuleInfoRes:  PsApi.TModuleInfo;
+    ModuleHandles:  array of HMODULE;
+    CurrentProcess: THandle;
+    SizeNeeded:     cardinal;
+    NumModules:     integer;
+    i:              integer;
+
+begin
+  ModuleInfo := nil;
+  // * * * * * //
+  result         := DataLib.NewStrList(Utils.OWNS_ITEMS, DataLib.CASE_SENSITIVE);
+  CurrentProcess := GetCurrentProcess;
+  SetLength(ModuleHandles, 16000);
+
+  if PsApi.EnumProcessModules(CurrentProcess, @ModuleHandles[0],
+                              Length(ModuleHandles) * sizeof(ModuleHandles[0]), SizeNeeded)
+  then begin
+    NumModules := SizeNeeded div sizeof(HMODULE);
+
+    for i := 0 to NumModules - 1 do begin
+      if PsApi.GetModuleInformation(CurrentProcess, ModuleHandles[i], @ModuleInfoRes,
+                                    sizeof(ModuleInfoRes))
+      then begin
+        ModuleInfo := TModuleInfo.Create;
+
+        with ModuleInfo do begin
+          Path       := WinWrappers.GetModuleFileName(ModuleHandles[i]);
+          BaseAddr   := pointer(ModuleHandles[i]);
+          EntryPoint := ModuleInfoRes.EntryPoint;
+          Size       := ModuleInfoRes.SizeOfImage;
+        end; // .with
+
+        ModuleInfo.EvaluateDerivatives;
+        result.AddObj(ModuleInfo.Name, ModuleInfo); ModuleInfo := nil;
+      end; // .if
+    end; // .for
+  end; // .if
+  // * * * * * //
+  FreeAndNil(ModuleInfo);
+end; // .function GetModuleList
+
+function FindModuleByAddr ({n} Addr: pointer; ModuleList: TStrList {of TModuleInfo};
+                           out ModuleInd: integer): boolean;
+var
+  i: integer;
+
+begin
+  {!} Assert(ModuleList <> nil);
+  result := Addr <> nil;
+  
+  if result then begin
+    i := 0;
+
+    while (i < ModuleList.Count) and
+           not (TObject(ModuleList.Values[i]) as TModuleInfo).OwnsAddr(Addr)
+    do begin
+      Inc(i);
+    end; // .while
+
+    result := i < ModuleList.Count;
+
+    if result then begin
+      ModuleInd := i;
+    end; // .if
+  end; // .if
+end; // .function FindModuleByAddr
+
 begin
   Hooker        := Files.TFixedBuf.Create;
   GlobalPatcher := PatchApi.GetPatcher;
-  p             := GlobalPatcher.CreateInstance('ERA');
+  p             := GlobalPatcher.CreateInstance(pchar(WinWrappers.GetModuleFileName(hInstance)));
 end.
