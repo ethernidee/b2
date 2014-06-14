@@ -22,6 +22,7 @@ function  LockResource (hMem: integer; out ResData: pointer): boolean;
 function  SizeOfResource (hResource, hInstance: integer; out ResSize: integer): boolean;
 function  FindFirstFile (const Path: string; out hSearch: integer; out FindData: Windows.TWin32FindData): boolean;
 function  FindNextFile (hSearch: integer; var FindData: Windows.TWin32FindData): boolean;
+function  GetModuleFileName (hMod: HMODULE): string;
 
 
 (***) implementation (***)
@@ -91,5 +92,20 @@ function FindNextFile (hSearch: integer; var FindData: Windows.TWin32FindData): 
 begin
   result  :=  Windows.FindNextFile(hSearch, FindData);
 end; // .function FindNextFile
+
+function GetModuleFileName (hMod: HMODULE): string;
+const
+  INITIAL_BUF_SIZE = 1000;
+
+begin
+  SetLength(result, INITIAL_BUF_SIZE);
+  SetLength(result, Windows.GetModuleFileName(hMod, @result[1], Length(result)));
+
+  if (Length(result) > INITIAL_BUF_SIZE) and
+     (Windows.GetModuleFileName(hMod, @result[1], Length(result)) <> Length(result))
+  then begin
+    result := '';
+  end; // .if
+end; // .function GetModuleFileName
 
 end.
