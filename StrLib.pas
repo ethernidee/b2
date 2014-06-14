@@ -12,6 +12,7 @@ const
   INCLUDE_DELIM = TRUE;
   LIMIT_TOKENS  = TRUE;
 
+  BINARY_CHARACTERS: set of char = [#0..#8, #11..#12, #14..#31];
 
 type
   (* IMPORT *)
@@ -106,6 +107,8 @@ function  SubstrBeforeChar (const Str: string; Ch: char): string;
 function  Match (const Str, Pattern: string): boolean;
 function  ExtractFromPchar (Str: pchar; Count: integer): string;
 function  BufToStr ({n} Buf: pointer; BufSize: integer): string;
+// Detects characters in the BINARY_CHARACTERS set
+function  IsBinaryStr (const Str: string): boolean;
 
 
 (***) implementation (***)
@@ -859,5 +862,19 @@ begin
     Utils.CopyMem(BufSize, Buf, @result[1]);
   end; // .if
 end; // .function BufToStr
+
+function IsBinaryStr (const Str: string): boolean;
+var
+  i: integer;
+
+begin
+  i := 1;
+  
+  while (i <= Length(Str)) and not (Str[i] in BINARY_CHARACTERS) do begin
+    Inc(i);
+  end; // .while
+
+  result := i <= Length(Str);
+end; // .function IsBinaryStr
 
 end.
