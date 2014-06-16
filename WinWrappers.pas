@@ -102,7 +102,7 @@ begin
   SetLength(result, Windows.GetModuleFileName(hMod, @result[1], Length(result)));
 
   if (Length(result) > INITIAL_BUF_SIZE) and
-     (Windows.GetModuleFileName(hMod, @result[1], Length(result)) <> Length(result))
+     (Windows.GetModuleFileName(hMod, @result[1], Length(result)) <> cardinal(Length(result)))
   then begin
     result := '';
   end; // .if
