@@ -2,12 +2,14 @@ unit Core;
 {
 DESCRIPTION:  Low-level functions
 AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+CONSIDER:     Speed up module address resolution using binary search
 }
 
 (***)  interface  (***)
 uses
   Windows, PsApi, Math, StrUtils, SysUtils,
-  Utils, WinWrappers, DlgMes, CFiles, Files, DataLib, hde32, PatchApi;
+  hde32, PatchApi,
+  Utils, WinWrappers, DlgMes, CFiles, Files, DataLib, StrLib, Concur;
 
 type
   (* Import *)
@@ -29,6 +31,11 @@ const
   OPCODE_JUMP     = $E9;
   OPCODE_CALL     = $E8;
   OPCODE_RET      = $C3;
+  OPCODE_RET_IW   = $C2;
+  OPCODE_RETF     = $CB;
+  OPCODE_RETF_IW  = $CA;
+
+  RET_OPCODES = [OPCODE_RET, OPCODE_RET_IW, OPCODE_RETF, OPCODE_RETF_IW];
   
   EXEC_DEF_CODE   = TRUE;
 
@@ -53,17 +60,45 @@ type
   end; // .record TAPIArg
 
   TModuleInfo = class
-    Name:       string;  // lower case
-    Path:       string;  // original case
+    Name:       string;  // evaluated: lower case without extension + capitalize
+    FileName:   string;  // evaluated: lower case
+    Path:       string;  // original data returned by WinApi
     BaseAddr:   pointer;
-    EndAddr:    pointer; // calculated
+    EndAddr:    pointer; // evaluated
     EntryPoint: pointer;
     Size:       integer;
-    IsExe:      boolean; // calculated
+    IsExe:      boolean; // evaluated
 
     procedure EvaluateDerivatives;
     function  OwnsAddr ({n} Addr: pointer): boolean;
+    function  ToStr: string;
   end; // .class TModuleInfo
+
+  TModuleList = {O} TStrList {of TModuleInfo};
+
+  TModuleContext = class
+   protected
+    {On} fModuleList:  TModuleList;
+         fCritSection: Concur.TCritSection;
+
+    procedure EnsureModuleList;
+    function  GetModuleList: TModuleList;
+    function  GetModuleInfo (Ind: integer): TModuleInfo;
+
+   public
+    constructor Create;
+    destructor Destroy; override;
+
+    // Thread-safe context grab/release
+    procedure Lock;
+    procedure Unlock;
+
+    procedure UpdateModuleList;
+    function  AddrToStr ({n} Addr: pointer): string;
+
+    property ModuleList: TModuleList read GetModuleList;
+    property ModuleInfo[Ind: integer]: TModuleInfo read GetModuleInfo;
+  end; // .class TModuleContext
 
 
 function  WriteAtCode (Count: integer; Src, Dst: pointer): boolean; stdcall;
@@ -100,7 +135,9 @@ function FindModuleByAddr ({n} Addr: pointer; ModuleList: TStrList {of TModuleIn
 var
   (* Patching provider *)
   GlobalPatcher: PatchApi.TPatcher;
-  p: PatchApi.TPatcherInstance;
+  p:             PatchApi.TPatcherInstance;
+
+{O} ModuleContext: TModuleContext; // Shareable between threads
 
 implementation
 
@@ -112,15 +149,93 @@ var
 
 procedure TModuleInfo.EvaluateDerivatives;
 begin
-  EndAddr := Utils.PtrOfs(BaseAddr, Size);
-  Name    := AnsiLowerCase(ExtractFileName(Path));
-  IsExe   := StrUtils.AnsiEndsStr('.exe', Name);
+  EndAddr  := Utils.PtrOfs(BaseAddr, Size);
+  FileName := AnsiLowerCase(ExtractFileName(Path));
+  Name     := StrLib.Capitalize(ChangeFileExt(FileName, ''));
+  IsExe    := StrUtils.AnsiEndsStr('.exe', FileName);
 end; // .procedure TModuleInfo.EvaluateDerivatives
 
 function TModuleInfo.OwnsAddr ({n} Addr: pointer): boolean;
 begin
   result := (cardinal(Addr) >= cardinal(BaseAddr)) and (cardinal(Addr) < cardinal(EndAddr));
 end; // .function TModuleInfo.OwnsAddr
+
+function TModuleInfo.ToStr: string;
+begin
+  result := Format('%s ("%s", size: %d, addr: %p, entry: %x)',
+                   [Name, Path, Size, BaseAddr, integer(EntryPoint) - integer(BaseAddr)]);
+end; // .function TModuleInfo.ToStr
+
+constructor TModuleContext.Create;
+begin
+  fCritSection.Init;
+end; // .constructor TModuleContext.Create
+
+destructor TModuleContext.Destroy;
+begin
+  FreeAndNil(fModuleList);
+  fCritSection.Delete;
+end; // .destructor TModuleContext.Destroy
+
+procedure TModuleContext.EnsureModuleList;
+begin
+  if fModuleList = nil then begin
+    fModuleList := Core.GetModuleList;
+    fModuleList.Sort;
+  end; // .if
+end; // .procedure TModuleContext.EnsureModuleList
+
+function TModuleContext.GetModuleList: TModuleList;
+begin
+  EnsureModuleList;
+  result := fModuleList;
+end; // .function TModuleContext.GetModuleList
+
+function TModuleContext.GetModuleInfo (Ind: integer): TModuleInfo;
+begin
+  EnsureModuleList;
+  result := TModuleInfo(fModuleList.Values[Ind]);
+end; // .function TModuleContext.GetModuleInfo
+
+procedure TModuleContext.Lock;
+begin
+  fCritSection.Enter;
+end; // .procedure TModuleContext.Lock
+
+procedure TModuleContext.Unlock;
+begin
+  fCritSection.Leave;
+end; // .procedure TModuleContext.Unlock
+
+procedure TModuleContext.UpdateModuleList;
+begin
+  FreeAndNil(fModuleList);
+end; // .procedure TModuleContext.UpdateModuleList
+
+function TModuleContext.AddrToStr ({n} Addr: pointer): string;
+var
+{U} ModuleInfo: TModuleInfo;
+    ModuleInd:  integer;
+
+begin
+  ModuleInfo := nil;
+  // * * * * * //
+  EnsureModuleList;
+  result := '';
+
+  if FindModuleByAddr(Addr, fModuleList, ModuleInd) then begin
+    ModuleInfo := GetModuleInfo(ModuleInd);
+    result     := ModuleInfo.Name + '.';
+
+    if ModuleInfo.IsExe then begin
+      result := result + IntToHex(integer(Addr), 8);
+    end else begin
+      result := result + IntToHex(integer(Addr) - integer(ModuleInfo.BaseAddr), 1);
+    end; // .else
+  end else begin
+    result := IntToHex(integer(Addr), 8);
+  end; // .else
+end; // .function TModuleContext.AddrToStr
 
 function WriteAtCode (Count: integer; Src, Dst: pointer): boolean;
 var
@@ -465,4 +580,5 @@ begin
   Hooker        := Files.TFixedBuf.Create;
   GlobalPatcher := PatchApi.GetPatcher;
   p             := GlobalPatcher.CreateInstance(pchar(WinWrappers.GetModuleFileName(hInstance)));
+  ModuleContext := TModuleContext.Create;
 end.
