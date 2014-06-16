@@ -14,6 +14,7 @@ type
     procedure Init;
     procedure Enter;
     procedure Leave;
+    procedure Delete;
   end; // .record TCritSection
 
 
@@ -33,5 +34,10 @@ procedure TCritSection.Leave;
 begin
   Windows.LeaveCriticalSection(fCritSection);
 end; // .procedure TCritSection.Leave
+
+procedure TCritSection.Delete;
+begin
+  Windows.DeleteCriticalSection(fCritSection);
+end; // .procedure TCritSection.Delete
 
 end.
