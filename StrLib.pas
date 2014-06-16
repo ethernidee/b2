@@ -77,8 +77,14 @@ function  FindCharsetEx
 ): boolean;
 
 function  FindCharset (Charset: Utils.TCharSet; const Str: string; out CharPos: integer): boolean;
+// Both FindSubstr routines are wrappers around Delphi Pos function
 function  FindSubstrEx (const Substr, Str: string; StartPos: integer; out SubstrPos: integer): boolean;
 function  FindSubstr (const Substr, Str: string; out SubstrPos: integer): boolean;
+// Knuth-Morris-Pratt stable speed fast search algorithm.
+// F('', Haystack, StartPos in range of Haystack) => true, StartPos
+// F('', Haystack, StartPos out of range of Haystack) => false
+function  FindStr (const Needle, Haystack: string; out FoundPos: integer): boolean;
+function  FindStrEx (const Needle, Haystack: string; Pos: integer; out FoundPos: integer): boolean;
 {
 f('') => NIL
 f(Str, '') => [Str]
@@ -309,15 +315,163 @@ begin
 end; // .function FindCharset
 
 function FindSubstrEx (const Substr, Str: string; StartPos: integer; out SubstrPos: integer): boolean;
+var
+  Pos: integer;
+
 begin
-  SubstrPos :=  StrUtils.PosEx(Substr, Str, StartPos);
-  result    :=  SubstrPos <> 0;
+  Pos := StrUtils.PosEx(Substr, Str, StartPos);
+
+  if Pos <> 0 then begin
+    SubstrPos := Pos;
+    result    := true;
+  end else begin
+    result    := false;
+  end; // .else
 end; // .function FindSubstrEx
 
 function FindSubstr (const Substr, Str: string; out SubstrPos: integer): boolean;
 begin
   result  :=  FindSubstrEx(Substr, Str, 1, SubstrPos);
 end; // .function FindSubstr
+
+function FindStrEx (const Needle, Haystack: string; Pos: integer; out FoundPos: integer): boolean;
+const
+  MAX_STATIC_FALLBACK_TABLE_LEN = 255;
+  START_STRING_POS              = 1;
+
+var
+{O} FallbackTableBuf:          PEndlessIntArr;
+    FallbackTableStackStorage: array [0..MAX_STATIC_FALLBACK_TABLE_LEN] of integer;
+{U} FallbackTable:             PEndlessIntArr;
+  
+    NeedleLen:               integer;
+    HaystackLen:             integer;
+    FirstNeedleChar:         char;
+    FirstFourNeedleChars:    integer;
+    FarthestStartPos:        integer; // Last pos where there is any sense to start searching
+    FallbackPos:             integer;
+    HaystackPtr:             pinteger;
+    HaystackEndMinusFourPtr: pinteger;
+    i:                       integer;
+
+  procedure GenerateFallbackTable;
+  var
+    k: integer;
+
+  begin
+    // Initialize fallback table pointer to either stack storage or memory buffer
+    if NeedleLen <= MAX_STATIC_FALLBACK_TABLE_LEN then begin
+      FallbackTable := @FallbackTableStackStorage[0];
+    end else begin
+      GetMem(FallbackTableBuf, (NeedleLen + 1) * sizeof(integer));
+      FallbackTable := FallbackTableBuf;
+    end; // .else
+
+    // First not matched char always redirect to start, starting analysis from the the second one
+    FallbackTable[START_STRING_POS] := START_STRING_POS;
+    k                               := START_STRING_POS + 1;
+
+    while k <= NeedleLen do begin
+      // Search for the next occurense of needle prefix in the needle itself
+      repeat
+        FallbackTable[k] := START_STRING_POS;
+        Inc(k);
+      until (k > NeedleLen) or (Needle[k - 1] = FirstNeedleChar);
+
+      // First char is already checked, starting from the second one
+      i := START_STRING_POS + 1;
+
+      if k <= NeedleLen then begin
+        // While characters match needle prefix, fallback offsets grow
+        // ab[abababab]c[ab]d
+        // 11[12345678]1[12]1
+        repeat
+          FallbackTable[k] := i;
+          Inc(i);
+          Inc(k);
+        until (k > NeedleLen) or (Needle[i] <> Needle[k]);
+      end; // .if
+    end; // .while
+  end; // .procedure GenerateFallbackTable
+
+  procedure FindFirstNeedleChars;
+  begin
+    if Pos <= FarthestStartPos then begin
+      HaystackPtr := @Haystack[Pos];
+
+      while (cardinal(HaystackPtr) <= cardinal(HaystackEndMinusFourPtr)) and
+            (HaystackPtr^ <> FirstFourNeedleChars)
+      do begin
+        Inc(pbyte(HaystackPtr));
+      end; // .while
+
+      i := START_STRING_POS + sizeof(integer);
+
+      if cardinal(HaystackPtr) <= cardinal(HaystackEndMinusFourPtr) then begin
+        Pos := Pos + (integer(HaystackPtr) - integer(@Haystack[Pos])) + sizeof(integer);
+      end else begin
+        Pos := MAXINT;
+      end; // .else
+    end; // .if
+  end; // .procedure FindFirstNeedleChars
+
+begin
+  FallbackTableBuf := nil;
+  FallbackTable    := nil;
+  // * * * * * //
+  if Pos < START_STRING_POS then begin
+    Pos := START_STRING_POS;
+  end; // .if
+
+  NeedleLen        := Length(Needle);
+  HaystackLen      := Length(Haystack);
+  FarthestStartPos := HaystackLen - NeedleLen + 1;
+  result           := (Pos <= FarthestStartPos) and (HaystackLen > 0);
+  
+  if result then begin
+    if NeedleLen = 0 then begin
+      FoundPos := START_STRING_POS;
+    end else if NeedleLen <= sizeof(integer) then begin
+      result := FindSubstrEx(Needle, Haystack, Pos, FoundPos);
+    end else begin
+      FirstNeedleChar         := Needle[START_STRING_POS];
+      FirstFourNeedleChars    := pinteger(@Needle[START_STRING_POS])^;
+      HaystackEndMinusFourPtr := @Haystack[HaystackLen - sizeof(integer) + 1];
+      GenerateFallbackTable;
+
+      i := START_STRING_POS;
+      FindFirstNeedleChars;
+
+      while (Pos <= HaystackLen) and (i <= NeedleLen) do begin
+        if Haystack[Pos] = Needle[i] then begin
+          Inc(Pos);
+          Inc(i);
+        end else begin
+          FallbackPos := FallbackTable[i];
+
+          if FallbackPos = START_STRING_POS then begin
+            FindFirstNeedleChars;
+          end else begin
+            i := FallbackPos;
+          end; // .else
+        end; // .else
+      end; // .while
+
+      result := i > NeedleLen;
+
+      if result then begin
+        FoundPos := Pos - NeedleLen;
+      end; // .if
+    end; // .else
+  end; // .if
+  // * * * * * //
+  FreeMem(FallbackTableBuf);
+end; // .function FindStrEx
+
+function FindStr (const Needle, Haystack: string; out FoundPos: integer): boolean;
+begin
+  result := FindStrEx(Needle, Haystack, 1, FoundPos);
+end; // .function FindStr
 
 function ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfString;
 var
