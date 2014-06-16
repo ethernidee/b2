@@ -96,6 +96,7 @@ function  CharsetToStr (const Charset: Utils.TCharSet): string;
 function  IntToRoman (Value: integer): string;
 function  CharToLower (c: char): char;
 function  CharToUpper (c: char): char;
+function  Capitalize (const Str: string): string;
 function  HexCharToByte (HexChar: char): byte;
 function  ByteToHexChar (ByteValue: byte): char;
 function  Concat (const Strings: array of string): string;
@@ -552,6 +553,15 @@ function CharToUpper (c: char): char;
 begin
   result  :=  CHR(integer(Windows.CharUpper(Ptr(ORD(c)))));
 end; // .function CharToUpper
+
+function Capitalize (const Str: string): string;
+begin
+  result := Str;
+
+  if result <> '' then begin
+    result[1] := CharToUpper(result[1]);
+  end; // .if
+end; // .function Capitalize
 
 function HexCharToByte (HexChar: char): byte;
 begin
