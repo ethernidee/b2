@@ -119,6 +119,7 @@ function  ApiHook
   CodeAddr:     pointer
 ): {n} pointer; stdcall;
 
+function  CalcHookSize (Code: pointer): integer;
 function  APIArg (Context: PHookHandlerArgs; ArgN: integer): PAPIArg; inline;
 function  GetOrigAPIAddr (HookAddr: pointer): pointer; stdcall;
 function  RecallAPI (Context: PHookHandlerArgs; NumArgs: integer): integer; stdcall;
