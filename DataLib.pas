@@ -84,6 +84,7 @@ function  IterateDict ({U} Dict: TDict): IDictIterator;
 function  IterateObjDict (aObjDict: TObjDict): IObjDictIterator;
 procedure JoinLists (MainList, DependentList: TList);
 function  DictToStrList ({n} Dict: TDict; CaseInsensitive: boolean): {O} TStrList {U};
+function  GetObjDictKeys ({n} ObjDict: TObjDict): {O} TList {U};
 
 
 (***) implementation (***)
@@ -439,5 +440,16 @@ begin
     end;
   end; // .with
 end; // .function DictToStrList
+
+function GetObjDictKeys ({n} ObjDict: TObjDict): {O} TList {U};
+begin
+  result := NewList(not Utils.OWNS_ITEMS);
+
+  with IterateObjDict(ObjDict) do begin
+    while IterNext do begin
+      result.Add(IterKey);
+    end;
+  end; // .with
+end; // .function GetObjDictKeys
 
 end.
