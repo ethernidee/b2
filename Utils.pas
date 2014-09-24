@@ -97,13 +97,15 @@ procedure Exchange (var A, B: integer);
 procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer);
 
 (* Extra system functions *)
-function  EVEN (Num: integer): boolean;
+function  Even (Num: integer): boolean;
 
 (* Item guards *)
 function  NoItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 function  DefItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 
 function  EqualMethods (A, B: TMethod): boolean;
+// Casts Obj to Class and assigns Res to Obj. Frees object on fail and assings nil to Res.
+procedure CastOrFree ({On} Obj: TObject; CastToType: TClass; out {O} Res);
 
 
 (***)  implementation  (***)
@@ -175,10 +177,10 @@ begin
   Self.AllowNIL := SrcItemGuard.AllowNIL;
 end; // .procedure TDefItemGuard.Assign
 
-function EVEN (Num: integer): boolean;
+function Even (Num: integer): boolean;
 begin
   result := not ODD(Num);
-end; // .function EVEN
+end; // .function Even
 
 function NoItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 begin
@@ -203,5 +205,15 @@ function EqualMethods (A, B: TMethod): boolean;
 begin
   result := (A.Code = B.Code) and (A.Data = B.Data);
 end; // .function EqualMethods
+
+procedure CastOrFree ({On} Obj: TObject; CastToType: TClass; out {O} Res);
+begin
+  if Obj is CastToType then begin
+    TObject(Res) := Obj;
+  end else begin
+    Obj.Free;
+    TObject(Res) := nil;
+  end; // .else
+end; // .procedure CastOrFree
 
 end.

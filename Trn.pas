@@ -94,7 +94,7 @@ type
 (* Valid language name is: ('a'..'z' | 'A'..'Z' | '0'..'9' | '_') * 1..64 *)
 function  IsValidLang (const aLang: string): boolean;
 
-(*=== Wrappers to access currently installed language manager in a thread-safe way ===*)
+(* === Wrappers to access currently installed language manager in a thread-safe way === *)
 function  GetLangDir: string;
 procedure SetLangDir (const aLangDir: string);
 function  GetLangAutoload: boolean;
