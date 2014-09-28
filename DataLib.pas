@@ -77,7 +77,7 @@ function  NewDict (OwnsItems, CaseInsensitive: boolean): {O} TDict;
 function  NewObjDict (OwnsItems: boolean): {O} TObjDict;
 function  NewList (OwnsItems: boolean): {O} TList;
 function  NewStrList (OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
-function  NewStrListFromStrArr (StrArr: Utils.TArrayOfString;
+function  NewStrListFromStrArr (StrArr: Utils.TArrayOfStr;
                                 OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 function  NewHashedList (OwnsItems, CaseInsensitive: boolean): {O} THashedList;
 function  IterateDict ({U} Dict: TDict): IDictIterator;
@@ -208,7 +208,7 @@ begin
   result.CaseInsensitive := CaseInsensitive;
 end; // .function NewStrList
 
-function NewStrListFromStrArr (StrArr: Utils.TArrayOfString;
+function NewStrListFromStrArr (StrArr: Utils.TArrayOfStr;
                                OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 var
   i: integer;

@@ -9,8 +9,9 @@ uses SysUtils, Utils, Files, DataLib, StrLib;
 
 type
   (* IMPORT *)
-  TStrList = DataLib.TStrList;
-  TDict = DataLib.TDict;
+  TStrList    = DataLib.TStrList;
+  TDict       = DataLib.TDict;
+  TSearchSubj = Files.TSearchSubj;
 
   (*
   Provides means for formatted output to external storage.

@@ -170,7 +170,7 @@ end; // .function VarToString
 
 function ToString (const Vars: array of const): string;
 var
-  ResArr: Utils.TArrayOfString;
+  ResArr: Utils.TArrayOfStr;
   i:      integer;
 
 begin
@@ -246,7 +246,7 @@ const
 var
 {U} CurrItem:           pointer;
     CurrItemInd:        integer;
-    StrArr:             Utils.TArrayOfString; 
+    StrArr:             Utils.TArrayOfStr; 
     DisplayN:           integer;
     NumItemsToDisplay:  integer;
     i:                  integer;

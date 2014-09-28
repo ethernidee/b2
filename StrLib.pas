@@ -16,7 +16,7 @@ const
 
 type
   (* IMPORT *)
-  TArrayOfString  = Utils.TArrayOfString;
+  TArrayOfStr  = Utils.TArrayOfStr;
   
   PListItem = ^TListItem;
   TListItem = record
@@ -25,27 +25,34 @@ type
     {On}  NextItem: PListItem;
   end; // .record TListItem
   
-  TStrBuilder = class
-    (***) protected (***)
+  IStrBuilder = interface
+    procedure Append (const Str: string);
+    procedure AppendBuf (BufSize: integer; {n} Buf: pointer);
+    function  BuildStr: string;
+    procedure Clear;
+  end; // .interface IStrBuilder
+
+  TStrBuilder = class (TInterfacedObject, IStrBuilder)
+   protected
     const
-      MIN_BLOCK_SIZE  = 65536;
-      
+      MIN_BLOCK_SIZE = 65536;
+
     var
-      {On}  fRootItem:  PListItem;
-      {Un}  fCurrItem:  PListItem;
-            fSize:      integer;
-          
-    (***) public (***)
-      destructor  Destroy; override;
-      procedure Append (const Str: string);
-      procedure AppendBuf (BufSize: integer; {n} Buf: pointer);
-      function  BuildStr: string;
-      procedure Clear;
-      
-      property  Size: integer read fSize;
+      {On} fRootItem: PListItem;
+      {Un} fCurrItem: PListItem;
+           fSize:     integer;
+
+   public
+    destructor  Destroy; override;
+    procedure Append (const Str: string);
+    procedure AppendBuf (BufSize: integer; {n} Buf: pointer);
+    function  BuildStr: string;
+    procedure Clear;
+
+    property  Size: integer read fSize;
   end; // .class TStrBuilder
 
-
+function  MakeStr: IStrBuilder;
 function  InStrBounds (Pos: integer; const Str: string): boolean;
 function  BytesToAnsiString (PBytes: PBYTE; NumBytes: integer): AnsiString;
 function  BytesToWideString (PBytes: PBYTE; NumBytes: integer): WideString;
@@ -89,9 +96,9 @@ function  FindStrEx (const Needle, Haystack: string; Pos: integer; out FoundPos:
 f('') => NIL
 f(Str, '') => [Str]
 }
-function  ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfString;
-function  Explode (const Str: string; const Delim: string): TArrayOfString;
-function  Join (const Arr: TArrayOfString; const Glue: string): string;
+function  ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfStr;
+function  Explode (const Str: string; const Delim: string): TArrayOfStr;
+function  Join (const Arr: TArrayOfStr; const Glue: string): string;
 {
 TemplArgs - pairs of (ArgName, ArgValue).
 Example: f('Hello, ~UserName~. You are ~Years~ years old.', ['Years', '20', 'UserName', 'Bob'], '~') =>
@@ -208,6 +215,11 @@ begin
   Self.fCurrItem  :=  nil;
   Self.fSize      :=  0;
 end; // .procedure TStrBuilder.Clear
+
+function MakeStr: IStrBuilder;
+begin
+  result := TStrBuilder.Create;
+end; // .function MakeStr
 
 function InStrBounds (Pos: integer; const Str: string): boolean;
 begin
@@ -473,7 +485,7 @@ begin
   result := FindStrEx(Needle, Haystack, 1, FoundPos);
 end; // .function FindStr
 
-function ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfString;
+function ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfStr;
 var
 (* O *) DelimPosList:   Classes.TList {OF INTEGER};
         StrLen:         integer;
@@ -527,12 +539,12 @@ begin
   SysUtils.FreeAndNil(DelimPosList);
 end; // .function ExplodeEx
 
-function Explode (const Str: string; const Delim: string): TArrayOfString;
+function Explode (const Str: string; const Delim: string): TArrayOfStr;
 begin
   result  :=  ExplodeEx(Str, Delim, not INCLUDE_DELIM, not LIMIT_TOKENS, 0);
 end; // .function Explode
 
-function Join (const Arr: TArrayOfString; const Glue: string): string;
+function Join (const Arr: TArrayOfStr; const Glue: string): string;
 var
 (* U *) Mem:        pointer;
         ArrLen:     integer;
@@ -575,7 +587,7 @@ end; // .function Join
 
 function BuildStr (const Template: string; TemplArgs: array of string; TemplChar: char): string;
 var
-  TemplTokens:    TArrayOfString;
+  TemplTokens:    TArrayOfStr;
   NumTemplTokens: integer;
   NumTemplVars:   integer;
   NumTemplArgs:   integer;

@@ -8,7 +8,8 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 uses Utils, Math;
 
 type
-  TCompareFunc = function (Value1, Value2: integer): integer;
+  TCompareFunc   = function (Value1, Value2: integer): integer;
+  TCompareMethod = function (Value1, Value2: integer): integer of object;
   
   TQuickSortAdapter = class abstract
     function  CompareItems (Ind1, Ind2: integer): integer; virtual; abstract;
@@ -24,14 +25,15 @@ function  CardCompare (Card1, Card2: cardinal): integer;
 function  PtrCompare (Ptr1, Ptr2: pointer): integer;
 function  Int64To32 (Value: INT64): integer; {No overflow, bounds to LOW(INT32)..HIGH(IN32)}
 procedure QuickSort (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer);
-procedure CustomQuickSort
-(
-  Arr:          Utils.PEndlessIntArr;
-  MinInd:       integer;
-  MaxInd:       integer;
-  CompareItems: TCompareFunc
-);
+procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer;
+                           CompareItems: TCompareFunc); overload;
+procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer;
+                           CompareItems: TCompareMethod); overload;
 procedure QuickSortEx (Obj: TQuickSortAdapter; MinInd, MaxInd: integer);
+function  CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Needle: integer;
+                              CompareItems: TCompareFunc; out ResInd: integer): boolean; overload;
+function  CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Needle: integer;
+                              CompareItems: TCompareMethod; out ResInd: integer): boolean; overload;
 
 
 (***)  implementation  (***)
@@ -109,28 +111,22 @@ begin
   CustomQuickSort(Arr, MinInd, MaxInd, IntCompare);
 end; // .procedure QuickSort
 
-procedure CustomQuickSort
-(
-  Arr:          Utils.PEndlessIntArr;
-  MinInd:       integer;
-  MaxInd:       integer;
-  CompareItems: TCompareFunc
-);
-
+procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer;
+                           CompareItems: TCompareFunc); overload;
 var
-  RangeLen:   integer;
-  LeftInd:    integer;
-  RightInd:   integer;
-  PivotItem:  integer;
+  RangeLen:  integer;
+  LeftInd:   integer;
+  RightInd:  integer;
+  PivotItem: integer;
   
   procedure ExchangeItems (Ind1, Ind2: integer);
   var
-    TransfValue:  integer;
+    TransfValue: integer;
      
   begin
-    TransfValue :=  Arr[Ind1];
-    Arr[Ind1]   :=  Arr[Ind2];
-    Arr[Ind2]   :=  TransfValue;
+    TransfValue := Arr[Ind1];
+    Arr[Ind1]   := Arr[Ind2];
+    Arr[Ind2]   := TransfValue;
   end; // .procedure ExchangeItems
   
 begin
@@ -140,9 +136,9 @@ begin
   {!} Assert(MinInd >= 0);
   
   while MinInd < MaxInd do begin
-    LeftInd   :=  MinInd;
-    RightInd  :=  MaxInd;
-    PivotItem :=  Arr[MinInd + (MaxInd - MinInd) div 2];
+    LeftInd   := MinInd;
+    RightInd  := MaxInd;
+    PivotItem := Arr[MinInd + (MaxInd - MinInd) div 2];
     
     while LeftInd <= RightInd do begin
       while CompareItems(Arr[LeftInd], PivotItem) < 0 do begin
@@ -171,14 +167,82 @@ begin
         CustomQuickSort(Arr, MinInd, RightInd, CompareItems);
       end; // .if
       
-      MinInd :=  LeftInd;
+      MinInd := LeftInd;
     end // .if
     else begin
       if MaxInd > LeftInd then begin
         CustomQuickSort(Arr, LeftInd, MaxInd, CompareItems);
       end; // .if
       
-      MaxInd  :=  RightInd;
+      MaxInd := RightInd;
+    end; // .else
+  end; // .while
+end; // .procedure CustomQuickSort
+
+procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer;
+                           CompareItems: TCompareMethod); overload;
+var
+  RangeLen:  integer;
+  LeftInd:   integer;
+  RightInd:  integer;
+  PivotItem: integer;
+  
+  procedure ExchangeItems (Ind1, Ind2: integer);
+  var
+    TransfValue: integer;
+     
+  begin
+    TransfValue := Arr[Ind1];
+    Arr[Ind1]   := Arr[Ind2];
+    Arr[Ind2]   := TransfValue;
+  end; // .procedure ExchangeItems
+  
+begin
+  RangeLen := MaxInd - MinInd + 1;
+  {!} Assert(RangeLen >= 0);
+  {!} Assert(Utils.IsValidBuf(Arr, RangeLen));
+  {!} Assert(MinInd >= 0);
+  
+  while MinInd < MaxInd do begin
+    LeftInd   := MinInd;
+    RightInd  := MaxInd;
+    PivotItem := Arr[MinInd + (MaxInd - MinInd) div 2];
+    
+    while LeftInd <= RightInd do begin
+      while CompareItems(Arr[LeftInd], PivotItem) < 0 do begin
+        Inc(LeftInd);
+      end; // .while
+      
+      while CompareItems(Arr[RightInd], PivotItem) > 0 do begin
+        Dec(RightInd);
+      end; // .while
+      
+      if LeftInd <= RightInd then begin
+        if CompareItems(Arr[LeftInd], Arr[RightInd]) > 0 then begin
+          ExchangeItems(LeftInd, RightInd);
+        end // .if
+        else begin
+          Inc(LeftInd);
+          Dec(RightInd);
+        end; // .else
+      end; // .if
+    end; // .while
+    
+    (* MIN__RIGHT|{PIVOT}|LEFT__MAX *)
+    
+    if (RightInd - MinInd) < (MaxInd - LeftInd) then begin
+      if RightInd > MinInd then begin
+        CustomQuickSort(Arr, MinInd, RightInd, CompareItems);
+      end; // .if
+      
+      MinInd := LeftInd;
+    end // .if
+    else begin
+      if MaxInd > LeftInd then begin
+        CustomQuickSort(Arr, LeftInd, MaxInd, CompareItems);
+      end; // .if
+      
+      MaxInd := RightInd;
     end; // .else
   end; // .while
 end; // .procedure CustomQuickSort
@@ -238,5 +302,53 @@ begin
     end; // .else
   end; // .while
 end; // .procedure QuickSortEx
+
+function CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Needle: integer;
+                             CompareItems: TCompareFunc; out ResInd: integer): boolean; overload;
+var
+  PivotInd:   integer;
+  CompareRes: integer;
+
+begin
+  result := false;
+
+  while not result and (MinInd <= MaxInd) do begin
+    PivotInd   := MinInd + (MaxInd - MinInd) div 2;
+    CompareRes := CompareItems(PivotInd, Needle);
+
+    if CompareRes < 0 then begin
+      MaxInd := PivotInd - 1;
+    end else if CompareRes > 0 then begin
+      MinInd := PivotInd + 1;
+    end else begin
+      ResInd := PivotInd;
+      result := true;
+    end; // .else
+  end; // .while
+end; // .function CustomBinarySearch
+
+function CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Needle: integer;
+                             CompareItems: TCompareMethod; out ResInd: integer): boolean; overload;
+var
+  PivotInd:   integer;
+  CompareRes: integer;
+
+begin
+  result := false;
+
+  while not result and (MinInd <= MaxInd) do begin
+    PivotInd   := MinInd + (MaxInd - MinInd) div 2;
+    CompareRes := CompareItems(PivotInd, Needle);
+
+    if CompareRes < 0 then begin
+      MaxInd := PivotInd - 1;
+    end else if CompareRes > 0 then begin
+      MinInd := PivotInd + 1;
+    end else begin
+      ResInd := PivotInd;
+      result := true;
+    end; // .else
+  end; // .while
+end; // .function CustomBinarySearch
 
 end.

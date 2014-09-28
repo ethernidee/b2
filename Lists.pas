@@ -77,7 +77,7 @@ type
         DEFAULT_GROWTH_RATE = 200;
       
       var
-                fKeys:              Utils.TArrayOfString;
+                fKeys:              Utils.TArrayOfStr;
       (* O  *)  fValues:            (* OUn *) Utils.PEndlessPtrArr;
                 fCapacity:          integer;
                 fCount:             integer;
@@ -1122,7 +1122,7 @@ end; // .procedure TStringList.LoadFromText
 
 function TStringList.ToText (const EndOfLineMarker: string): string;
 var
-  ClonedKeys: Utils.TArrayOfString;
+  ClonedKeys: Utils.TArrayOfStr;
 
 begin
   if Self.Count = Self.Capacity then begin

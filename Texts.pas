@@ -345,7 +345,7 @@ end; // .function TTextLines.SetCurrChar
 
 procedure TTextLines.Insert (const Str: string);
 var
-  InsLines:         Utils.TArrayOfString;
+  InsLines:         Utils.TArrayOfStr;
   BeforeBreak:      string;
   AfterBreak:       string;
   NumNewLines:      integer;

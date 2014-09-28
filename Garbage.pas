@@ -1,3 +1,43 @@
+function GetOrigApiAddr (HookAddr: pointer): pointer;
+begin
+  {!} Assert(HookAddr <> nil);
+  result  :=  pointer
+  (
+    integer(HookAddr)                 +
+    sizeof(THookRec)                  +
+    PINTEGER(integer(HookAddr) + 1)^  +
+    BRIDGE_DEF_CODE_OFS
+  );
+end; // .function GetOrigApiAddr
+
+function RecallWinApi (Context: PHookContext; NumArgs: integer): integer;
+var
+  ApiAddr:  pointer;
+  PtrArgs:  integer;
+  ApiRes:   integer;
+   
+begin
+  ApiAddr :=  GetOrigApiAddr(Ptr(PINTEGER(Context.ESP)^ - sizeof(THookRec)));
+  PtrArgs :=  integer(GetStdcallArg(Context, NumArgs));
+  
+  asm
+    MOV ECX, NumArgs
+    MOV EDX, PtrArgs
+  
+  @PUSHARGS:
+    PUSH [EDX]
+    SUB EDX, 4
+    Dec ECX
+    JNZ @PUSHARGS
+    
+    MOV EAX, ApiAddr
+    CALL EAX
+    MOV ApiRes, EAX
+  end; // .asm
+  
+  result :=  ApiRes;
+end; // .function RecallWinApi
+
 function FindHookHandlerAddr ({n} Addr: pointer; ModuleList: TStrList {of TModuleInfo};
                              out ModuleInd, out IsHook: boolean): boolean;
 const

@@ -9,36 +9,37 @@ CONSIDER:     Speed up module address resolution using binary search
 uses
   Windows, PsApi, Math, StrUtils, SysUtils,
   hde32, PatchApi,
-  Utils, WinWrappers, DlgMes, CFiles, Files, DataLib, StrLib, Concur;
+  Utils, Alg, WinWrappers, DlgMes, CFiles, Files, DataLib, StrLib, Concur;
 
 type
   (* Import *)
   TStrList = DataLib.TStrList;
+  TList    = DataLib.TList;
 
 const
-  (* Hooks *)
-  HOOKTYPE_JUMP   = 0;  // jmp, 5 bytes
-  HOOKTYPE_CALL   = 1;  // call, 5 bytes
-  
   (*
-  Opcode: call.
-  Creates a bridge to High-level function "F".
-  function F (Context: PHookHandlerArgs): TExecuteDefaultCodeFlag; stdcall;
-  if default code should be executed, it can contain any commands except jumps.
+    Hook types
+
+    HOOKTYPE_BRIDGE has opcode OPCODE_CALL. Creates a bridge to high-level function.
+    function (Context: PHookContext): TExecuteDefaultCodeFlag; stdcall;
+    if default code should be executed, it can contain any commands except jumps.
+    The only jump opcodes allowed are: OPCODE_JUMP, OPCODE_CALL
   *)
-  HOOKTYPE_BRIDGE = 2;
-  
-  OPCODE_JUMP     = $E9;
-  OPCODE_CALL     = $E8;
-  OPCODE_RET      = $C3;
-  OPCODE_RET_IW   = $C2;
-  OPCODE_RETF     = $CB;
-  OPCODE_RETF_IW  = $CA;
+  HOOKTYPE_JUMP   = 0; // jmp, 5 bytes
+  HOOKTYPE_CALL   = 1; // call, 5 bytes
+  HOOKTYPE_BRIDGE = 2; // call, 5 bytes
+
+  OPCODE_JUMP    = $E9;
+  OPCODE_CALL    = $E8;
+  OPCODE_RET     = $C3;
+  OPCODE_RET_IW  = $C2;
+  OPCODE_RETF    = $CB;
+  OPCODE_RETF_IW = $CA;
 
   RET_OPCODES = [OPCODE_RET, OPCODE_RET_IW, OPCODE_RETF, OPCODE_RETF_IW];
-  
-  EXEC_DEF_CODE   = TRUE;
 
+  EXEC_DEF_CODE   = true;
+  IGNORE_DEF_CODE = not EXEC_DEF_CODE;
 
 type
   THookRec = packed record
@@ -46,18 +47,11 @@ type
     Ofs:    integer;
   end; // .record THookRec
   
-  PHookHandlerArgs  = ^THookHandlerArgs;
-  THookHandlerArgs  = packed record
+  PHookContext = ^THookContext;
+  THookContext = packed record
     EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX: integer;
     RetAddr:                                pointer;
-  end; // .record THookHandlerArgs
-
-  PContext = PHookHandlerArgs;
-  
-  PAPIArg = ^TAPIArg;
-  TAPIArg = packed record
-    v:  integer;
-  end; // .record TAPIArg
+  end; // .record THookContext
 
   TModuleInfo = class
     Name:       string;  // evaluated: lower case without extension + capitalize
@@ -78,12 +72,15 @@ type
 
   TModuleContext = class
    protected
-    {On} fModuleList:  TModuleList;
-         fCritSection: Concur.TCritSection;
+    {On} fModuleList:         TModuleList;
+         fModulesOrderByAddr: TArrayOfInt;
+         fCritSection:        Concur.TCritSection;
 
+    function  CompareModulesByAddr (Ind1, Ind2: integer): integer;
     procedure EnsureModuleList;
     function  GetModuleList: TModuleList;
     function  GetModuleInfo (Ind: integer): TModuleInfo;
+    function  CompareModuleToAddr (ModInd, Addr: integer): integer;
 
    public
     constructor Create;
@@ -94,6 +91,8 @@ type
     procedure Unlock;
 
     procedure UpdateModuleList;
+    // Uses separate index table and binary search unlike unit `FindModuleByAddr` function
+    function  FindModuleByAddr ({n} Addr: pointer; out ModuleInd: integer): boolean;
     function  AddrToStr ({n} Addr: pointer): string;
 
     property ModuleList: TModuleList read GetModuleList;
@@ -102,51 +101,81 @@ type
 
 
 function  WriteAtCode (Count: integer; Src, Dst: pointer): boolean; stdcall;
-
-(* in BRIDGE mode hook functions return address to call original routine *)
-function  Hook
-(
-  HandlerAddr:  pointer;
-  HookType:     integer;
-  PatchSize:    integer;
-  CodeAddr:     pointer
-): {n} pointer; stdcall;
-
-function  ApiHook
-(
-  HandlerAddr:  pointer;
-  HookType:     integer;
-  CodeAddr:     pointer
-): {n} pointer; stdcall;
-
+(* For HOOKTYPE_BRIDGE hook functions return address to call original routine.
+   It's expected that PatchSize covers integer number of commands *)
+function  Hook (HandlerAddr: pointer; HookType: integer; PatchSize: integer;
+                CodeAddr: pointer): {n} pointer; stdcall;
+function  ApiHook (HandlerAddr: pointer; HookType: integer;
+                   CodeAddr: pointer): {n} pointer; stdcall;
 function  CalcHookSize (Code: pointer): integer;
-function  APIArg (Context: PHookHandlerArgs; ArgN: integer): PAPIArg; inline;
-function  GetOrigAPIAddr (HookAddr: pointer): pointer; stdcall;
-function  RecallAPI (Context: PHookHandlerArgs; NumArgs: integer): integer; stdcall;
-procedure KillThisProcess; stdcall;
-procedure FatalError (const Err: string); stdcall;
-
+function  GetStdcallArg (Context: PHookContext; ArgN: integer): pinteger; inline;
+procedure KillThisProcess;
+procedure GenerateException;
+procedure NotifyError (const Err: string);
+procedure FatalError (const Err: string);
 // Returns address of assember ret-routine which will clean the arguments and return
 function  Ret (NumArgs: integer): pointer;
-
-function GetModuleList: {O} TStrList {of TModuleInfo};
-function FindModuleByAddr ({n} Addr: pointer; ModuleList: TStrList {of TModuleInfo};
-                           out ModuleInd: integer): boolean;
+function  GetModuleList: TModuleList;
+function  FindModuleByAddr ({n} Addr: pointer; ModuleList: TModuleList;
+                            out ModuleInd: integer): boolean;
 
 var
+  AbortOnError: boolean = false; // if set to false, NotifyError does nothing
   (* Patching provider *)
   GlobalPatcher: PatchApi.TPatcher;
   p:             PatchApi.TPatcherInstance;
 
-{O} ModuleContext: TModuleContext; // Shareable between threads
+{O} ModuleContext: TModuleContext; // Shareable between threads, use lock methods
+
 
 implementation
 
-const
-  BRIDGE_DEF_CODE_OFS = 17;
+
+type
+  PBridgeCodePart1 = ^TBridgeCodePart1;
+  TBridgeCodePart1 = packed record
+    Pushad:               byte;
+    PushEsp:              byte;
+    MovEaxConst32:        byte;
+    HandlerAddr:          pointer;
+    CallEax:              word;
+    TestEaxEax:           word;
+    JzOffset8:            byte;
+    OffsetToAfterDefCode: byte;
+    Popad:                byte;
+    AddEsp4:              array [0..2] of byte;
+    // < Default code > //
+  end; // .record TBridgeCodePart1
+
+  PBridgeCodePart2 = ^TBridgeCodePart2;
+  TBridgeCodePart2 = packed record
+    PushConst32: byte;
+    RetAddr:     pointer;
+    Ret_1:       byte;
+    Popad:       byte;
+    Ret_2:       byte;
+  end; // .record TBridgeCodePart2
 
 var
-{O} Hooker: Files.TFixedBuf;
+  BridgeCodePart1: TBridgeCodePart1 =
+  (
+    Pushad:        $60;
+    PushEsp:       $54;
+    MovEaxConst32: $B8;
+    CallEax:       $D0FF;
+    TestEaxEax:    $C085;
+    JzOffset8:     $74;
+    Popad:         $61;
+    AddEsp4:       ($83, $C4, $04);
+  );
+
+  BridgeCodePart2: TBridgeCodePart2 =
+  (
+    PushConst32: $68;
+    Ret_1:       $C3;
+    Popad:       $61;
+    Ret_2:       $C3;
+  );
 
 procedure TModuleInfo.EvaluateDerivatives;
 begin
@@ -178,11 +207,28 @@ begin
   fCritSection.Delete;
 end; // .destructor TModuleContext.Destroy
 
+function TModuleContext.CompareModulesByAddr (Ind1, Ind2: integer): integer;
+begin
+  result := Alg.PtrCompare(TModuleInfo(fModuleList.Values[Ind1]).BaseAddr,
+                           TModuleInfo(fModuleList.Values[Ind2]).BaseAddr);
+end; // .function TModuleContext.CompareModulesByAddr
+
 procedure TModuleContext.EnsureModuleList;
+var
+  i: integer;
+
 begin
   if fModuleList = nil then begin
     fModuleList := Core.GetModuleList;
     fModuleList.Sort;
+    SetLength(fModulesOrderByAddr, fModuleList.Count);
+    
+    for i := 0 to fModuleList.Count - 1 do begin
+      fModulesOrderByAddr[i] := i;
+    end; // .for
+
+    Alg.CustomQuickSort(pointer(fModulesOrderByAddr), 0, fModuleList.Count - 1,
+                        CompareModulesByAddr);
   end; // .if
 end; // .procedure TModuleContext.EnsureModuleList
 
@@ -198,6 +244,22 @@ begin
   result := TModuleInfo(fModuleList.Values[Ind]);
 end; // .function TModuleContext.GetModuleInfo
 
+function TModuleContext.CompareModuleToAddr (ModInd, Addr: integer): integer;
+var
+{U} ModInfo: TModuleInfo;
+
+begin
+  ModInfo := TModuleInfo(fModuleList.Values[ModInd]);
+  
+  if cardinal(Addr) < cardinal(ModInfo.BaseAddr) then begin
+    result := -1;
+  end else if cardinal(Addr) >= cardinal(ModInfo.EndAddr) then begin
+    result := +1;
+  end else begin
+    result := 0;
+  end; // .else
+end; // .function TModuleContext.CompareModuleToAddr
+
 procedure TModuleContext.Lock;
 begin
   fCritSection.Enter;
@@ -211,7 +273,15 @@ end; // .procedure TModuleContext.Unlock
 procedure TModuleContext.UpdateModuleList;
 begin
   FreeAndNil(fModuleList);
+  fModulesOrderByAddr := nil;
 end; // .procedure TModuleContext.UpdateModuleList
+
+function TModuleContext.FindModuleByAddr ({n} Addr: pointer; out ModuleInd: integer): boolean;
+begin
+  EnsureModuleList;
+  result := Alg.CustomBinarySearch(pointer(fModulesOrderByAddr), 0, length(fModulesOrderByAddr) - 1,
+                                   integer(Addr), CompareModuleToAddr, ModuleInd);
+end; // .function TModuleContext.FindModuleByAddr
 
 function TModuleContext.AddrToStr ({n} Addr: pointer): string;
 var
@@ -224,7 +294,7 @@ begin
   EnsureModuleList;
   result := '';
 
-  if FindModuleByAddr(Addr, fModuleList, ModuleInd) then begin
+  if FindModuleByAddr(Addr, ModuleInd) then begin
     ModuleInfo := GetModuleInfo(ModuleInd);
     result     := ModuleInfo.Name + '.';
 
@@ -243,42 +313,39 @@ var
   OldPageProtect: integer;
 
 begin
-  {!} Assert(Count >= 0);
-  {!} Assert(Src <> nil);
-  {!} Assert(Dst <> nil);
-  result  :=  Windows.VirtualProtect(Dst, Count, Windows.PAGE_EXECUTE_READWRITE	, @OldPageProtect);
-  
-  if result then begin
-    Utils.CopyMem(Count, Src, Dst);
-    result  :=  Windows.VirtualProtect(Dst, Count, OldPageProtect, @OldPageProtect);
+  {!} Assert(Utils.IsValidBuf(Dst, Count));
+  {!} Assert((Src <> nil) or (Count = 0));
+  result := Count = 0;
+
+  if not result then begin
+    result := Windows.VirtualProtect(Dst, Count, Windows.PAGE_EXECUTE_READWRITE ,
+                                     @OldPageProtect);
+    if result then begin
+      Utils.CopyMem(Count, Src, Dst);
+      result := Windows.VirtualProtect(Dst, Count, OldPageProtect, @OldPageProtect);
+    end; // .if
   end; // .if
 end; // .function WriteAtCode
 
-function Hook
-(
-  HandlerAddr:  pointer;
-  HookType:     integer;
-  PatchSize:    integer;
-  CodeAddr:     pointer
-): {n} pointer;
-
-const
-  MIN_BRIDGE_SIZE = 25;
-  
+function Hook (HandlerAddr: pointer; HookType: integer; PatchSize: integer; CodeAddr: pointer
+              ): {n} pointer;
 type
-  TBytes  = array of byte;
+  TBytes = array of byte;
 
 var
-{U} BridgeCode: pointer;
-    HookRec:    THookRec;
-    NopCount:   integer;
-    NopBuf:     string;
-    
+{O} BridgeCode:    pointer; // Memory is not freed or tracked
+    BridgePart1:   PBridgeCodePart1;
+    BridgeDefCode: pointer;
+    BridgePart2:   PBridgeCodePart2;
+    NopCount:      integer;
+    NopBuf:        TBytes;
+    HookRec:       THookRec;
+
  function PreprocessCode (CodeSize: integer; OldCodeAddr, NewCodeAddr: pointer): TBytes;
  var
-   Delta:   integer;
-   BufPos:  integer;
-   Disasm:  hde32.TDisasm;
+   Delta:  integer;
+   BufPos: integer;
+   Disasm: hde32.TDisasm;
  
  begin
   {!} Assert(CodeSize >= sizeof(THookRec));
@@ -286,14 +353,14 @@ var
   {!} Assert(NewCodeAddr <> nil);
   SetLength(result, CodeSize);
   Utils.CopyMem(CodeSize, OldCodeAddr, @result[0]);
-  Delta   :=  integer(NewCodeAddr) - integer(OldCodeAddr);
-  BufPos  :=  0;
+  Delta  := integer(NewCodeAddr) - integer(OldCodeAddr);
+  BufPos := 0;
   
   while BufPos < CodeSize do begin
     hde32.hde32_disasm(Utils.PtrOfs(OldCodeAddr, BufPos), Disasm);
     
     if (Disasm.Len = sizeof(THookRec)) and (Disasm.Opcode in [OPCODE_JUMP, OPCODE_CALL]) then begin
-      Dec(PINTEGER(@result[BufPos + 1])^, Delta);
+      Dec(pinteger(@result[BufPos + 1])^, Delta);
     end; // .if
     
     Inc(BufPos, Disasm.Len);
@@ -305,63 +372,44 @@ begin
   {!} Assert(Math.InRange(HookType, HOOKTYPE_JUMP, HOOKTYPE_BRIDGE));
   {!} Assert(PatchSize >= sizeof(THookRec));
   {!} Assert(CodeAddr <> nil);
-  BridgeCode  :=  nil;
+  BridgeCode := nil;
   // * * * * * //
-  result  :=  nil;
+  result := nil;
 
   if HookType = HOOKTYPE_JUMP then begin
-    HookRec.Opcode  :=  OPCODE_JUMP;
-  end // .if
-  else begin
-    HookRec.Opcode  :=  OPCODE_CALL;
+    HookRec.Opcode := OPCODE_JUMP;
+  end else begin
+    HookRec.Opcode := OPCODE_CALL;
   end; // .else
   
   if HookType = HOOKTYPE_BRIDGE then begin
-    GetMem(BridgeCode, MIN_BRIDGE_SIZE + PatchSize);
-    Hooker.Open(BridgeCode, MIN_BRIDGE_SIZE + PatchSize, CFiles.MODE_WRITE);
-    // PUSHAD
-    // PUSH ESP
-    // MOV EAX, ????
-    Hooker.WriteStr(#$60#$54#$B8);
-    Hooker.WriteInt(integer(HandlerAddr));
-    // CALL near EAX
-    Hooker.WriteStr(#$FF#$D0);
-    // TEST EAX, EAX
-    // JZ ??
-    Hooker.WriteStr(#$85#$C0#$74);
-    Hooker.WriteByte(PatchSize + 10);
-    // POPAD
-    Hooker.WriteByte($61);
-    // ADD ESP, 4
-    Hooker.WriteStr(#$83#$C4#$04);
-    // default CODE
-    Hooker.Write
-    (
-      PatchSize,
-      @PreprocessCode(PatchSize, CodeAddr, Utils.PtrOfs(BridgeCode, BRIDGE_DEF_CODE_OFS))[0]
-    );
-    // PUSH ????
-    Hooker.WriteByte($68);
-    Hooker.WriteInt(integer(CodeAddr) + sizeof(THookRec));
-    // RET
-    Hooker.WriteByte($C3);
-    // POPAD
-    // RET
-    Hooker.WriteByte($61);
-    Hooker.WriteByte($C3);
-    Hooker.Close;
-    HandlerAddr :=  BridgeCode;
-    
-    result  :=  Utils.PtrOfs(BridgeCode, BRIDGE_DEF_CODE_OFS);
+    // Allocate memory block for bridge and assign pointers to its parts
+    GetMem(BridgeCode, sizeof(TBridgeCodePart1) + sizeof(TBridgeCodePart2) + PatchSize);
+    BridgePart1   := BridgeCode;
+    BridgeDefCode := Utils.PtrOfs(BridgeCode, sizeof(BridgePart1^));
+    BridgePart2   := Utils.PtrOfs(BridgeCode, sizeof(BridgePart1^) + PatchSize);
+
+    // Copy preprocessed default code to destination
+    Utils.CopyMem(PatchSize, @PreprocessCode(PatchSize, CodeAddr, BridgeDefCode)[0], BridgeDefCode);
+
+    // Copy bridge parts to destination and fill in required fields
+    BridgePart1^                     := BridgeCodePart1;
+    BridgePart1.HandlerAddr          := HandlerAddr;
+    BridgePart1.OffsetToAfterDefCode := PatchSize + 10;
+    BridgePart2^                     := BridgeCodePart2;
+    BridgePart2.RetAddr              := Utils.PtrOfs(CodeAddr, sizeof(THookRec));
+
+    HandlerAddr := BridgeCode;
+    result      := BridgeDefCode;
   end; // .if
-  
-  HookRec.Ofs :=  integer(HandlerAddr) - integer(CodeAddr) - sizeof(THookRec);
+
+  HookRec.Ofs := integer(HandlerAddr) - integer(CodeAddr) - sizeof(THookRec);
   {!} Assert(WriteAtCode(sizeof(THookRec), @HookRec, CodeAddr));
-  NopCount    :=  PatchSize - sizeof(THookRec);
-  
+  NopCount    := PatchSize - sizeof(THookRec);
+
   if NopCount > 0 then begin
     SetLength(NopBuf, NopCount);
-    FillChar(NopBuf[1], NopCount, CHR($90));
+    FillChar(NopBuf[0], NopCount, Chr($90));
     {!} Assert(WriteAtCode(NopCount, pointer(NopBuf), Utils.PtrOfs(CodeAddr, sizeof(THookRec))));
   end; // .if
 end; // .function Hook
@@ -372,142 +420,115 @@ var
 
 begin
   {!} Assert(Code <> nil);
-  result  :=  0;
-  
+  result := 0;
+
   while result < sizeof(THookRec) do begin
     hde32.hde32_disasm(Code, Disasm);
-    result  :=  result + Disasm.Len;
-    Code    :=  Utils.PtrOfs(Code, Disasm.Len);
+    result := result + Disasm.Len;
+    Code   := Utils.PtrOfs(Code, Disasm.Len);
   end; // .while
 end; // .function CalcHookSize
 
 function ApiHook (HandlerAddr: pointer; HookType: integer; CodeAddr: pointer): {n} pointer;
 begin
-  result  :=  Hook(HandlerAddr, HookType, CalcHookSize(CodeAddr), CodeAddr);
+  result := Hook(HandlerAddr, HookType, CalcHookSize(CodeAddr), CodeAddr);
 end; // .function ApiHook
 
-function APIArg (Context: PHookHandlerArgs; ArgN: integer): PAPIArg;
+function GetStdcallArg (Context: PHookContext; ArgN: integer): pinteger;
 begin
-  result :=  Ptr(Context.ESP + (4 + 4 * ArgN));
-end; // .function APIArg
+  result := Ptr(Context.ESP + (4 + 4 * ArgN));
+end; // .function GetStdcallArg
 
-function GetOrigAPIAddr (HookAddr: pointer): pointer;
-begin
-  {!} Assert(HookAddr <> nil);
-  result  :=  pointer
-  (
-    integer(HookAddr)                 +
-    sizeof(THookRec)                  +
-    PINTEGER(integer(HookAddr) + 1)^  +
-    BRIDGE_DEF_CODE_OFS
-  );
-end; // .function GetOrigAPIAddr
-
-function RecallAPI (Context: PHookHandlerArgs; NumArgs: integer): integer;
-var
-  APIAddr:  pointer;
-  PtrArgs:  integer;
-  APIRes:   integer;
-   
-begin
-  APIAddr :=  GetOrigAPIAddr(Ptr(PINTEGER(Context.ESP)^ - sizeof(THookRec)));
-  PtrArgs :=  integer(APIArg(Context, NumArgs));
-  
-  asm
-    MOV ECX, NumArgs
-    MOV EDX, PtrArgs
-  
-  @PUSHARGS:
-    PUSH [EDX]
-    SUB EDX, 4
-    Dec ECX
-    JNZ @PUSHARGS
-    
-    MOV EAX, APIAddr
-    CALL EAX
-    MOV APIRes, EAX
-  end; // .asm
-  
-  result :=  APIRes;
-end; // .function RecallAPI
-
-procedure KillThisProcess; ASSEMBLER;
+procedure KillThisProcess; assembler;
 asm
-  xor EAX, EAX
+  XOR EAX, EAX
   MOV ESP, EAX
   MOV [EAX], EAX
 end; // .procedure KillThisProcess
 
+procedure GenerateException; assembler;
+asm
+  xor eax, eax
+  mov [eax], eax
+end; // .procedure GenerateException
+
+procedure NotifyError (const Err: string);
+begin
+  if AbortOnError then begin
+    FatalError(Err);
+  end; // .if
+end; // .procedure NotifyError
+
 procedure FatalError (const Err: string);
 begin
   DlgMes.MsgError(Err);
-  KillThisProcess;
+  GenerateException;
 end; // .procedure FatalError
 
-procedure Ret0; ASSEMBLER;
+procedure Ret0; assembler;
 asm
   // RET
 end; // .procedure Ret0
 
-procedure Ret4; ASSEMBLER;
+procedure Ret4; assembler;
 asm
-  RET 4
+  ret 4
 end; // .procedure Ret4
 
-procedure Ret8; ASSEMBLER;
+procedure Ret8; assembler;
 asm
-  RET 8
+  ret 8
 end; // .procedure Ret8
 
-procedure Ret12; ASSEMBLER;
+procedure Ret12; assembler;
 asm
-  RET 12
+  ret 12
 end; // .procedure Ret12
 
-procedure Ret16; ASSEMBLER;
+procedure Ret16; assembler;
 asm
-  RET 16
+  ret 16
 end; // .procedure Ret16
 
-procedure Ret20; ASSEMBLER;
+procedure Ret20; assembler;
 asm
-  RET 20
+  ret 20
 end; // .procedure Ret20
 
-procedure Ret24; ASSEMBLER;
+procedure Ret24; assembler;
 asm
-  RET 24
+  ret 24
 end; // .procedure Ret24
 
-procedure Ret28; ASSEMBLER;
+procedure Ret28; assembler;
 asm
-  RET 28
+  ret 28
 end; // .procedure Ret28
 
-procedure Ret32; ASSEMBLER;
+procedure Ret32; assembler;
 asm
-  RET 32
+  ret 32
 end; // .procedure Ret32
 
 function Ret (NumArgs: integer): pointer;
 begin
   case NumArgs of 
-    0:  result  :=  @Ret0;
-    1:  result  :=  @Ret4;
-    2:  result  :=  @Ret8;
-    3:  result  :=  @Ret12;
-    4:  result  :=  @Ret16;
-    5:  result  :=  @Ret20;
-    6:  result  :=  @Ret24;
-    7:  result  :=  @Ret28;
-    8:  result  :=  @Ret32;
+    0: result := @Ret0;
+    1: result := @Ret4;
+    2: result := @Ret8;
+    3: result := @Ret12;
+    4: result := @Ret16;
+    5: result := @Ret20;
+    6: result := @Ret24;
+    7: result := @Ret28;
+    8: result := @Ret32;
   else
-    result  :=  nil;
-    {!} Assert(FALSE);
+    result := nil;
+    {!} Assert(false);
   end; // .SWITCH NumArgs
 end; // .function Ret
 
-function GetModuleList: {O} TStrList {of TModuleInfo};
+function GetModuleList: TModuleList;
 var
 {O} ModuleInfo:     TModuleInfo;
     ModuleInfoRes:  PsApi.TModuleInfo;
@@ -551,7 +572,7 @@ begin
   FreeAndNil(ModuleInfo);
 end; // .function GetModuleList
 
-function FindModuleByAddr ({n} Addr: pointer; ModuleList: TStrList {of TModuleInfo};
+function FindModuleByAddr ({n} Addr: pointer; ModuleList: TModuleList;
                            out ModuleInd: integer): boolean;
 var
   i: integer;
@@ -578,7 +599,6 @@ begin
 end; // .function FindModuleByAddr
 
 begin
-  Hooker        := Files.TFixedBuf.Create;
   GlobalPatcher := PatchApi.GetPatcher;
   p             := GlobalPatcher.CreateInstance(pchar(WinWrappers.GetModuleFileName(hInstance)));
   ModuleContext := TModuleContext.Create;
