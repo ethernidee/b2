@@ -21,7 +21,8 @@ const
 
 
 type
-  int = integer;
+  char = System.AnsiChar;
+  int  = integer;
 
   (* Item pointers *)
   pobject   = ^TObject;

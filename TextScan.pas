@@ -51,6 +51,7 @@ type
       function  GotoPrevLine: boolean;
       function  GotoLine (TargetLine: integer): boolean;
       function  GotoRelLine (RelLineN: integer): boolean;
+      function  PosToLine (TargetPos: integer; out LineN, LinePos: integer): boolean;
       function  SkipChars (Ch: char): boolean;
       function  SkipCharset (const Charset: TCharSet): boolean;
       function  FindChar (Ch: char): boolean;
@@ -138,9 +139,17 @@ var
   
 begin
   {!} Assert(SubstrLen >= 0);
-  StartPos  :=  Math.EnsureRange(TargetPos, 1, Self.TextBufLen + 1);
-  EndPos    :=  Math.EnsureRange(TargetPos + SubstrLen, 1, Self.TextBufLen + 1);
-  result    :=  Copy(Self.TextBuf, StartPos, EndPos - StartPos);
+  StartPos := TargetPos;
+  
+  if StartPos < 1 then begin
+    StartPos  := 1;
+    SubstrLen := Math.Max(0, SubstrLen + TargetPos - 1);
+  end else if StartPos > Self.TextBufLen + 1 then begin
+    StartPos := Self.TextBufLen + 1;
+  end; // .elseif
+
+  EndPos := Math.EnsureRange(TargetPos + SubstrLen, 1, Self.TextBufLen + 1);
+  result := Copy(Self.TextBuf, StartPos, EndPos - StartPos);
 end; // .function TTextScanner.GetSubstrAtPos
 
 function TTextScanner.GetSubstrAtRelPos (RelPos, SubstrLen: integer): string;
@@ -248,7 +257,22 @@ end; // .function TTextScanner.GotoLine
 function TTextScanner.GotoRelLine (RelLineN: integer): boolean;
 begin
   result  :=  Self.GotoLine(Self.LineN + RelLineN);
-end; // .function TTextScanner.GotoRelLine 
+end; // .function TTextScanner.GotoRelLine
+
+function TTextScanner.PosToLine (TargetPos: integer; out LineN, LinePos: integer): boolean;
+var
+  CurrPos: integer;
+
+begin
+  CurrPos := Self.Pos;
+  result  := Self.GotoPos(TargetPos);
+
+  if result then begin
+    LineN   := Self.LineN;
+    LinePos := Self.Pos - Self.LineStartPos;
+    Self.GotoPos(CurrPos);
+  end; // .if
+end; // .function TTextScanner.PosToLine 
 
 function TTextScanner.SkipChars (Ch: char): boolean;
 begin

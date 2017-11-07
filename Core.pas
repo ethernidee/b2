@@ -80,7 +80,7 @@ type
     procedure EnsureModuleList;
     function  GetModuleList: TModuleList;
     function  GetModuleInfo (Ind: integer): TModuleInfo;
-    function  CompareModuleToAddr (ModInd, Addr: integer): integer;
+    function  CompareModuleToAddr (OrderTableInd, Addr: integer): integer;
 
    public
     constructor Create;
@@ -142,6 +142,7 @@ type
     TestEaxEax:           word;
     JzOffset8:            byte;
     OffsetToAfterDefCode: byte;
+    Label_ExecDefCode:    Utils.TEmptyRec;
     Popad:                byte;
     AddEsp4:              array [0..2] of byte;
     // < Default code > //
@@ -149,11 +150,12 @@ type
 
   PBridgeCodePart2 = ^TBridgeCodePart2;
   TBridgeCodePart2 = packed record
-    PushConst32: byte;
-    RetAddr:     pointer;
-    Ret_1:       byte;
-    Popad:       byte;
-    Ret_2:       byte;
+    PushConst32:           byte;
+    RetAddr:               pointer;
+    Ret_1:                 byte;
+    Label_DontExecDefCode: Utils.TEmptyRec;
+    Popad:                 byte;
+    Ret_2:                 byte;
   end; // .record TBridgeCodePart2
 
 var
@@ -244,12 +246,12 @@ begin
   result := TModuleInfo(fModuleList.Values[Ind]);
 end; // .function TModuleContext.GetModuleInfo
 
-function TModuleContext.CompareModuleToAddr (ModInd, Addr: integer): integer;
+function TModuleContext.CompareModuleToAddr (OrderTableInd, Addr: integer): integer;
 var
 {U} ModInfo: TModuleInfo;
 
 begin
-  ModInfo := TModuleInfo(fModuleList.Values[ModInd]);
+  ModInfo := TModuleInfo(fModuleList.Values[fModulesOrderByAddr[OrderTableInd]]);
   
   if cardinal(Addr) < cardinal(ModInfo.BaseAddr) then begin
     result := -1;
@@ -277,10 +279,17 @@ begin
 end; // .procedure TModuleContext.UpdateModuleList
 
 function TModuleContext.FindModuleByAddr ({n} Addr: pointer; out ModuleInd: integer): boolean;
+var
+  i: integer;
+
 begin
   EnsureModuleList;
+
   result := Alg.CustomBinarySearch(pointer(fModulesOrderByAddr), 0, length(fModulesOrderByAddr) - 1,
                                    integer(Addr), CompareModuleToAddr, ModuleInd);
+  if result then begin
+    ModuleInd := fModulesOrderByAddr[ModuleInd];
+  end; // .if
 end; // .function TModuleContext.FindModuleByAddr
 
 function TModuleContext.AddrToStr ({n} Addr: pointer): string;
@@ -367,6 +376,12 @@ var
   end; // .while
  end; // .function PreprocessCode
 
+ function FieldOffset (RecAddr, FieldAddr: pointer): integer;
+ begin
+   {!} Assert(cardinal(FieldAddr) >= cardinal(RecAddr));
+   result := cardinal(FieldAddr) - cardinal(RecAddr);
+ end; // .function FieldOffset
+
 begin
   {!} Assert(HandlerAddr <> nil);
   {!} Assert(Math.InRange(HookType, HOOKTYPE_JUMP, HOOKTYPE_BRIDGE));
@@ -395,7 +410,10 @@ begin
     // Copy bridge parts to destination and fill in required fields
     BridgePart1^                     := BridgeCodePart1;
     BridgePart1.HandlerAddr          := HandlerAddr;
-    BridgePart1.OffsetToAfterDefCode := PatchSize + 10;
+    BridgePart1.OffsetToAfterDefCode := PatchSize + sizeof(BridgePart1^)
+                                        - FieldOffset(BridgePart1, @BridgePart1.Label_ExecDefCode)
+                                        + FieldOffset(BridgePart2,
+                                                      @BridgePart2.Label_DontExecDefCode);
     BridgePart2^                     := BridgeCodePart2;
     BridgePart2.RetAddr              := Utils.PtrOfs(CodeAddr, sizeof(THookRec));
 
