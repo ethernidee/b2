@@ -1,20 +1,21 @@
 unit Core;
 {
-DESCRIPTION:  Low-level functions
-AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
-CONSIDER:     Speed up module address resolution using binary search
+DESCRIPTION: Low-level functions
+AUTHOR:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 }
 
 (***)  interface  (***)
 uses
   Windows, PsApi, Math, StrUtils, SysUtils,
   hde32, PatchApi,
-  Utils, Alg, WinWrappers, DlgMes, CFiles, Files, DataLib, StrLib, Concur;
+  Utils, Alg, WinWrappers, DlgMes, CFiles, Files, DataLib, StrLib, Concur,
+  DebugMaps;
 
 type
   (* Import *)
   TStrList = DataLib.TStrList;
   TList    = DataLib.TList;
+  TObjDict = DataLib.TObjDict;
 
 const
   (*
@@ -48,10 +49,11 @@ type
   end; // .record THookRec
   
   PHookContext = ^THookContext;
+
   THookContext = packed record
     EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX: integer;
     RetAddr:                                pointer;
-  end; // .record THookContext
+  end;
 
   TModuleInfo = class
     Name:       string;  // evaluated: lower case without extension + capitalize
@@ -115,6 +117,7 @@ procedure NotifyError (const Err: string);
 procedure FatalError (const Err: string);
 // Returns address of assember ret-routine which will clean the arguments and return
 function  Ret (NumArgs: integer): pointer;
+procedure SetDebugMapsDir (const Dir: string);
 function  GetModuleList: TModuleList;
 function  FindModuleByAddr ({n} Addr: pointer; ModuleList: TModuleList;
                             out ModuleInd: integer): boolean;
@@ -179,6 +182,10 @@ var
     Ret_2:       $C3;
   );
 
+  DebugMapsDir: string;
+
+{O} Maps: {O} TDict {OF DebugMaps.TDebugMap};
+
 procedure TModuleInfo.EvaluateDerivatives;
 begin
   EndAddr  := Utils.PtrOfs(BaseAddr, Size);
@@ -214,6 +221,11 @@ begin
   result := Alg.PtrCompare(TModuleInfo(fModuleList.Values[Ind1]).BaseAddr,
                            TModuleInfo(fModuleList.Values[Ind2]).BaseAddr);
 end; // .function TModuleContext.CompareModulesByAddr
+
+procedure SetDebugMapsDir (const Dir: string);
+begin
+  DebugMapsDir := Dir;
+end;
 
 procedure TModuleContext.EnsureModuleList;
 var
@@ -279,9 +291,6 @@ begin
 end; // .procedure TModuleContext.UpdateModuleList
 
 function TModuleContext.FindModuleByAddr ({n} Addr: pointer; out ModuleInd: integer): boolean;
-var
-  i: integer;
-
 begin
   EnsureModuleList;
 
@@ -294,11 +303,16 @@ end; // .function TModuleContext.FindModuleByAddr
 
 function TModuleContext.AddrToStr ({n} Addr: pointer): string;
 var
-{U} ModuleInfo: TModuleInfo;
-    ModuleInd:  integer;
+{U} ModuleInfo:   TModuleInfo;
+    ModuleInd:    integer;
+{U} DebugMap:     DebugMaps.TDebugMap;
+    MapFilePath:  string;
+    MapFile:      string;
+    ReadableAddr: string;
 
 begin
   ModuleInfo := nil;
+  DebugMap   := nil;
   // * * * * * //
   EnsureModuleList;
   result := '';
@@ -312,6 +326,26 @@ begin
     end else begin
       result := result + IntToHex(integer(Addr) - integer(ModuleInfo.BaseAddr), 1);
     end; // .else
+
+    if DebugMapsDir <> '' then begin
+      DebugMap := Maps[ModuleInfo.Name];
+
+      if DebugMap = nil then begin
+        DebugMap              := DebugMaps.TDebugMap.Create();
+        Maps[ModuleInfo.Name] := DebugMap;
+        MapFilePath           := DebugMapsDir + '\' + ModuleInfo.Name + '.dbgmap';
+
+        if (Files.ReadFileContents(MapFilePath, MapFile)) and (length(MapFile) >= MIN_DBGMAP_FILE_SIZE) then begin
+          DebugMap.LoadFromString(MapFile);
+        end;
+      end;
+
+      ReadableAddr := DebugMap.GetReadableAddr(integer(Addr) - integer(ModuleInfo.BaseAddr));
+
+      if ReadableAddr <> '' then begin
+        result := result + ' (' + ReadableAddr + ')';
+      end;
+    end; // .if
   end else begin
     result := IntToHex(integer(Addr), 8);
   end; // .else
@@ -620,4 +654,5 @@ begin
   GlobalPatcher := PatchApi.GetPatcher;
   p             := GlobalPatcher.CreateInstance(pchar(WinWrappers.GetModuleFileName(hInstance)));
   ModuleContext := TModuleContext.Create;
+  Maps          := DataLib.NewDict(Utils.OWNS_ITEMS, DataLib.CASE_INSENSITIVE);
 end.

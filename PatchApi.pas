@@ -102,13 +102,15 @@ const
 
   FASTCALL_1 = 1;
 
+  NULL_PTR = nil;
+
 type
   _dword_ = cardinal;
 
 // все адреса и часть указателей определены этим типом,
 // если вам удобнее по-другому, можете заменить _ptr_
 // на любой другой четырехбайтовый тип: pointer или integer например
-  _ptr_ = _dword_;
+  _ptr_ = pointer;
 
 // —труктура HookContext
 // используетс€ в функци€х сработавших по LoHook хуку
@@ -121,7 +123,7 @@ type
 	  ebp: integer;
 	  esi: integer;
 	  edi: integer;
- 	  return_address: _ptr_;
+ 	  RetAddr: _ptr_;
   end;
   PHookContext = ^THookContext;
 
@@ -912,7 +914,7 @@ type
       dll := Windows.LoadLibrary('patcher_x86.dll');
       {!} Assert(dll <> 0);
       func := _ptr_(Windows.GetProcAddress(dll, '_GetPatcherX86@0'));
-      {!} Assert(func <> 0);
+      {!} Assert(func <> NULL_PTR);
       result := TPatcher(Call(STDCALL_, func, []));
       {!} Assert(result <> nil);
     end;

@@ -90,7 +90,7 @@ const
   VFS_EXTRA_DEBUG = FALSE;
 
 var
-  SetProcessDEPPolicyAddr: integer;
+  SetProcessDEPPolicyAddr: pointer;
   
 constructor TSearchList.Create;
 begin
@@ -900,9 +900,9 @@ begin
   User32Handle   := Windows.GetModuleHandle('user32.dll');
   
   (* Trying to turn off DEP *)
-  SetProcessDEPPolicyAddr := integer(Windows.GetProcAddress(Kernel32Handle,
-                                                            'SetProcessDEPPolicyAddr'));
-  if SetProcessDEPPolicyAddr <> 0 then begin
+  SetProcessDEPPolicyAddr := Windows.GetProcAddress(Kernel32Handle, 'SetProcessDEPPolicyAddr');
+
+  if SetProcessDEPPolicyAddr <> nil then begin
     if PatchApi.Call(PatchApi.STDCALL_, SetProcessDEPPolicyAddr, [0]) <> 0 then begin
       Log.Write('VFS', 'Init', 'DEP was turned off');
     end // .if
@@ -915,7 +915,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFullPathNameA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'GetFullPathNameA')),
+    Windows.GetProcAddress(Kernel32Handle, 'GetFullPathNameA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -925,7 +925,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateFileA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'CreateFileA')),
+    Windows.GetProcAddress(Kernel32Handle, 'CreateFileA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -933,19 +933,19 @@ begin
   );
   
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFileAttributesA hook');
-  NativeGetFileAttributes := Ptr(Core.p.WriteHiHook
+  NativeGetFileAttributes := pointer(Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'GetFileAttributesA')),
+    Windows.GetProcAddress(Kernel32Handle, 'GetFileAttributesA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
     @Hook_GetFileAttributesA,
-  ).GetDefaultFunc);
+  ).GetDefaultFunc());
 
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadLibraryA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'LoadLibraryA')),
+    Windows.GetProcAddress(Kernel32Handle, 'LoadLibraryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -955,7 +955,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'GetPrivateProfileStringA')),
+    Windows.GetProcAddress(Kernel32Handle, 'GetPrivateProfileStringA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -965,7 +965,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateDirectoryA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'CreateDirectoryA')),
+    Windows.GetProcAddress(Kernel32Handle, 'CreateDirectoryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -975,7 +975,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing RemoveDirectoryA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'RemoveDirectoryA')),
+    Windows.GetProcAddress(Kernel32Handle, 'RemoveDirectoryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -985,7 +985,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing DeleteFileA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'DeleteFileA')),
+    Windows.GetProcAddress(Kernel32Handle, 'DeleteFileA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -995,7 +995,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'FindFirstFileA')),
+    Windows.GetProcAddress(Kernel32Handle, 'FindFirstFileA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1005,7 +1005,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'FindNextFileA')),
+    Windows.GetProcAddress(Kernel32Handle, 'FindNextFileA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1015,7 +1015,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindClose hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'FindClose')),
+    Windows.GetProcAddress(Kernel32Handle, 'FindClose'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1025,7 +1025,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadCursorFromFileA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(User32Handle, 'LoadCursorFromFileA')),
+    Windows.GetProcAddress(User32Handle, 'LoadCursorFromFileA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1035,7 +1035,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing PlaySoundA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Windows.LoadLibrary('winmm.dll'), 'PlaySoundA')),
+    Windows.GetProcAddress(Windows.LoadLibrary('winmm.dll'), 'PlaySoundA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1045,7 +1045,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetCurrentDirectoryA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'GetCurrentDirectoryA')),
+    Windows.GetProcAddress(Kernel32Handle, 'GetCurrentDirectoryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1055,7 +1055,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryA hook');
   Core.p.WriteHiHook
   (
-    integer(Windows.GetProcAddress(Kernel32Handle, 'SetCurrentDirectoryA')),
+    Windows.GetProcAddress(Kernel32Handle, 'SetCurrentDirectoryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
