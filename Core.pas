@@ -335,7 +335,7 @@ begin
         Maps[ModuleInfo.Name] := DebugMap;
         MapFilePath           := DebugMapsDir + '\' + ModuleInfo.Name + '.dbgmap';
 
-        if (Files.ReadFileContents(MapFilePath, MapFile)) and (length(MapFile) >= MIN_DBGMAP_FILE_SIZE) then begin
+        if (SysUtils.FileExists(MapFilePath) and Files.ReadFileContents(MapFilePath, MapFile)) and (length(MapFile) >= MIN_DBGMAP_FILE_SIZE) then begin
           DebugMap.LoadFromString(MapFile);
         end;
       end;
