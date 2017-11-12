@@ -42,6 +42,9 @@ const
   EXEC_DEF_CODE   = true;
   IGNORE_DEF_CODE = not EXEC_DEF_CODE;
 
+  ANALYZE_DATA      = true;
+  DONT_ANALYZE_DATA = not ANALYZE_DATA;
+
 type
   THookRec = packed record
     Opcode: byte;
@@ -95,7 +98,7 @@ type
     procedure UpdateModuleList;
     // Uses separate index table and binary search unlike unit `FindModuleByAddr` function
     function  FindModuleByAddr ({n} Addr: pointer; out ModuleInd: integer): boolean;
-    function  AddrToStr ({n} Addr: pointer): string;
+    function  AddrToStr ({n} Addr: pointer;  AnalyzeData: bool = DONT_ANALYZE_DATA): string;
 
     property ModuleList: TModuleList read GetModuleList;
     property ModuleInfo[Ind: integer]: TModuleInfo read GetModuleInfo;
@@ -301,14 +304,28 @@ begin
   end; // .if
 end; // .function TModuleContext.FindModuleByAddr
 
-function TModuleContext.AddrToStr ({n} Addr: pointer): string;
+function TModuleContext.AddrToStr ({n} Addr: pointer; AnalyzeData: bool = DONT_ANALYZE_DATA): string;
+const
+  MAX_DECIMAL_DIGIT                     = 9;
+  STR_DEBUG_CHUNK_LEN                   = 32;
+  BINARY_CHARS                          = [#0..#8, #11..#12, #14..#31];
+  TRUSTED_CHARS                         = ['a'..'z', 'A'..'Z', '0'..'9', '_', 'à'..'ÿ', 'À'..'ß', '¸', '¨'];
+  HEUR_MIN_PTR_ADDR                     = $100000;
+  HEUR_MIN_STR_LEN                      = 3;
+  HEUR_MIN_STR_TRUSTED_CHARS_PERCENTAGE = 50;
+
 var
-{U} ModuleInfo:   TModuleInfo;
-    ModuleInd:    integer;
-{U} DebugMap:     DebugMaps.TDebugMap;
-    MapFilePath:  string;
-    MapFile:      string;
-    ReadableAddr: string;
+{U} ModuleInfo:          TModuleInfo;
+    ModuleInd:           integer;
+{U} DebugMap:            DebugMaps.TDebugMap;
+    MapFilePath:         string;
+    MapFile:             string;
+    ReadableAddr:        string;
+    TargetStr:           pchar;
+    TargetStrChunk:      string;
+    TrustedCharsInChunk: integer;
+    c:                   char;
+    i:                   integer;
 
 begin
   ModuleInfo := nil;
@@ -349,6 +366,47 @@ begin
   end else begin
     result := IntToHex(integer(Addr), 8);
   end; // .else
+
+  if AnalyzeData then begin
+    result := result + ' (int: ' + SysUtils.IntToStr(integer(Addr));
+
+    if (cardinal(Addr) >= HEUR_MIN_PTR_ADDR) and not Windows.IsBadReadPtr(Addr, sizeof(integer)) then begin
+      result := result + ', pint: ' + '0x' + SysUtils.IntToHex(pinteger(Addr)^, 8);
+
+      if pinteger(Addr)^ > MAX_DECIMAL_DIGIT then begin
+        result := result + ' = ' + SysUtils.IntToStr(pinteger(Addr)^);
+      end;
+
+      if not Windows.IsBadReadPtr(Addr, STR_DEBUG_CHUNK_LEN) then begin
+        TargetStr           := pchar(Addr);
+        TargetStrChunk      := '';
+        TrustedCharsInChunk := 0;
+
+        for i := 0 to STR_DEBUG_CHUNK_LEN - 1 do begin
+          c := TargetStr^;
+
+          if c in BINARY_CHARS then begin
+            TargetStrChunk := TargetStrChunk + '\x' + SysUtils.IntToHex(ord(c), 2);
+            break;
+          end else begin
+            TargetStrChunk := TargetStrChunk + c;
+
+            if c in TRUSTED_CHARS then begin
+              inc(TrustedCharsInChunk);
+            end;
+          end;
+
+          inc(TargetStr);
+        end; // .for
+
+        if (length(TargetStrChunk) >= HEUR_MIN_STR_LEN) and (TrustedCharsInChunk * 100 div length(TargetStrChunk) >= HEUR_MIN_STR_TRUSTED_CHARS_PERCENTAGE) then begin
+          result := result + ', str: "' + TargetStrChunk + '"';
+        end; // .if
+      end; // .if
+    end; // .if
+    
+    result := result + ')';
+  end; // .if
 end; // .function TModuleContext.AddrToStr
 
 function WriteAtCode (Count: integer; Src, Dst: pointer): boolean;
