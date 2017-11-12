@@ -117,6 +117,8 @@ function  Scan
 ): boolean;
 
 function  DirExists (const FilePath: string): boolean;
+(* Safe replacement for SysUtils.ForceDirectories, not raising exceptions *)
+function  ForcePath (const DirPath: string): boolean;
 function  Locate (const MaskedPath: string; SearchSubj: TSearchSubj): ILocator;
   
 
@@ -557,6 +559,45 @@ begin
   Attrs   :=  Windows.GetFileAttributes(pchar(FilePath));
   result  :=  (Attrs <> - 1) and ((Attrs and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0);
 end; // .function DirExists
+
+function ForcePath (const DirPath: string): boolean;
+var
+  PathParts: StrLib.TArrayOfStr;
+  TestPath:  string;
+  i:         integer;
+
+begin
+  result := true;
+
+  if (DirPath = '') or (DirPath = '\') or (DirPath = '\\') or (DirPath = '/') then begin
+    // Root or current directory always exist, do nothing
+  end else begin
+    PathParts := StrLib.Explode(StrLib.TrimEx(StringReplace(DirPath, '/', '\', [rfReplaceAll]), ['\'], [StrLib.RIGHT_SIDE]), '\');
+
+    if length(PathParts) > 0 then begin
+      TestPath := '';
+      i        := 0;
+
+      while result and (i < length(PathParts)) do begin
+        if PathParts[i] <> '' then begin
+          if TestPath <> '' then begin
+            TestPath := TestPath + '\';
+          end;
+          
+          TestPath := TestPath + PathParts[i];
+
+          if not DirExists(TestPath) then begin
+            result := SysUtils.CreateDir(TestPath);
+          end;
+        end else if (TestPath = '') then begin
+          TestPath := '\';
+        end; // .elseif
+
+        inc(i);
+      end; // .while
+    end; // .if
+  end; // .else
+end; // .function ForcePath
 
 constructor TLocator.Create;
 begin
