@@ -17,7 +17,10 @@ const
 type
   (* IMPORT *)
   TArrayOfStr  = Utils.TArrayOfStr;
-  
+
+  TTrimSide  = (LEFT_SIDE, RIGHT_SIDE);
+  TTrimSides = set of LEFT_SIDE..RIGHT_SIDE;
+
   PListItem = ^TListItem;
   TListItem = record
           Data:     array of char;
@@ -124,6 +127,7 @@ function  Concat (const Strings: array of string): string;
 {
 Base file name does not include extension.
 }
+function  TrimEx (const Str: string; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): string;
 function  ExtractBaseFileName (const FilePath: string): string;
 function  SubstrBeforeChar (const Str: string; Ch: char): string;
 function  Match (const Str, Pattern: string): boolean;
@@ -818,6 +822,38 @@ begin
     end; // .if
   end; // .for
 end; // .function Concat
+
+function TrimEx (const Str: string; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): string;
+var
+  StrLen: integer;
+  Left:   integer;
+  Right:  integer;
+
+begin
+  result := '';
+
+  if Str <> '' then begin
+    StrLen := length(Str);
+    Left   := 1;
+    Right  := StrLen;
+
+    if LEFT_SIDE in TrimSides then begin
+      while (Left <= Right) and (Str[Left] in TrimCharSet) do begin
+        inc(Left);
+      end;
+    end; // .if
+
+    if (RIGHT_SIDE in TrimSides) and (Left <= Right) then begin
+      while (Right >= 1) and (Str[Right] in TrimCharSet) do begin
+        dec(Right);
+      end;
+    end;
+
+    if Left <= Right then begin
+      result := Copy(Str, Left, Right - Left + 1);
+    end;
+  end; // .if
+end; // .function TrimEx
 
 function ExtractBaseFileName (const FilePath: string): string;
 var
