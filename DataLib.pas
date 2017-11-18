@@ -7,11 +7,11 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 (***)  interface  (***)
 uses
   SysUtils,
-  Utils, Crypto, Lists, AssocArrays;
+  Utils, Crypto, Lists, AssocArrays, StrLib, TypeWrappers;
 
 const
-  CASE_SENSITIVE    = FALSE; 
-  CASE_INSENSITIVE  = not CASE_SENSITIVE;
+  CASE_SENSITIVE   = FALSE; 
+  CASE_INSENSITIVE = not CASE_SENSITIVE;
 
 
 type
@@ -19,6 +19,7 @@ type
   TObjDict  = AssocArrays.TObjArray {OF TObject};
   TList     = Lists.TList {OF TObject};
   TStrList  = Lists.TStringList {OF TObject};
+  TString   = TypeWrappers.TString;
 
   (*  Combines access speed of TDist and order of TStrList  *)
   THashedList = class abstract
@@ -72,6 +73,9 @@ type
     property IterValue: {n} TObject read GetIterValue;
   end; // .interface IObjDictIterator
 
+  TSerializeProc   = procedure ({Un} Data: pointer; Writer: StrLib.IStrBuilder);
+  TUnserializeFunc = function (ByteMapper: StrLib.IByteMapper): {UOn} pointer;
+
 
 function  NewDict (OwnsItems, CaseInsensitive: boolean): {O} TDict;
 function  NewObjDict (OwnsItems: boolean): {O} TObjDict;
@@ -85,6 +89,10 @@ function  IterateObjDict (aObjDict: TObjDict): IObjDictIterator;
 procedure JoinLists (MainList, DependentList: TList);
 function  DictToStrList ({n} Dict: TDict; CaseInsensitive: boolean): {O} TStrList {U};
 function  GetObjDictKeys ({n} ObjDict: TObjDict): {O} TList {U};
+(* Returns flipped associativa array with values as keys and keys as values (wrapped in TString) *)
+function  FlipDict (Dict: TDict): {O} TObjDict {O} {OF TString};
+function  SerializeDict (Dict: TDict; ItemSerializer: TSerializeProc = nil): string;
+function  UnserializeDict (const Data: string; OwnsItems: boolean; CaseInsensitive: boolean; ItemUnserializer: TUnserializeFunc = nil): {O} TDict {UOn};
 
 
 (***) implementation (***)
@@ -451,5 +459,66 @@ begin
     end;
   end; // .with
 end; // .function GetObjDictKeys
+
+function FlipDict (Dict: TDict): {O} TObjDict {OF TString};
+begin
+  {!} Assert(Dict <> nil);
+  result := NewObjDict(not Utils.OWNS_ITEMS);
+
+  with IterateDict(Dict) do begin
+    while IterNext do begin
+      result[IterValue] := TString.Create(IterKey);
+    end;
+  end;
+end;
+
+function SerializeDict (Dict: TDict; ItemSerializer: TSerializeProc = nil): string;
+var
+  Writer: StrLib.IStrBuilder;
+
+begin
+  {!} Assert(Dict <> nil);
+  Writer := StrLib.MakeStr;
+  Writer.WriteInt(Dict.ItemCount);
+
+  with IterateDict(Dict) do begin
+    while IterNext do begin
+      Writer.WriteInt(length(IterKey));
+      Writer.Append(IterKey);
+
+      if @ItemSerializer <> nil then begin
+        ItemSerializer(IterValue, Writer);
+      end else begin
+        Writer.WriteInt(integer(IterValue));
+      end;
+    end;
+  end; // .with
+
+  result := Writer.BuildStr;
+end; // .function SerializeDict
+
+function UnserializeDict (const Data: string; OwnsItems: boolean; CaseInsensitive: boolean; ItemUnserializer: TUnserializeFunc = nil): {O} TDict {UOn};
+var
+  Reader:   StrLib.IByteMapper;
+  NumItems: integer;
+  Key:      string;
+  i:        integer;
+
+begin
+  result   := NewDict(OwnsItems, CaseInsensitive);
+  Reader   := MapBytes(StrLib.StrAsByteSource(Data));
+  NumItems := Reader.ReadInt;
+  {!} Assert(NumItems >= 0);
+
+  for i := 0 to NumItems - 1 do begin
+    Key := Reader.ReadStrWithLenField(sizeof(integer));
+
+    if @ItemUnserializer <> nil then begin
+      result[Key] := ItemUnserializer(Reader);
+    end else begin
+      result[Key] := Ptr(Reader.ReadInt());
+    end; // .else
+  end; // .for
+end; // .function UnserializeDict
 
 end.
