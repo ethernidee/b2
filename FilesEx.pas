@@ -25,9 +25,11 @@ type
     // Increase or decrease indentation
     procedure Indent;
     procedure Unindent;
+    procedure SetIndentLevel (Level: integer);
     
     procedure Write (const Str: string);
     // Same as Write + Write([line end marker])
+    procedure WriteIndentation;
     procedure RawLine (const Str: string);
     // Same as Write([indentation]) * [indent level] + RawLine(Str)
     procedure Line (const Str: string);
@@ -54,6 +56,8 @@ type
     procedure SetLineEndMarker (const aLineEndMarker: string);
     procedure Indent;
     procedure Unindent;
+    procedure SetIndentLevel (Level: integer);
+    procedure WriteIndentation;
     procedure Write (const Str: string);
     procedure RawLine (const Str: string);
     procedure Line (const Str: string);
@@ -107,6 +111,25 @@ begin
   end; // .if
 end; // .procedure TFileFormattedOutput.Unindent
 
+procedure TFileFormattedOutput.SetIndentLevel (Level: integer);
+begin
+  if Level <= 0 then begin
+    fIndentLevel := 0;
+  end else begin
+    fIndentLevel := Level;
+  end;
+end;
+
+procedure TFileFormattedOutput.WriteIndentation;
+var
+  i: integer;
+
+begin
+  for i := 1 to fIndentLevel do begin
+    fOutputBuf.Append(fIndentation);
+  end;
+end;
+
 procedure TFileFormattedOutput.Write (const Str: string);
 begin
   fOutputBuf.Append(Str);
@@ -125,7 +148,7 @@ var
 begin
   for i := 1 to fIndentLevel do begin
     fOutputBuf.Append(fIndentation);
-  end; // .for
+  end;
 
   fOutputBuf.Append(Str);
   fOutputBuf.Append(fLineEndMarker);
