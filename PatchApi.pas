@@ -74,8 +74,8 @@ interface
 const
 
 // значения возвращаемые функцией срабатываемой по LoHook хуку
-  EXEC_DEFAULT    = 1;
-  NO_EXEC_DEFAULT = 0;
+  EXEC_DEFAULT    = true;
+  NO_EXEC_DEFAULT = false;
 
 
 // значения возвращаеемые Patch::GetType()
