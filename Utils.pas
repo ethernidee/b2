@@ -108,6 +108,10 @@ function  EqualMethods (A, B: TMethod): boolean;
 // Casts Obj to Class and assigns Res to Obj. Frees object on fail and assings nil to Res.
 procedure CastOrFree ({On} Obj: TObject; CastToType: TClass; out {O} Res);
 
+(* Ternary operator *)
+function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload;
+function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload;
+
 
 (***)  implementation  (***)
 
@@ -216,5 +220,8 @@ begin
     TObject(Res) := nil;
   end; // .else
 end; // .procedure CastOrFree
+
+function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
 
 end.
