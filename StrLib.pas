@@ -63,7 +63,60 @@ type
     property  Size: integer read fSize;
   end; // .class TStrBuilder
 
+  IByteSource = interface
+    (* Reads up to specified number of bytes to buffer. Returns number of actually read bytes *)
+    function Read (Count: integer; {Un} Buf: pointer): integer;
+  end;
+
+  TStrByteSource = class (TInterfacedObject, IByteSource)
+   protected
+    fData:    string;
+    fDataLen: integer;
+    fPos:     integer;
+
+   public
+    constructor Create (const Data: string);
+    
+    function Read (Count: integer; {Un} Buf: pointer): integer;
+  end; // .TStrByteSource
+
+  TBufByteSource = class (TInterfacedObject, IByteSource)
+   protected
+    {Un} fBuf:     pointer;
+         fBufSize: integer;
+         fPos:     integer;
+
+   public
+    constructor Create ({Un} Buf: pointer; BufSize: integer);
+    
+    function Read (Count: integer; {Un} Buf: pointer): integer;
+  end; // .TBufByteSource
+
+  IByteMapper = interface
+    function GetSource: IByteSource;
+    function ReadInt: integer;
+    function ReadStr (StrLen: integer): string;
+    function ReadStrWithLenField (StrLenFieldSize: integer): string;
+  end;
+
+  (* All methods assert reading success *)
+  TByteMapper = class (TInterfacedObject, IByteMapper)
+   protected
+    fByteSource: IByteSource;
+
+   public
+    constructor Create (ByteSource: IByteSource);
+
+    function GetSource: IByteSource;
+    function ReadInt: integer;
+    function ReadStr (StrLen: integer): string;
+    function ReadStrWithLenField (StrLenFieldSize: integer): string;
+  end; // .TByteMapper
+
 function  MakeStr: IStrBuilder;
+function  StrAsByteSource (const Str: string): IByteSource;
+function  BufAsByteSource ({Un} Buf: pointer; BufSize: integer): IByteSource;
+function  MapBytes (ByteSource: IByteSource): IByteMapper;
 function  InStrBounds (Pos: integer; const Str: string): boolean;
 function  BytesToAnsiString (PBytes: PBYTE; NumBytes: integer): AnsiString;
 function  BytesToWideString (PBytes: PBYTE; NumBytes: integer): WideString;
@@ -259,10 +312,119 @@ begin
   Self.fSize     := 0;
 end; // .procedure TStrBuilder.Clear
 
+constructor TStrByteSource.Create (const Data: string);
+begin
+  inherited Create;
+  fData    := Data;
+  fDataLen := length(Data);
+  fPos     := 0;
+end;
+
+function TStrByteSource.Read (Count: integer; {Un} Buf: pointer): integer;
+begin
+  {!} Assert(Utils.IsValidBuf(Buf, Count));
+
+  if Count = 0 then begin
+    result := 0;
+  end else begin
+    result := Min(Count, fDataLen - fPos);
+
+    if result > 0 then begin
+      Utils.CopyMem(Count, @fData[fPos + 1], Buf);
+      inc(fPos, result);
+    end;
+  end;
+end; // .function TStrByteSource.Read
+
+constructor TBufByteSource.Create ({Un} Buf: pointer; BufSize: integer);
+begin
+  {!} Assert(Utils.IsValidBuf(Buf, BufSize));
+  
+  inherited Create;
+  
+  fBuf     := Buf;
+  fBufSize := BufSize;
+  fPos     := 0;
+end;
+
+function TBufByteSource.Read (Count: integer; {Un} Buf: pointer): integer;
+begin
+  {!} Assert(Utils.IsValidBuf(Buf, Count));
+
+  if Count = 0 then begin
+    result := 0;
+  end else begin
+    result := Min(Count, fBufSize - fPos);
+
+    if result > 0 then begin
+      Utils.CopyMem(Count, Utils.PtrOfs(fBuf, fPos), Buf);
+      inc(fPos, result);
+    end;
+  end;
+end; // .function TBufByteSource.Read
+
+constructor TByteMapper.Create (ByteSource: IByteSource);
+begin
+  inherited Create;
+  fByteSource := ByteSource;
+end;
+
+function TByteMapper.GetSource: IByteSource;
+begin
+  result := fByteSource;
+end;
+
+function TByteMapper.ReadInt: integer;
+begin
+  {!} Assert(fByteSource.Read(sizeof(integer), @result) = sizeof(integer));
+end;
+
+function TByteMapper.ReadStr (StrLen: integer): string;
+begin
+  {!} Assert(StrLen >= 0);
+  SetLength(result, StrLen);
+
+  if StrLen > 0 then begin
+    {!} Assert(fByteSource.Read(StrLen, @result[1]) = StrLen);
+  end;
+end;
+
+function TByteMapper.ReadStrWithLenField (StrLenFieldSize: integer): string;
+var
+  StrLen: integer;
+
+begin
+  {!} Assert(StrLenFieldSize in [1, 2, 4, sizeof(integer)]);
+  StrLen := 0;
+  result := '';
+  {!} Assert(fByteSource.Read(StrLenFieldSize, @StrLen) = StrLenFieldSize);
+  {!} Assert(StrLen >= 0);
+
+  if StrLen > 0 then begin
+    SetLength(result, StrLen);
+    {!} Assert(fByteSource.Read(StrLen, @result[1]) = StrLen);
+  end;
+end; // .function TByteMapper.ReadStrWithLenField
+
 function MakeStr: IStrBuilder;
 begin
   result := TStrBuilder.Create;
 end; // .function MakeStr
+
+function StrAsByteSource (const Str: string): IByteSource;
+begin
+  result := TStrByteSource.Create(Str);
+end;
+
+function BufAsByteSource ({Un} Buf: pointer; BufSize: integer): IByteSource;
+begin
+  result := TBufByteSource.Create(Buf, BufSize);
+end;
+
+function MapBytes (ByteSource: IByteSource): IByteMapper;
+begin
+  result := TByteMapper.Create(ByteSource);
+end;
 
 function InStrBounds (Pos: integer; const Str: string): boolean;
 begin
