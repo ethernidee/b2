@@ -28,22 +28,22 @@ type
 
 constructor TString.Create (const Value: string);
 begin
-  Self.Value  :=  Value;
+  Self.Value := Value;
 end; // .constructor TString.Create
 
 procedure TString.Assign (Source: Utils.TCloneable);
 begin
-  Self.Value  :=  (Source AS TString).Value;
+  Self.Value := (Source AS TString).Value;
 end; // .procedure TString.Assign
 
 constructor TEventHandler.Create (Handler: Utils.TEventHandler);
 begin
-  Self.Handler  :=  Handler;
+  Self.Handler := Handler;
 end; // .constructor TEventHandler.Create
 
 procedure TEventHandler.Assign (Source: Utils.TCloneable);
 begin
-  Self.Handler  :=  (Source AS TEventHandler).Handler;
+  Self.Handler := (Source AS TEventHandler).Handler;
 end; // .procedure TEventHandler.Assign
 
 end.
