@@ -19,6 +19,10 @@ type
   end; // .class TQuickSortAdapter
 
 
+(* Rounds integer to given boundary. If ceil is true, rounding is performed to higher value, otherwise to lower one.
+   Example: f(21, 4, true) = 24 *)
+function IntRoundToBoundary (Value, Boundary: integer; Ceil: boolean = true): integer;
+
 function  IntLog2 (Num: integer): integer; {=> Ceil(Log2(N)), N > 0}
 function  IntCompare (Int1, Int2: integer): integer;
 function  CardCompare (Card1, Card2: cardinal): integer;
@@ -38,6 +42,16 @@ function  CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Need
 
 (***)  implementation  (***)
 
+
+function IntRoundToBoundary (Value, Boundary: integer; Ceil: boolean = true): integer;
+begin
+  {!} Assert(Boundary >= 1);
+  if Ceil then begin
+    result := (Value + Boundary - 1) div Boundary * Boundary;
+  end else begin
+    result := Value div Boundary * Boundary;
+  end;
+end;
 
 function IntLog2 (Num: integer): integer;
 var

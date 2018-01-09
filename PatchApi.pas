@@ -682,15 +682,17 @@ type
     for i := 0 to High(args) do begin
       with args[i] do begin
         case VType of
-          vtInteger:       dword_args[i] := _dword_(VInteger);
-          vtBoolean:       dword_args[i] := _dword_(VBoolean);
-          vtChar:          dword_args[i] := _dword_(VChar);
-          vtPChar:         dword_args[i] := _dword_(PAnsiChar(VPChar));
-          vtPointer:       dword_args[i] := _dword_(VPointer);
-          vtString:        dword_args[i] := _dword_(PAnsiChar(AnsiString(VString^ + #0)));
-          vtAnsiString:    dword_args[i] := _dword_(PAnsiChar(VAnsiString));
-          //vtUnicodeString: dword_args[i] := _dword_(PAnsiChar(AnsiString(VUnicodeString)));
-          //vtVariant:
+          vtInteger:    dword_args[i] := _dword_(VInteger);
+          vtBoolean:    dword_args[i] := _dword_(VBoolean);
+          vtChar:       dword_args[i] := _dword_(VChar);
+          vtPChar:      dword_args[i] := _dword_(PAnsiChar(VPChar));
+          vtPointer:    dword_args[i] := _dword_(VPointer);
+          vtString:     dword_args[i] := _dword_(PAnsiChar(AnsiString(VString^ + #0)));
+          vtAnsiString: dword_args[i] := _dword_(PAnsiChar(VAnsiString));
+          vtWideChar:   dword_args[i] := ord(VWideChar);
+          vtPWideChar:  dword_args[i] := _dword_(pointer(VPWideChar));
+          vtWideString: dword_args[i] := _dword_(VWideString);
+          vtObject:     dword_args[i] := _dword_(pointer(VObject));
         else
           asm int 3 end;
         end;

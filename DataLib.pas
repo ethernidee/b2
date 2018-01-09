@@ -89,10 +89,14 @@ function  IterateObjDict (aObjDict: TObjDict): IObjDictIterator;
 procedure JoinLists (MainList, DependentList: TList);
 function  DictToStrList ({n} Dict: TDict; CaseInsensitive: boolean): {O} TStrList {U};
 function  GetObjDictKeys ({n} ObjDict: TObjDict): {O} TList {U};
+
 (* Returns flipped associativa array with values as keys and keys as values (wrapped in TString) *)
 function  FlipDict (Dict: TDict): {O} TObjDict {O} {OF TString};
+
 function  SerializeDict (Dict: TDict; ItemSerializer: TSerializeProc = nil): string;
 function  UnserializeDict (const Data: string; OwnsItems: boolean; CaseInsensitive: boolean; ItemUnserializer: TUnserializeFunc = nil): {O} TDict {UOn};
+function  SerializeObjDict (Dict: TObjDict; KeySerializer: TSerializeProc = nil; ValueSerializer: TSerializeProc = nil): string;
+function  UnserializeObjDict (const Data: string; OwnsItems: boolean; KeyUnserializer: TUnserializeFunc = nil; ValueUnserializer: TUnserializeFunc = nil): {O} TObjDict {UOn};
 
 
 (***) implementation (***)
@@ -517,7 +521,65 @@ begin
       result[Key] := ItemUnserializer(Reader);
     end else begin
       result[Key] := Ptr(Reader.ReadInt());
-    end; // .else
+    end;
+  end; // .for
+end; // .function UnserializeDict
+
+function SerializeObjDict (Dict: TObjDict; KeySerializer: TSerializeProc = nil; ValueSerializer: TSerializeProc = nil): string;
+var
+  Writer: StrLib.IStrBuilder;
+
+begin
+  {!} Assert(Dict <> nil);
+  Writer := StrLib.MakeStr;
+  Writer.WriteInt(Dict.ItemCount);
+
+  with IterateObjDict(Dict) do begin
+    while IterNext do begin
+      if @KeySerializer <> nil then begin
+        KeySerializer(IterKey, Writer);
+      end else begin
+        Writer.WriteInt(integer(IterKey));
+      end;
+
+      if @ValueSerializer <> nil then begin
+        ValueSerializer(IterValue, Writer);
+      end else begin
+        Writer.WriteInt(integer(IterValue));
+      end;
+    end;
+  end; // .with
+
+  result := Writer.BuildStr;
+end; // .function SerializeDict
+
+function UnserializeObjDict (const Data: string; OwnsItems: boolean; KeyUnserializer: TUnserializeFunc = nil; ValueUnserializer: TUnserializeFunc = nil): {O} TObjDict {UOn};
+var
+     Reader:   StrLib.IByteMapper;
+     NumItems: integer;
+{Un} Key:      pointer;
+     i:        integer;
+
+begin
+  Key := nil;
+  // * * * * * //
+  result   := NewObjDict(OwnsItems);
+  Reader   := MapBytes(StrLib.StrAsByteSource(Data));
+  NumItems := Reader.ReadInt;
+  {!} Assert(NumItems >= 0);
+
+  for i := 0 to NumItems - 1 do begin
+    if @KeyUnserializer <> nil then begin
+      Key := KeyUnserializer(Reader);
+    end else begin
+      Key := Ptr(Reader.ReadInt());
+    end;
+
+    if @ValueUnserializer <> nil then begin
+      result[Key] := ValueUnserializer(Reader);
+    end else begin
+      result[Key] := Ptr(Reader.ReadInt());
+    end;
   end; // .for
 end; // .function UnserializeDict
 

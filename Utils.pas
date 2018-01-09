@@ -33,6 +33,8 @@ type
   (* array pointers *)
   TEndlessByteArr       = array [0..MAXLONGINT div sizeof(byte) - 1] of byte;
   PEndlessByteArr       = ^TEndlessByteArr;
+  TEndlessWordArr       = array [0..MAXLONGINT div sizeof(word) - 1] of word;
+  PEndlessWordArr       = ^TEndlessWordArr;
   TEndlessIntArr        = array [0..MAXLONGINT div sizeof(integer) - 1] of integer;
   PEndlessIntArr        = ^TEndlessIntArr;
   TEndlessBoolArr       = array [0..MAXLONGINT div sizeof(boolean) - 1] of boolean;
@@ -105,8 +107,13 @@ function  NoItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: 
 function  DefItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 
 function  EqualMethods (A, B: TMethod): boolean;
+
 // Casts Obj to Class and assigns Res to Obj. Frees object on fail and assings nil to Res.
 procedure CastOrFree ({On} Obj: TObject; CastToType: TClass; out {O} Res);
+
+(* Given method. Returns its object/class *)
+function ObjFromMethod (Method: TObjProcedure): TObject; inline;
+function ClassFromMethod (Method: TObjProcedure): TClass; inline;
 
 (* Ternary operator *)
 function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload;
@@ -131,7 +138,7 @@ procedure CopyMem (Count: integer; {n} Source, Destination: pointer);
 begin
   {!} Assert(Count >= 0);
   {!} Assert((Count = 0) or ((Source <> nil) and (Destination <> nil)));
-  System.MOVE(Source^, Destination^, Count);
+  System.Move(Source^, Destination^, Count);
 end; // .procedure CopyMem
 
 procedure Exchange (var A, B: integer);
@@ -220,6 +227,16 @@ begin
     TObject(Res) := nil;
   end; // .else
 end; // .procedure CastOrFree
+
+function ObjFromMethod (Method: TObjProcedure): TObject; inline;
+begin
+  result := TObject(TMethod(Method).Data);
+end;
+
+function ClassFromMethod (Method: TObjProcedure): TClass; inline;
+begin
+  result := TClass(TMethod(Method).Data);
+end;
 
 function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
 function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;

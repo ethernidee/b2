@@ -14,6 +14,15 @@ const
 
   BINARY_CHARACTERS: set of char = [#0..#8, #11..#12, #14..#31];
 
+  (* Windows 7+ *)
+  // Translate any Unicode characters that do not translate directly to multibyte equivalents to the default character specified by lpDefaultChar
+  WC_NO_BEST_FIT_CHARS = $00000400;
+
+  // Raise error on invalid character for ansi page
+  WC_ERR_INVALID_CHARS = $80;
+
+  FAIL_ON_ERROR = false;
+
 type
   (* IMPORT *)
   TArrayOfStr  = Utils.TArrayOfStr;
@@ -188,6 +197,9 @@ function  ExtractFromPchar (Str: pchar; Count: integer): string;
 function  BufToStr ({n} Buf: pointer; BufSize: integer): string;
 // Detects characters in the BINARY_CHARACTERS set
 function  IsBinaryStr (const Str: string): boolean;
+function  Utf8ToAnsi (const Str: string): string;
+function  PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
+function  WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
 
 
 (***) implementation (***)
@@ -709,34 +721,40 @@ begin
   // * * * * * //
   StrLen   := Length(Str);
   DelimLen := Length(Delim);
+  
   if StrLen > 0 then begin
     if not LimitTokens then begin
-      MaxTokens :=  MAXLONGINT;
-    end; // .if
+      MaxTokens := MAXLONGINT;
+    end;
+
     if DelimLen = 0 then begin
       SetLength(result, 1);
-      result[0] :=  Str;
-    end // .if
-    else begin
-      DelimsLimit :=  MaxTokens - 1;
-      NumDelims  := 0;
-      DelimPos   := 1;
+      result[0] := Str;
+    end else begin
+      DelimsLimit := MaxTokens - 1;
+      NumDelims   := 0;
+      DelimPos    := 1;
+      
       while (NumDelims < DelimsLimit) and FindSubstrEx(Delim, Str, DelimPos, DelimPos) do begin
         DelimPosList.Add(pointer(DelimPos));
         Inc(DelimPos);
         Inc(NumDelims);
-      end; // .while
+      end;
+      
       DelimPosList.Add(pointer(StrLen + 1));
       SetLength(result, NumDelims + 1);
-      TokenStartPos :=  1;
-      for i:=0 to NumDelims do begin
-        TokenEndPos  := integer(DelimPosList[i]);
-        TokenLen     := TokenEndPos - TokenStartPos;
+      TokenStartPos := 1;
+      
+      for i := 0 to NumDelims do begin
+        TokenEndPos := integer(DelimPosList[i]);
+        TokenLen    := TokenEndPos - TokenStartPos;
+        
         if InclDelim and (i < NumDelims) then begin
-          TokenLen   := TokenLen + DelimLen;
+          TokenLen := TokenLen + DelimLen;
         end; // .if
-        result[i]    := Copy(Str, TokenStartPos, TokenLen);
-        TokenStartPos :=  TokenStartPos + DelimLen + TokenLen;
+        
+        result[i]     := Copy(Str, TokenStartPos, TokenLen);
+        TokenStartPos := TokenStartPos + DelimLen + TokenLen - ord(InclDelim);
       end; // .for
     end; // .else
   end; // .if
@@ -794,39 +812,52 @@ function BuildStr (const Template: string; TemplArgs: array of string; TemplChar
 var
   TemplTokens:    TArrayOfStr;
   NumTemplTokens: integer;
-  NumTemplVars:   integer;
+  NumTemplSlots:  integer;
   NumTemplArgs:   integer;
-  TemplTokenInd:  integer;
   i:              integer;
-  
-  function FindTemplVar (const TemplVarName: string; out Ind: integer): boolean;
+
+  function GetParam (const ParamName: string): string;
+  var
+    j: integer;
+
   begin
-    Ind :=  1;
-    while (Ind < NumTemplTokens) and (TemplTokens[Ind] <> TemplVarName) do begin
-      Inc(Ind, 2);
-    end; // .while
-    result := Ind < NumTemplTokens;
-  end; // .function FindTemplVar
+    j := 0;
+
+    while (j < NumTemplArgs) do begin
+      if TemplArgs[j] = ParamName then begin
+        result := TemplArgs[j + 1];
+        exit;
+      end;
+
+      inc(j, 2);
+    end;
+    
+    result := TemplChar + ParamName + TemplChar;
+  end; // .function GetParam
 
 begin
   NumTemplArgs := Length(TemplArgs);
-  {!} Assert(Utils.EVEN(NumTemplArgs));
+  {!} Assert(Utils.Even(NumTemplArgs));
   // * * * * * //
-  TemplTokens    := Explode(Template, TemplChar);
-  NumTemplTokens := Length(TemplTokens);
-  NumTemplVars   := (NumTemplTokens - 1) div 2;
-  if (NumTemplVars = 0) or (NumTemplArgs = 0) then begin
+  if NumTemplArgs = 0 then begin
     result := Template;
-  end // .if
-  else begin
-    i :=  0;
-    while (i < NumTemplArgs) do begin
-      if FindTemplVar(TemplArgs[i], TemplTokenInd) then begin
-        TemplTokens[TemplTokenInd] := TemplArgs[i + 1];
-      end; // .if
-      Inc(i, 2);
-    end; // .while
-    result := StrLib.Join(TemplTokens, '');
+  end else begin
+    TemplTokens    := Explode(Template, TemplChar);
+    NumTemplTokens := Length(TemplTokens);
+    NumTemplSlots  := (NumTemplTokens - 1) div 2;
+
+    if NumTemplSlots = 0 then begin
+      result := Template;
+    end else begin
+      i := 1;
+
+      while (i < NumTemplTokens) do begin
+        TemplTokens[i] := GetParam(TemplTokens[i]);
+        inc(i, 2);
+      end;
+      
+      result := StrLib.Join(TemplTokens, '');
+    end; // .else
   end; // .else
 end; // .function BuildStr
 
@@ -1289,5 +1320,88 @@ begin
 
   result := i <= Length(Str);
 end; // .function IsBinaryStr
+
+function Utf8ToAnsi (const Str: string): string;
+var
+  TempBuf:    string;
+  TempBufLen: integer;
+  ResBufLen:  integer;
+
+begin
+  result := '';
+
+  if Str <> '' then begin
+    TempBufLen := Windows.MultiByteToWideChar(Windows.CP_UTF8, 0, pointer(Str), length(Str), nil, 0);
+
+    if TempBufLen <> 0 then begin
+      SetLength(TempBuf, TempBufLen * sizeof(WideChar));
+      TempBufLen := Windows.MultiByteToWideChar(Windows.CP_UTF8, 0, pointer(Str), length(Str), @TempBuf[1], TempBufLen);
+      ResBufLen  := Windows.WideCharToMultiByte(Windows.CP_ACP, WC_NO_BEST_FIT_CHARS, pointer(TempBuf), TempBufLen, nil, 0, nil, nil);
+      SetLength(result, ResBufLen * sizeof(char));
+      ResBufLen  := Windows.WideCharToMultiByte(Windows.CP_ACP, WC_NO_BEST_FIT_CHARS, pointer(TempBuf), TempBufLen, @result[1], ResBufLen, nil, nil);
+
+      if length(result) <> ResBufLen then begin
+        SetLength(result, ResBufLen);
+      end;
+    end;
+  end; // .if
+end; // .function Utf8ToAnsi
+
+function PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
+const
+  AUTO_LEN      = -1;
+  NULL_CHAR_LEN = sizeof(char);
+
+var
+  Flags:     integer;
+  ResBufLen: integer;
+
+begin
+  result := true;
+  Res    := '';
+
+  if (Str <> nil) and (Str^ <> #0) then begin
+    Flags := WC_NO_BEST_FIT_CHARS;
+
+    if FailOnError then begin
+      Flags := Flags or WC_ERR_INVALID_CHARS;
+    end;
+
+    ResBufLen := Windows.WideCharToMultiByte(Windows.CP_ACP, Flags, Str, AUTO_LEN, nil, 0, nil, nil);
+    result    := ResBufLen > NULL_CHAR_LEN;
+
+    if result then begin
+      SetLength(Res, ResBufLen * sizeof(char) - NULL_CHAR_LEN);
+      ResBufLen := Windows.WideCharToMultiByte(Windows.CP_ACP, Flags, Str, AUTO_LEN, @Res[1], ResBufLen, nil, nil);
+      result    := ResBufLen = length(Res) + NULL_CHAR_LEN;
+    end;
+
+    if not result then begin
+      Res := '';      
+    end;
+  end; // .if
+end; // .function PWideCharToAnsi
+
+function WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
+begin
+  if NumChars < 0 then begin
+    result := Buf;
+  end else begin
+    {!} Assert(Utils.IsValidBuf(Buf, NumChars));
+    result := '';
+
+    if NumChars > 0 then begin
+      if ord(PWideChar(Utils.PtrOfs(Buf, (NumChars - 1) * sizeof(WideChar)))^) = 0 then begin
+        dec(NumChars);
+      end;
+      
+      SetLength(result, NumChars);
+
+      if NumChars > 0 then begin
+        Utils.CopyMem(NumChars * sizeof(WideChar), Buf, @result[1]);
+      end;
+    end;
+  end; // .else
+end; // .function WideStringFromBuf
 
 end.

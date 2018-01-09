@@ -87,7 +87,13 @@ type
   (*  High level directory scanning
       Files are strictly matched against template with wildcards  *)
   
-  PSearchRec  = ^SysUtils.TSearchRec;
+  PSearchRec = ^TSearchRec;
+  TSearchRec = record
+    Rec: SysUtils.TSearchRec;
+
+    function IsFile: boolean;
+    function IsDir: boolean;
+  end;
 
   TSearchSubj = (ONLY_FILES, ONLY_DIRS, FILES_AND_DIRS);
   
@@ -96,9 +102,11 @@ type
     function  FindNext: boolean;
     procedure FindClose;
     function  GetFoundName: string;
+    function  GetFoundPath: string;
     function  GetFoundRec:  {U} PSearchRec;
     
     property FoundName: string read GetFoundName;
+    property FoundPath: string read GetFoundPath;
     property FoundRec:  PSearchRec read GetFoundRec;
   end; // .interface ILocator
 
@@ -149,6 +157,7 @@ type
       function  FindNext: boolean;
       procedure FindClose;
       function  GetFoundName: string;
+      function  GetFoundPath: string;
       function  GetFoundRec:  {U} PSearchRec;
   end; // .class TLocator
 
@@ -164,8 +173,8 @@ begin
   {!} Assert(DeviceMode <> MODE_OFF);
   Self.Close;
   Self.fMode          :=  DeviceMode;
-  Self.fHasKnownSize  :=  TRUE;
-  Self.fSizeIsConst   :=  TRUE;
+  Self.fHasKnownSize  :=  true;
+  Self.fSizeIsConst   :=  true;
   Self.fSize          :=  BufSize;
   Self.fPos           :=  0;
   Self.fEOF           :=  BufSize = 0;
@@ -193,7 +202,7 @@ begin
     GetMem(NewBuf, BufSize);
   end; // .if
   Self.Open(NewBuf, BufSize, MODE_READWRITE); NewBuf  :=  nil;
-  Self.fOwnsMem :=  TRUE;
+  Self.fOwnsMem := true;
 end; // .procedure TFixedBuf.CreateNew
 
 function TFixedBuf.ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean;
@@ -278,7 +287,7 @@ begin
       Self.fPos           :=  0;
       Self.fEOF           :=  Self.Pos = Self.Size;
       Self.fFilePath      :=  FilePath;
-      Self.fHasKnownSize  :=  TRUE;
+      Self.fHasKnownSize  :=  true;
       Self.fSizeIsConst   :=  FALSE;
     end; // .else
   end; // .if
@@ -309,9 +318,9 @@ begin
     Self.fMode          :=  MODE_READWRITE;
     Self.fSize          :=  0;
     Self.fPos           :=  0;
-    Self.fEOF           :=  TRUE;
+    Self.fEOF           :=  true;
     Self.fFilePath      :=  FilePath;
-    Self.fHasKnownSize  :=  TRUE;
+    Self.fHasKnownSize  :=  true;
     Self.fSizeIsConst   :=  FALSE;
   end; // .else
 end; // .function TFile.CreateNew
@@ -372,16 +381,16 @@ procedure TFileLocator.FinitSearch;
 begin
   if Self.fOpened then begin
     Windows.FindClose(Self.fSearchHandle);
-    Self.fOpened  :=  FALSE;
+    Self.fOpened := FALSE;
   end; // .if
 end; // .procedure TFileLocator.FinitSearch
 
 procedure TFileLocator.InitSearch (const Mask: string);
 begin
   Self.FinitSearch;
-  Self.fSearchMask  :=  Mask;
-  Self.fOpened      :=  WinWrappers.FindFirstFile(Self.DirPath + '\' + Mask, Self.fSearchHandle, Self.fFindData);
-  Self.fNotEnd      :=  Self.fOpened;
+  Self.fSearchMask := Mask;
+  Self.fOpened     := WinWrappers.FindFirstFile(Self.DirPath + '\' + Mask, Self.fSearchHandle, Self.fFindData);
+  Self.fNotEnd     := Self.fOpened;
 end; // .procedure TFileLocator.InitSearch
 
 function TFileLocator.GetNextItem (out ItemInfo: TItemInfo): string;
@@ -391,17 +400,19 @@ var
 begin
   {!} Assert(Self.NotEnd);
   {!} Assert(ItemInfo = nil);
-  FileInfo  :=  TFileItemInfo.Create;
+  FileInfo := TFileItemInfo.Create;
   // * * * * * //
-  FileInfo.IsDir  :=  (Self.fFindData.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0;
+  FileInfo.IsDir := (Self.fFindData.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0;
+  
   if not FileInfo.IsDir and (Self.fFindData.nFileSizeHigh = 0) and (Self.fFindData.nFileSizeLow < $7FFFFFFF) then begin
-    FileInfo.HasKnownSize :=  TRUE;
-    FileInfo.FileSize     :=  Self.fFindData.nFileSizeLow;
-  end; // .if
-  FileInfo.Data :=  Self.fFindData;
-  ItemInfo      :=  FileInfo; FileInfo  :=  nil;
-  result        :=  Self.fFindData.cFileName;
-  Self.fNotEnd  :=  WinWrappers.FindNextFile(Self.fSearchHandle, Self.fFindData);
+    FileInfo.HasKnownSize := true;
+    FileInfo.FileSize     := Self.fFindData.nFileSizeLow;
+  end;
+  
+  FileInfo.Data := Self.fFindData;
+  ItemInfo      := FileInfo; FileInfo  :=  nil;
+  result        := Self.fFindData.cFileName;
+  Self.fNotEnd  := WinWrappers.FindNextFile(Self.fSearchHandle, Self.fFindData);
 end; // .function TFileLocator.GetNextItem
 
 destructor TFileLocator.Destroy;
@@ -486,7 +497,7 @@ begin
   Locator   :=  TFileLocator.Create;
   FileInfo  :=  nil;
   // * * * * * //
-  result          :=  TRUE;
+  result          :=  true;
   Locator.DirPath :=  DirPath;
   Locator.InitSearch('*');
   while result and Locator.NotEnd do begin
@@ -535,7 +546,7 @@ var
   SearchRec:  SysUtils.TSearchRec;
 
 begin
-  result  :=  TRUE;
+  result  :=  true;
 
   if SysUtils.FindFirst(FileMask, AdditionalAttrs, SearchRec) = 0 then begin
     repeat
@@ -599,10 +610,20 @@ begin
   end; // .else
 end; // .function ForcePath
 
+function TSearchRec.IsFile: boolean;
+begin
+  result := (Self.Rec.FindData.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) = 0;
+end;
+
+function TSearchRec.IsDir: boolean;
+begin
+  result := (Self.Rec.FindData.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0;
+end;
+
 constructor TLocator.Create;
 begin
   inherited;
-  Self.fLastOperRes :=  TRUE;
+  Self.fLastOperRes :=  true;
 end; // .constructor TLocator.Create
 
 destructor TLocator.Destroy;
@@ -653,7 +674,7 @@ begin
   case Self.fSearchSubj of 
     ONLY_FILES:     result  :=  (Self.fFoundRec.Attr and SysUtils.faDirectory) = 0;
     ONLY_DIRS:      result  :=  (Self.fFoundRec.Attr and SysUtils.faDirectory) <> 0;
-    FILES_AND_DIRS: result  :=  TRUE;
+    FILES_AND_DIRS: result  :=  true;
   else
     {!} Assert(FALSE);
   end; // .SWITCH 
@@ -694,19 +715,25 @@ begin
   Self.fDir         :=  SysUtils.ExtractFileDir(MaskedPath);
   Self.fFileMask    :=  SysUtils.ExtractFileName(MaskedPath);
   Self.fSearchSubj  :=  SearchSubj;
-end; // .procedure TLocator.Locate
+end;
 
 function TLocator.GetFoundName: string;
 begin
   {!} Assert(Self.fSearchStarted and Self.fLastOperRes);
   result  :=  Self.fFoundRec.Name;
-end; // .function TLocator.GetFoundName
+end;
+
+function TLocator.GetFoundPath: string;
+begin
+  {!} Assert(Self.fSearchStarted and Self.fLastOperRes);
+  result  :=  Self.fDir + '\' + Self.fFoundRec.Name;
+end;
 
 function TLocator.GetFoundRec: {U} PSearchRec;
 begin
   {!} Assert(Self.fSearchStarted and Self.fLastOperRes);
   result  :=  @Self.fFoundRec;
-end; // .function TLocator.GetFoundRec
+end;
 
 function Locate (const MaskedPath: string; SearchSubj: TSearchSubj): ILocator;
 var

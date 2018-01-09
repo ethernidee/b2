@@ -410,6 +410,13 @@ begin
 end; // .function TModuleContext.AddrToStr
 
 function WriteAtCode (Count: integer; Src, Dst: pointer): boolean;
+begin
+  {!} Assert(Utils.IsValidBuf(Dst, Count));
+  {!} Assert((Src <> nil) or (Count = 0));
+  result := (Count = 0) or p.Write(Dst, Src, Count, true).IsApplied();
+end;
+
+function WriteAtCode_Standalone (Count: integer; Src, Dst: pointer): boolean;
 var
   OldPageProtect: integer;
 
@@ -419,17 +426,111 @@ begin
   result := Count = 0;
 
   if not result then begin
-    result := Windows.VirtualProtect(Dst, Count, Windows.PAGE_EXECUTE_READWRITE ,
-                                     @OldPageProtect);
+    result := Windows.VirtualProtect(Dst, Count, Windows.PAGE_EXECUTE_READWRITE, @OldPageProtect);
+    
     if result then begin
       Utils.CopyMem(Count, Src, Dst);
       result := Windows.VirtualProtect(Dst, Count, OldPageProtect, @OldPageProtect);
     end; // .if
   end; // .if
-end; // .function WriteAtCode
+end; // .function WriteAtCode_Standalone
 
-function Hook (HandlerAddr: pointer; HookType: integer; PatchSize: integer; CodeAddr: pointer
-              ): {n} pointer;
+// function WriteCodeBridge (HandlerAddr, CodeAddr, DataAddr: pointer): {n} pointer;
+// type
+//   TBytes = array of byte;
+
+// var
+// {O} BridgeCode:    pointer; // Memory is not freed or tracked
+//     BridgePart1:   PBridgeCodePart1;
+//     BridgeDefCode: pointer;
+//     BridgePart2:   PBridgeCodePart2;
+//     NopCount:      integer;
+//     NopBuf:        TBytes;
+//     HookRec:       THookRec;
+
+//  function PreprocessCode (CodeSize: integer; OldCodeAddr, NewCodeAddr: pointer): TBytes;
+//  var
+//    Delta:  integer;
+//    BufPos: integer;
+//    Disasm: hde32.TDisasm;
+ 
+//  begin
+//   {!} Assert(CodeSize >= sizeof(THookRec));
+//   {!} Assert(OldCodeAddr <> nil);
+//   {!} Assert(NewCodeAddr <> nil);
+//   SetLength(result, CodeSize);
+//   Utils.CopyMem(CodeSize, OldCodeAddr, @result[0]);
+//   Delta  := integer(NewCodeAddr) - integer(OldCodeAddr);
+//   BufPos := 0;
+  
+//   while BufPos < CodeSize do begin
+//     hde32.hde32_disasm(Utils.PtrOfs(OldCodeAddr, BufPos), Disasm);
+    
+//     if (Disasm.Len = sizeof(THookRec)) and (Disasm.Opcode in [OPCODE_JUMP, OPCODE_CALL]) then begin
+//       Dec(pinteger(@result[BufPos + 1])^, Delta);
+//     end; // .if
+    
+//     Inc(BufPos, Disasm.Len);
+//   end; // .while
+//  end; // .function PreprocessCode
+
+//  function FieldOffset (RecAddr, FieldAddr: pointer): integer;
+//  begin
+//    {!} Assert(cardinal(FieldAddr) >= cardinal(RecAddr));
+//    result := cardinal(FieldAddr) - cardinal(RecAddr);
+//  end; // .function FieldOffset
+
+// begin
+//   {!} Assert(HandlerAddr <> nil);
+//   {!} Assert(Math.InRange(HookType, HOOKTYPE_JUMP, HOOKTYPE_BRIDGE));
+//   {!} Assert(PatchSize >= sizeof(THookRec));
+//   {!} Assert(CodeAddr <> nil);
+//   BridgeCode := nil;
+//   // * * * * * //
+//   result := nil;
+
+//   if HookType = HOOKTYPE_JUMP then begin
+//     HookRec.Opcode := OPCODE_JUMP;
+//   end else begin
+//     HookRec.Opcode := OPCODE_CALL;
+//   end; // .else
+  
+//   if HookType = HOOKTYPE_BRIDGE then begin
+//     // Allocate memory block for bridge and assign pointers to its parts
+//     GetMem(BridgeCode, sizeof(TBridgeCodePart1) + sizeof(TBridgeCodePart2) + PatchSize);
+//     BridgePart1   := BridgeCode;
+//     BridgeDefCode := Utils.PtrOfs(BridgeCode, sizeof(BridgePart1^));
+//     BridgePart2   := Utils.PtrOfs(BridgeCode, sizeof(BridgePart1^) + PatchSize);
+
+//     // Copy preprocessed default code to destination
+//     Utils.CopyMem(PatchSize, @PreprocessCode(PatchSize, CodeAddr, BridgeDefCode)[0], BridgeDefCode);
+
+//     // Copy bridge parts to destination and fill in required fields
+//     BridgePart1^                     := BridgeCodePart1;
+//     BridgePart1.HandlerAddr          := HandlerAddr;
+//     BridgePart1.OffsetToAfterDefCode := PatchSize + sizeof(BridgePart1^)
+//                                         - FieldOffset(BridgePart1, @BridgePart1.Label_ExecDefCode)
+//                                         + FieldOffset(BridgePart2,
+//                                                       @BridgePart2.Label_DontExecDefCode);
+//     BridgePart2^                     := BridgeCodePart2;
+//     BridgePart2.RetAddr              := Utils.PtrOfs(CodeAddr, sizeof(THookRec));
+
+//     HandlerAddr := BridgeCode;
+//     result      := BridgeDefCode;
+//   end; // .if
+
+//   HookRec.Ofs := integer(HandlerAddr) - integer(CodeAddr) - sizeof(THookRec);
+//   {!} Assert(WriteAtCode(sizeof(THookRec), @HookRec, CodeAddr));
+//   NopCount    := PatchSize - sizeof(THookRec);
+
+//   if NopCount > 0 then begin
+//     SetLength(NopBuf, NopCount);
+//     FillChar(NopBuf[0], NopCount, Chr($90));
+//     {!} Assert(WriteAtCode(NopCount, pointer(NopBuf), Utils.PtrOfs(CodeAddr, sizeof(THookRec))));
+//   end; // .if
+// end; // .function WriteCodeBridge
+
+function Hook (HandlerAddr: pointer; HookType: integer; PatchSize: integer; CodeAddr: pointer): {n} pointer;
 type
   TBytes = array of byte;
 
@@ -564,9 +665,11 @@ end; // .procedure GenerateException
 
 procedure NotifyError (const Err: string);
 begin
+  Windows.MessageBox(0, pchar(Err), 'Error notification', Windows.MB_OK or Windows.MB_ICONEXCLAMATION);
+
   if AbortOnError then begin
     FatalError(Err);
-  end; // .if
+  end;
 end; // .procedure NotifyError
 
 procedure FatalError (const Err: string);

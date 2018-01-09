@@ -68,7 +68,24 @@ type
   
   TStringList = class;
 
-  TStringListCompareFunc  = function (List: TStringList; const Str1, Str2: string): integer;
+  TStringListCompareFunc = function (const Key1, Key2: string; {Un} Value1, Value2: pointer): integer of object;
+
+  TStringListQuickSortAdapter = class (Alg.TQuickSortAdapter)
+   protected
+    {U}  fList:        TStringList;
+         fCompareFunc: TStringListCompareFunc;
+         fPivotKey:    string;
+    {Un} fPivotValue:  pointer;
+
+   public
+    constructor Create ({U} List: TStringList; {n} CompareFunc: TStringListCompareFunc);
+    
+    function  DefaultCompareFunc (const Key1, Key2: string; {Un} Value1, Value2: pointer): integer; virtual;
+    function  CompareItems (Ind1, Ind2: integer): integer; override;
+    procedure SwapItems (Ind1, Ind2: integer); override;
+    procedure SavePivotItem (PivotItemInd: integer); override;
+    function  CompareToPivot (Ind: integer): integer; override;
+  end;
   
   TStringList = class (Utils.TCloneable)
     (***) protected (***)
@@ -89,6 +106,7 @@ type
                 fCaseInsensitive:   boolean;
                 fForbidDuplicates:  boolean;
                 fSorted:            boolean;
+                fCustomSorted:      boolean;
 
       procedure FreeValue (Ind: integer);
       function  ValidateKey (const Key: string): boolean;
@@ -134,6 +152,7 @@ type
       {If not success then returns index, where new item should be insert to keep list sorted}
       function  Find (const Key: string; (* i *) out Ind: integer): boolean;
       procedure Sort;
+      procedure CustomSort (CompareFunc: TStringListCompareFunc; MinInd, MaxInd: integer);
       procedure LoadFromText (const Text, EndOfLineMarker: string);
       function  ToText (const EndOfLineMarker: string): string;
       
@@ -476,7 +495,7 @@ var
   MiddleItem: integer;
 
 begin
-  result    := FALSE;
+  result    := false;
   LeftInd   := 0;
   RightInd  := Self.Count - 1;
   
@@ -518,6 +537,57 @@ procedure TList.CustomSort (Compare: Alg.TCompareFunc);
 begin
   Alg.CustomQuickSort(@Self.fData[0], 0, Self.Count - 1, Compare);
 end; // .procedure TList.CustomSort
+
+constructor TStringListQuickSortAdapter.Create ({U} List: TStringList; {n} CompareFunc: TStringListCompareFunc);
+begin
+  {!} Assert(List <> nil);
+  // * * * * * //
+  fList := List;
+
+  if @CompareFunc <> nil then begin
+    fCompareFunc := CompareFunc;
+  end else begin
+    fCompareFunc := Self.DefaultCompareFunc;
+  end;
+
+  fPivotKey   := '';
+  fPivotValue := nil;
+end; // .constructor TStringListQuickSortAdapter.Create
+
+function TStringListQuickSortAdapter.DefaultCompareFunc (const Key1, Key2: string; {Un} Value1, Value2: pointer): integer;
+begin
+  result := fList.CompareStrings(Key1, Key2);
+end;
+
+function TStringListQuickSortAdapter.CompareItems (Ind1, Ind2: integer): integer;
+begin
+  result := fCompareFunc(fList[Ind1], fList[Ind2], fList.Values[Ind1], fList.Values[Ind2]);
+end;
+
+procedure TStringListQuickSortAdapter.SwapItems (Ind1, Ind2: integer);
+var
+{Un} TempValue: pointer;
+     TempKey:   string;
+
+begin
+  TempKey            := fList[Ind1];
+  TempValue          := fList.Values[Ind1];
+  fList[Ind1]        := fList[Ind2];
+  fList.Values[Ind1] := fList.Values[Ind2];
+  fList[Ind2]        := TempKey;
+  fList.Values[Ind2] := TempValue;
+end;
+
+procedure TStringListQuickSortAdapter.SavePivotItem (PivotItemInd: integer);
+begin
+  fPivotKey   := fList[PivotItemInd];
+  fPivotValue := fList.Values[PivotItemInd];
+end;
+
+function TStringListQuickSortAdapter.CompareToPivot (Ind: integer): integer;
+begin
+  result := fCompareFunc(fList[Ind], fPivotKey, fList.Values[Ind], fPivotValue);
+end;
 
 constructor TStringList.Create (OwnsItems: boolean; ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc; (* n *) var {IN} ItemGuard: Utils.TItemGuard);
 begin
@@ -729,7 +799,7 @@ begin
   Self.fKeys[result]    :=  Key;
   Self.fValues[result]  :=  Value;
   if Self.Sorted then begin
-    Self.fSorted  :=  FALSE;
+    Self.fSorted  :=  false;
     Self.Move(result, KeyInd);
     result        :=  KeyInd;
     Self.fSorted  :=  TRUE;
@@ -887,35 +957,39 @@ var
   
 begin
   if Self.Sorted then begin
-    i :=  0;
+    i := 0;
+    
     while (i < Self.Count) and (Self.fKeys[i] = '') do begin
       Inc(i);
-    end; // .while
+    end;
+    
     if i > 0 then begin
       Utils.CopyMem(i * sizeof(string), @Self.fKeys[i], @Self.fKeys[0]);
       System.FillChar(Self.fKeys[Count - i], i * sizeof(string), 0);
       Utils.CopyMem(i * sizeof(pointer), @Self.fValues[i], @Self.fValues[0]);
       Self.fCount :=  Self.fCount - i;
-    end; // .if
-  end // .if
-  else begin
+    end;
+  end else begin
     i :=  0;
+    
     while (i < Self.Count) and (Self.fKeys[i] <> '') do begin
       Inc(i);
-    end; // .while
+    end;
+    
     if i < Count then begin
-      EndInd    :=  i;
+      EndInd := i;
       Self.FreeValue(i);
-      for i:=i + 1 to Self.Count - 1 do begin
+      
+      for i := i + 1 to Self.Count - 1 do begin
         if Self.fKeys[i] <> '' then begin
           Utils.Exchange(integer(Self.fKeys[EndInd]), integer(Self.fKeys[i]));
           Self.fValues[EndInd]  :=  Self.fValues[i];
           Inc(EndInd);
-        end // .if
-        else begin
+        end else begin
           Self.FreeValue(i);
-        end; // .else
+        end;
       end; // .for
+      
       Self.fCount :=  EndInd;
     end; // .if
   end; // .else
@@ -924,10 +998,9 @@ end; // .procedure TStringList.Pack
 function TStringList.CompareStrings (const Str1, Str2: string): integer;
 begin
   if Self.fCaseInsensitive then begin
-    result  :=  SysUtils.AnsiCompareText(Str1, Str2);
-  end // .if
-  else begin
-    result  :=  SysUtils.AnsiCompareStr(Str1, Str2);
+    result := SysUtils.AnsiCompareText(Str1, Str2);
+  end else begin
+    result := SysUtils.AnsiCompareStr(Str1, Str2);
   end; // .else
 end; // .function TStringList.CompareStrings
 
@@ -938,7 +1011,7 @@ var
   CmpRes:     integer;
 
 begin
-  result    :=  FALSE;
+  result    :=  false;
   LeftInd   :=  0;
   RightInd  :=  Self.Count - 1;
   while (not result) and (LeftInd <= RightInd) do begin
@@ -1029,14 +1102,14 @@ begin
         Self.QuickSort(MinInd, RightInd);
       end; // .if
       
-      MinInd :=  LeftInd;
+      MinInd := LeftInd;
     end // .if
     else begin
       if MaxInd > LeftInd then begin
         Self.QuickSort(LeftInd, MaxInd);
       end; // .if
       
-      MaxInd  :=  RightInd;
+      MaxInd := RightInd;
     end; // .else
   end; // .while
 end; // .procedure TStringList.QuickSort
@@ -1044,23 +1117,37 @@ end; // .procedure TStringList.QuickSort
 procedure TStringList.Sort;
 begin
   if not Self.Sorted then begin
-    Self.fSorted  :=  TRUE;
+    Self.fSorted := true;
     
     if Self.fCount > 1 then begin
       Self.QuickSort(0, Self.Count - 1);
     end; // .if
   end; // .if
-end; // .procedure TStringList.Sort
+end;
+
+procedure TStringList.CustomSort (CompareFunc: TStringListCompareFunc; MinInd, MaxInd: integer);
+begin
+  {!} Assert(@CompareFunc <> nil);
+  {!} Assert(MaxInd < fCount);
+
+  fSorted := false;
+
+  if Self.fCount > 1 then begin
+    with TStringListQuickSortAdapter.Create(Self, CompareFunc) do begin
+      Alg.QuickSortEx(TStringListQuickSortAdapter(Utils.ObjFromMethod(FreeInstance)), MinInd, MaxInd);
+      Free;
+    end;
+  end;
+end; // .procedure TStringList.CustomSort
 
 procedure TStringList.SetSorted (IsSorted: boolean);
 begin
   if IsSorted then begin
     Self.Sort;
-  end // .if
-  else begin
-    Self.fSorted  :=  FALSE;
-  end; // .else
-end; // .procedure TStringList.SetSorted
+  end else begin
+    Self.fSorted := false;
+  end;
+end;
 
 procedure TStringList.EnsureNoDuplicates;
 var
@@ -1072,15 +1159,14 @@ begin
   if Self.Sorted then begin
     for i:=1 to Self.Count - 1 do begin
       {!} Assert(Self.CompareStrings(Self.fKeys[i], Self.fKeys[i - 1]) <> 0);
-    end; // .for
-  end // .if
-  else begin
+    end;
+  end else begin
     for i:=0 to Self.Count - 1 do begin
-      Etalon  :=  Self.fKeys[i];
-      for y:=i+1 to Self.Count - 1 do begin
+      Etalon := Self.fKeys[i];
+      for y := i + 1 to Self.Count - 1 do begin
         {!} Assert(Self.CompareStrings(Etalon, Self.fKeys[y]) <> 0);
-      end; // .for
-    end; // .for
+      end;
+    end;
   end; // .else
 end; // .procedure TStringList.EnsureNoDuplicates
 
@@ -1112,7 +1198,7 @@ begin
   GetMem(Self.fValues, Self.Count * sizeof(pointer));
   System.FillChar(Self.fValues[0], Self.Count * sizeof(pointer), 0);
   if Self.Sorted then begin
-    Self.fSorted  :=  FALSE;
+    Self.fSorted  :=  false;
     Self.Sort;
   end; // .if
   if Self.ForbidDuplicates then begin
