@@ -2,13 +2,15 @@ unit VFS;
 {
 DESCRIPTION:  Virtual File System
 AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+
+TODO: Log all redirected api address, ex. kernel32 => api-ms...
 }
 
 (***)  interface  (***)
 uses
   Windows, SysUtils, Math, MMSystem,
   Utils, Crypto, Lists, DataLib, StrLib, StrUtils, Files, Log, TypeWrappers, CmdApp,
-  PatchApi, Core, Ini, Concur;
+  PatchApi, Core, Ini, Concur, DlgMes (* DELETEME *);
 
 (*
   Redirects calls to:
@@ -74,9 +76,10 @@ var
   NativeGetFileAttributes: function (FilePath: pchar): integer; stdcall;
   
   Kernel32Handle: integer;
-  User32Handle: integer;
+  User32Handle:   integer;
 
-  GamePath: string;
+  GamePath:   string;
+  ModsDir:    string;
   CurrentDir: string;
   
   DebugOpt: boolean;
@@ -87,10 +90,13 @@ implementation
 
 const
   MAX_SEARCH_HANDLE = 1000;
-  VFS_EXTRA_DEBUG = false;
+  VFS_EXTRA_DEBUG   = false;
 
 var
   SetProcessDEPPolicyAddr: pointer;
+
+// Map of DLL handle => API name => Real api address
+{O} DllRealApiAddrs: {O} TObjDict {OF TDict};
   
 constructor TSearchList.Create;
 begin
@@ -110,6 +116,124 @@ destructor TSearchList.Destroy;
 begin
   SysUtils.FreeAndNil(Self.FileList);
 end; // .destructor TSearchList.Destroy
+
+procedure FindOutRealSystemApiAddrs (const DllHandles: array of integer);
+const
+  PE_SIGNATURE_LEN = 4;
+
+type
+  PImageImportDirectory = ^TImageImportDirectory;
+  TImageImportDirectory = packed record
+    RvaImportLookupTable  : integer;
+    TimeDateStamp         : integer;
+    ForwarderChain        : integer;
+    RvaModuleName         : integer;
+    RvaImportAddressTable : integer;
+  end;
+
+  PHintName = ^THintName;
+  THintName = packed record
+    Hint: word;
+    Name: array [0..MAXLONGINT - 5] of char;
+  end;
+
+var
+  ImportDirInfo     : PImageDataDirectory;
+  ImportDir         : PImageImportDirectory;
+  ImportLookupTable : Utils.PEndlessIntArr;
+  ImportAddrTable   : Utils.PEndlessIntArr;
+  DllApiRedirs      : {U} TDict {OF POINTER};
+  DllHandle         : integer;
+  i, j              : integer;
+  s: string; // DELETEME
+
+begin
+  ImportDirInfo     := nil;
+  ImportDir         := nil;
+  ImportLookupTable := nil;
+  ImportAddrTable   := nil;
+  DllApiRedirs      := nil;
+  // * * * * * //
+  for i := 0 to high(DllHandles) do begin
+    DllHandle     := DllHandles[i];
+    ImportDirInfo := @PImageOptionalHeader(DllHandle + PImageDosHeader(DllHandle)._lfanew + PE_SIGNATURE_LEN + sizeof(TImageFileHeader)).DataDirectory[1];
+    DllApiRedirs  := DllRealApiAddrs[Ptr(DllHandle)];
+
+    if DllApiRedirs = nil then begin
+      DllApiRedirs                    := DataLib.NewDict(NOT Utils.OWNS_ITEMS, DataLib.CASE_SENSITIVE);
+      DllRealApiAddrs[Ptr(DllHandle)] := DllApiRedirs;
+    end;
+    
+    // Found valid import directory in Win32 PE
+    if ((ImportDirInfo.Size > 0) and (ImportDirInfo.VirtualAddress <> 0)) then begin
+      ImportDir         := pointer(DllHandle + integer(ImportDirInfo.VirtualAddress));
+
+      while ImportDir.RvaImportLookupTable <> 0 do begin
+        ImportLookupTable := pointer(DllHandle + ImportDir.RvaImportLookupTable);
+        ImportAddrTable   := pointer(DllHandle + ImportDir.RvaImportAddressTable);
+        //DlgMes.Msg(pchar(DllHandle + ImportDir.RvaModuleName));
+
+        j := 0;
+
+        while (j >= 0) and (ImportLookupTable[j] <> 0) do begin
+          if ImportLookupTable[j] > 0 then begin
+            DllApiRedirs[pchar(@PHintName(DllHandle + ImportLookupTable[j]).Name)] := Ptr(ImportAddrTable[j]);
+            //s := s + #13#10 + Format('%s.%s: %p', [pchar(DllHandle + ImportDir.RvaModuleName), pchar(@PHintName(DllHandle + ImportLookupTable[j]).Name), Ptr(ImportAddrTable[j])]);
+            //if pchar(@PHintName(DllHandle + ImportLookupTable[j]).Name) = 'IsValidLocale' then DlgMes.Msg(pchar(@PHintName(DllHandle + ImportLookupTable[j]).Name));
+          end;
+
+          Inc(j);
+        end; // .while
+
+        Inc(ImportDir);
+      end; // .while
+    end; // .if
+  end; // .for
+
+  //Files.WriteFileContents(s, 'D:\__LOG.txt');
+  //(Format('%p', [ TDict( DllRealApiAddrs[Ptr(DllHandles[0])] ) ['CreateFileA'] ]));
+end; // .procedure FindOutRealSystemApiAddrs
+
+function GetRealAddress (CodeOrRedirStub: pointer): {n} pointer;
+begin
+  {!} Assert(CodeOrRedirStub <> nil);
+
+  // JMP DWORD [PTR]
+  if pword(CodeOrRedirStub)^ = $FF25 then begin
+    result := ppointer(integer(CodeOrRedirStub) + 2)^;
+  // JMP SHORT REL [INT8 OFS]
+  end else if pbyte(CodeOrRedirStub)^ = $EB then begin
+    result := pointer(integer(CodeOrRedirStub) + 2 + pshortint(integer(CodeOrRedirStub) + 1)^);
+  // JMP REL [INT32 OFS]
+  end else if pbyte(CodeOrRedirStub)^ = $E9 then begin
+    result := pointer(integer(CodeOrRedirStub) + 5 + pinteger(integer(CodeOrRedirStub) + 1)^);
+  // Regular code
+  end else begin
+    result := CodeOrRedirStub;
+  end; // .else
+end; // .function GetRealAddress
+
+function GetRealProcAddress (DllHandle: integer; const ProcName: string): {n} pointer;
+var
+{Un} DllApiRedirs: {U} TDict {OF pointer};
+
+begin
+  DllApiRedirs := DllRealApiAddrs[Ptr(DllHandle)];
+  result       := nil;
+  // * * * * * //
+
+  if DllApiRedirs <> nil then begin
+    result := DllApiRedirs[ProcName];
+  end;
+
+  if result = nil then begin
+    result := Windows.GetProcAddress(DllHandle, pchar(ProcName));
+  end;
+
+  if result <> nil then begin
+    result := GetRealAddress(result);
+  end;
+end; // .function GetRealProcAddress
 
 function IsRelativePath (const Path: string): boolean;
 var
@@ -235,18 +359,28 @@ begin
 end; // .function FindVFSPath
 
 function IsInGameDir (const FullPath: string): boolean;
+  function GetCharAt (const Str: string; Pos: integer): char; inline;
+  begin
+    if (Pos >= 1) and (Pos <= length(Str)) then begin
+      result := Str[Pos];
+    end else begin
+      result := #0;
+    end;
+  end;
+
 begin
   result := ((Length(FullPath) - Length(GamePath)) > 1) and
             StrUtils.AnsiStartsText(GamePath, FullPath) and
-            (FullPath[Length(GamePath) + 1] = '\');
+            (FullPath[Length(GamePath) + 1] = '\')      and
+            (not StrUtils.AnsiStartsText(ModsDir, FullPath) or not (GetCharAt(FullPath, length(ModsDir) + 1) in [#0, '\']));
   
   if DebugOpt then begin
     if result then begin
       Log.Write('VFS', 'IsInGameDir', FullPath + '  =>  YES');
     end else begin
       Log.Write('VFS', 'IsInGameDir', FullPath + '  =>  NO');
-    end; // .else
-  end; // .if
+    end;
+  end;
 end; // .function IsInGameDir
 
 function GameRelativePath (const FullPath: string): string;
@@ -273,8 +407,7 @@ begin
   end; // .with 
 end; // .procedure MyScanDir
 
-function MyFindFirstFile (const MaskedPath: string; IsInternalSearch: boolean;
-                          out ResHandle: integer): boolean;
+function MyFindFirstFile (const MaskedPath: string; IsInternalSearch: boolean; out ResHandle: integer): boolean;
 var
 {O} SearchList:   TSearchList;
     RelativePath: string;
@@ -443,6 +576,50 @@ begin
                            hTemplateFile]);
 end; // .function Hook_CreateFileA
 
+function Hook_CreateFileW (Hook: PatchApi.THiHook; lpFileName: PWideChar;
+                           dwDesiredAccess, dwShareMode: DWORD;
+                           lpSecurityAttributes: PSecurityAttributes;
+                           dwCreationDisposition, dwFlagsAndAttributes: DWORD;
+                           hTemplateFile: THandle): THandle; stdcall;
+var
+  FilePath:           string;
+  RedirectedFilePath: string;
+  FinalFilePath:      string;
+  CreationFlags:      integer;
+
+begin
+  if not StrLib.PWideCharToAnsi(lpFileName, FilePath, StrLib.FAIL_ON_ERROR) then begin
+    StrLib.PWideCharToAnsi(lpFileName, FilePath);
+    Log.Write('VFS', 'CreateFileW', 'Unicode conversion failed. ~Original: ' + FilePath);
+    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile]);
+  end else begin   
+    if DebugOpt then begin
+      Log.Write('VFS', 'CreateFileW', 'Original: ' + FilePath);
+    end;
+    
+    FilePath      :=  SysUtils.ExpandFileName(FilePath);
+    CreationFlags :=  dwCreationDisposition;
+    FinalFilePath :=  FilePath;
+
+    if
+      IsInGameDir(FilePath) and
+      (
+        ((CreationFlags and Windows.OPEN_EXISTING)     = Windows.OPEN_EXISTING) or
+        ((CreationFlags and Windows.TRUNCATE_EXISTING) = Windows.TRUNCATE_EXISTING)
+      ) and
+      FindVFSPath(GameRelativePath(FilePath), RedirectedFilePath)
+    then begin
+      FinalFilePath := RedirectedFilePath;
+    end;
+    
+    if DebugOpt then begin
+      Log.Write('VFS', 'CreateFileW', 'Redirected: ' + FinalFilePath);
+    end;
+    
+    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [PWideChar(WideString(FinalFilePath)), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile]);
+  end; // .else
+end; // .function Hook_CreateFileW
+
 function Hook_OpenFile (Hook: PatchApi.THiHook; const lpFileName: LPCSTR; var lpReOpenBuff: TOFStruct; uStyle: UINT): THandle; stdcall;
 const
   NOT_SUPPORTED_FLAGS = Windows.OF_CREATE or Windows.OF_DELETE or Windows.OF_READWRITE or Windows.OF_WRITE;
@@ -496,7 +673,7 @@ begin
     Log.Write('VFS', 'GetFileAttributesA', 'Original: ' + FilePath);
   end; // .if
   
-  FilePath := SysUtils.ExpandFileName(FilePath);
+  FilePath      := SysUtils.ExpandFileName(FilePath);
   FinalFilePath := FilePath;
 
   if IsInGameDir(FilePath) and
@@ -639,12 +816,11 @@ begin
   result := BOOL(PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [pchar(ExpandedFilePath)]));
 end; // .function Hook_DeleteFileA
 
-function Hook_FindFirstFileA (Hook: PatchApi.THiHook; lpFileName: PAnsiChar;
-                              var lpFindFileData: TWIN32FindDataA): THandle; stdcall;
+function Hook_FindFirstFileA (Hook: PatchApi.THiHook; lpFileName: PAnsiChar; var lpFindFileData: TWIN32FindDataA): THandle; stdcall;
 var
-  FilePath:   string;
-  FoundPath:  string;
-  ResHandle:  integer;
+  FilePath:  string;
+  FoundPath: string;
+  ResHandle: integer;
 
 begin
   {!} Windows.EnterCriticalSection(FileSearchCritSection);
@@ -653,20 +829,20 @@ begin
     result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [lpFileName, @lpFindFileData]);
   end else begin
     FileSearchInProgress := true;
-    FilePath := lpFileName;
+    FilePath             := lpFileName;
   
     if DebugOpt then begin
       Log.Write('VFS', 'FindFirstFileA', 'Original: ' + FilePath);
-    end; // .if
+    end;
   
     FilePath := SysUtils.ExpandFileName(FilePath);
 
     if DebugOpt then begin
       Log.Write('VFS', 'FindFirstFileA', 'MaskedPath: ' + FilePath);
-    end; // .if
+    end;
     
     if MyFindFirstFile(FilePath, IsInGameDir(FilePath), ResHandle) then begin
-      result := ResHandle;
+      result         := ResHandle;
       lpFindFileData := Windows.PWin32FindData(TSearchList(SearchHandles[Ptr(ResHandle)])
                                                .FileList.Values[0])^;
       Windows.SetLastError(Windows.ERROR_SUCCESS);
@@ -675,14 +851,14 @@ begin
         FoundPath := lpFindFileData.cFileName;
         Log.Write('VFS', 'FindFirstFileA', StrLib.Concat(['Handle: ', SysUtils.IntToStr(ResHandle),
                                                           #13#10, 'result: ', FoundPath]));
-      end; // .if
+      end;
     end else begin
       result := Windows.INVALID_HANDLE_VALUE;
       Windows.SetLastError(Windows.ERROR_NO_MORE_FILES);
 
       if DebugOpt then begin
         Log.Write('VFS', 'FindFirstFileA', 'Error: ERROR_NO_MORE_FILES');
-      end; // .if
+      end;
     end; // .else
 
     FileSearchInProgress := false;
@@ -691,8 +867,53 @@ begin
   {!} Windows.LeaveCriticalSection(FileSearchCritSection);
 end; // .function Hook_FindFirstFileA
 
-function Hook_FindNextFileA (Hook: PatchApi.THiHook; hFindFile: THandle;
-                             var lpFindFileData: TWIN32FindDataA): BOOL; stdcall;
+function Hook_FindFirstFileW (Hook: PatchApi.THiHook; lpFileName: PWideChar; var lpFindFileData: TWIN32FindDataW): THandle; stdcall;
+var
+  FindDataA: TWIN32FindDataA;
+  FilePath:  string;
+  FoundPath: string;
+
+begin
+  {!} Windows.EnterCriticalSection(FileSearchCritSection);
+
+  if FileSearchInProgress then begin
+    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [lpFileName, @lpFindFileData]);
+  end else if not StrLib.PWideCharToAnsi(lpFileName, FilePath, StrLib.FAIL_ON_ERROR) then begin
+    StrLib.PWideCharToAnsi(lpFileName, FilePath);
+    Log.Write('VFS', 'FindFirstFileW', 'Unicode conversion failed. ~Original: ' + FilePath);
+    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [lpFileName, @lpFindFileData]);
+  end else begin
+    if DebugOpt then begin
+      Log.Write('VFS', 'FindFirstFileW', 'Original: ' + FilePath);
+    end;
+
+    result := Windows.FindFirstFileA(pchar(FilePath), FindDataA);
+
+    if result = Windows.INVALID_HANDLE_VALUE then begin
+      Log.Write('VFS', 'FindFirstFileW', 'Error: ERROR_NO_MORE_FILES');
+    end else begin
+      lpFindFileData.dwFileAttributes := FindDataA.dwFileAttributes;
+      lpFindFileData.ftCreationTime   := FindDataA.ftCreationTime;
+      lpFindFileData.ftLastAccessTime := FindDataA.ftLastAccessTime;
+      lpFindFileData.ftLastWriteTime  := FindDataA.ftLastWriteTime;
+      lpFindFileData.nFileSizeHigh    := FindDataA.nFileSizeHigh;
+      lpFindFileData.nFileSizeLow     := FindDataA.nFileSizeLow;
+      lpFindFileData.dwReserved0      := FindDataA.dwReserved0;
+      lpFindFileData.dwReserved1      := FindDataA.dwReserved1;
+      StrLib.WideStringToBuf(WideString(FindDataA.cFileName),          @lpFindFileData.cFileName);
+      StrLib.WideStringToBuf(WideString(FindDataA.cAlternateFileName), @lpFindFileData.cAlternateFileName);
+
+      if DebugOpt then begin
+        FoundPath := FindDataA.cFileName;
+        Log.Write('VFS', 'FindFirstFileW', StrLib.Concat(['Handle: ', SysUtils.IntToStr(result), #13#10, 'result: ', FoundPath]));
+      end;
+    end; // .else
+  end; // .else
+  
+  {!} Windows.LeaveCriticalSection(FileSearchCritSection);
+end; // .function Hook_FindFirstFileW
+
+function Hook_FindNextFileA (Hook: PatchApi.THiHook; hFindFile: THandle; var lpFindFileData: TWIN32FindDataA): BOOL; stdcall;
 var
 {U} FoundData: Windows.PWin32FindData;
     FoundPath: string;
@@ -717,7 +938,7 @@ begin
       
       if DebugOpt then begin
         FoundPath := FoundData.cFileName;
-        Log.Write('VFS', 'FindNextFileA', 'result: ' + FoundPath)
+        Log.Write('VFS', 'FindNextFileA', 'Result: ' + FoundPath)
       end; // .if
     end else begin
       Windows.SetLastError(Windows.ERROR_NO_MORE_FILES);
@@ -730,6 +951,47 @@ begin
   
   {!} Windows.LeaveCriticalSection(FileSearchCritSection);
 end; // .function Hook_FindNextFileA
+
+function Hook_FindNextFileW (Hook: PatchApi.THiHook; hFindFile: THandle; var lpFindFileData: TWIN32FindDataW): BOOL; stdcall;
+var
+  FindDataA: TWIN32FindDataA;
+  FoundPath: string;
+
+begin
+  {!} Windows.EnterCriticalSection(FileSearchCritSection);
+
+  if FileSearchInProgress then begin
+    result := BOOL(PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [hFindFile, @lpFindFileData]));
+  end else begin
+    if DebugOpt then begin
+      Log.Write('VFS', 'FindNextFileW', 'Handle: ' + SysUtils.IntToStr(hFindFile));
+    end;
+
+    result := Windows.FindNextFileA(hFindFile, FindDataA);
+
+    if not result then begin
+      Log.Write('VFS', 'FindNextFileW', 'Error: ERROR_NO_MORE_FILES');
+    end else begin
+      lpFindFileData.dwFileAttributes := FindDataA.dwFileAttributes;
+      lpFindFileData.ftCreationTime   := FindDataA.ftCreationTime;
+      lpFindFileData.ftLastAccessTime := FindDataA.ftLastAccessTime;
+      lpFindFileData.ftLastWriteTime  := FindDataA.ftLastWriteTime;
+      lpFindFileData.nFileSizeHigh    := FindDataA.nFileSizeHigh;
+      lpFindFileData.nFileSizeLow     := FindDataA.nFileSizeLow;
+      lpFindFileData.dwReserved0      := FindDataA.dwReserved0;
+      lpFindFileData.dwReserved1      := FindDataA.dwReserved1;
+      StrLib.WideStringToBuf(WideString(FindDataA.cFileName),          @lpFindFileData.cFileName);
+      StrLib.WideStringToBuf(WideString(FindDataA.cAlternateFileName), @lpFindFileData.cAlternateFileName);
+
+      if DebugOpt then begin
+        FoundPath := FindDataA.cFileName;
+        Log.Write('VFS', 'FindNextFileW', 'Result: ' + FoundPath);
+      end;
+    end; // .else
+  end; // .else
+  
+  {!} Windows.LeaveCriticalSection(FileSearchCritSection);
+end; // .function Hook_FindNextFileW
 
 function Hook_FindClose (Hook: PatchApi.THiHook; hFindFile: THandle): BOOL; stdcall;
 begin
@@ -870,7 +1132,7 @@ begin
     Windows.SetLastError(Windows.ERROR_SUCCESS);
     
     if DebugOpt then begin
-      Log.Write('VFS', 'GetCurrentDirectoryA', 'result: ' + FixedCurrDir);
+      Log.Write('VFS', 'GetCurrentDirectoryA', 'Result: ' + FixedCurrDir);
     end; // .if
   end else begin
     Windows.SetLastError(Windows.ERROR_NOT_ENOUGH_MEMORY);
@@ -892,14 +1154,14 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'SetCurrentDirectoryA', 'Original: ' + DirPath);
-  end; // .if
+  end;
   
-  DirPath := SysUtils.ExpandFileName(DirPath);
+  DirPath    := SysUtils.ExpandFileName(DirPath);
   DirPathLen := Length(DirPath);
   
   while (DirPathLen > 0) and (DirPath[DirPathLen] = '\') do begin
     Dec(DirPathLen);
-  end; // .while
+  end;
   
   SetLength(DirPath, DirPathLen);
   result := DirPath <> '';
@@ -916,20 +1178,20 @@ begin
       {!} Windows.LeaveCriticalSection(CurrDirCritSection);
 
       Windows.SetLastError(Windows.ERROR_SUCCESS);
-    end; // .if
+    end;
   end; // .if
 
   if not result then begin
     Windows.SetLastError(Windows.ERROR_FILE_NOT_FOUND);
-  end; // .if
+  end;
   
   if DebugOpt then begin
     if result then begin
-      Log.Write('VFS', 'SetCurrentDirectoryA', 'result: ' + DirPath);
+      Log.Write('VFS', 'SetCurrentDirectoryA', 'Result: ' + DirPath);
     end else begin
       Log.Write('VFS', 'SetCurrentDirectoryA', 'Error: ERROR_FILE_NOT_FOUND');
-    end; // .else
-  end; // .if
+    end;
+  end;
 end; // .function Hook_SetCurrentDirectoryA
 
 procedure AssertHandler (const Mes, FileName: string; LineNumber: integer; Address: pointer);
@@ -955,6 +1217,7 @@ end; // .procedure AssertHandler
 procedure Init;
 begin
   GamePath   := SysUtils.ExtractFileDir(ParamStr(0));
+  ModsDir    := GamePath + '\' + MODS_DIR;
   CurrentDir := GamePath;
   Windows.SetCurrentDirectory(pchar(GamePath));
 
@@ -962,9 +1225,12 @@ begin
 
   Kernel32Handle := Windows.GetModuleHandle('kernel32.dll');
   User32Handle   := Windows.GetModuleHandle('user32.dll');
+
+  DllRealApiAddrs := DataLib.NewObjDict(Utils.OWNS_ITEMS);
+  FindOutRealSystemApiAddrs([Kernel32Handle, User32Handle]);
   
   (* Trying to turn off DEP *)
-  SetProcessDEPPolicyAddr := Windows.GetProcAddress(Kernel32Handle, 'SetProcessDEPPolicyAddr');
+  SetProcessDEPPolicyAddr := Windows.GetProcAddress(Kernel32Handle, 'SetProcessDEPPolicy');
 
   if SetProcessDEPPolicyAddr <> nil then begin
     if PatchApi.Call(PatchApi.STDCALL_, SetProcessDEPPolicyAddr, [0]) <> 0 then begin
@@ -974,15 +1240,15 @@ begin
     end; // .else
   end; // .if
 
-  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFullPathNameA hook');
-  Core.p.WriteHiHook
-  (
-    Windows.GetProcAddress(Kernel32Handle, 'GetFullPathNameA'),
-    PatchApi.SPLICE_,
-    PatchApi.EXTENDED_,
-    PatchApi.STDCALL_,
-    @Hook_GetFullPathNameA,
-  );
+  // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFullPathNameA hook');
+  // Core.p.WriteHiHook
+  // (
+  //   Windows.GetProcAddress(Kernel32Handle, 'GetFullPathNameA'),
+  //   PatchApi.SPLICE_,
+  //   PatchApi.EXTENDED_,
+  //   PatchApi.STDCALL_,
+  //   @Hook_GetFullPathNameA,
+  // );
 
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFullPathNameW hook');
   Core.p.WriteHiHook
@@ -994,20 +1260,30 @@ begin
     @Hook_GetFullPathNameW,
   );
 
-  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateFileA hook');
+  // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateFileA hook');
+  // Core.p.WriteHiHook
+  // (
+  //   GetRealProcAddress(Kernel32Handle, 'CreateFileA'),
+  //   PatchApi.SPLICE_,
+  //   PatchApi.EXTENDED_,
+  //   PatchApi.STDCALL_,
+  //   @Hook_CreateFileA,
+  // );
+
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateFileW hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'CreateFileA'),
+    GetRealProcAddress(Kernel32Handle, 'CreateFileW'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
-    @Hook_CreateFileA,
+    @Hook_CreateFileW,
   );
 
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing OpenFile hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'OpenFile'),
+    GetRealProcAddress(Kernel32Handle, 'OpenFile'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1017,7 +1293,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFileAttributesA hook');
   NativeGetFileAttributes := pointer(Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'GetFileAttributesA'),
+    GetRealProcAddress(Kernel32Handle, 'GetFileAttributesA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1027,7 +1303,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadLibraryA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'LoadLibraryA'),
+    GetRealProcAddress(Kernel32Handle, 'LoadLibraryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1037,7 +1313,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'GetPrivateProfileStringA'),
+    GetRealProcAddress(Kernel32Handle, 'GetPrivateProfileStringA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1047,7 +1323,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateDirectoryA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'CreateDirectoryA'),
+    GetRealProcAddress(Kernel32Handle, 'CreateDirectoryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1057,7 +1333,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing RemoveDirectoryA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'RemoveDirectoryA'),
+    GetRealProcAddress(Kernel32Handle, 'RemoveDirectoryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1067,7 +1343,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing DeleteFileA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'DeleteFileA'),
+    GetRealProcAddress(Kernel32Handle, 'DeleteFileA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1077,27 +1353,47 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'FindFirstFileA'),
+    GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
     @Hook_FindFirstFileA,
   );
 
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileW hook');
+  Core.p.WriteHiHook
+  (
+    GetRealProcAddress(Kernel32Handle, 'FindFirstFileW'),
+    PatchApi.SPLICE_,
+    PatchApi.EXTENDED_,
+    PatchApi.STDCALL_,
+    @Hook_FindFirstFileW,
+  );
+
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'FindNextFileA'),
+    GetRealProcAddress(Kernel32Handle, 'FindNextFileA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
     @Hook_FindNextFileA,
   );
 
+  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileW hook');
+  Core.p.WriteHiHook
+  (
+    GetRealProcAddress(Kernel32Handle, 'FindNextFileW'),
+    PatchApi.SPLICE_,
+    PatchApi.EXTENDED_,
+    PatchApi.STDCALL_,
+    @Hook_FindNextFileW,
+  );
+
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindClose hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'FindClose'),
+    GetRealProcAddress(Kernel32Handle, 'FindClose'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1107,7 +1403,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadCursorFromFileA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(User32Handle, 'LoadCursorFromFileA'),
+    GetRealProcAddress(User32Handle, 'LoadCursorFromFileA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1117,7 +1413,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing PlaySoundA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Windows.LoadLibrary('winmm.dll'), 'PlaySoundA'),
+    GetRealProcAddress(Windows.LoadLibrary('winmm.dll'), 'PlaySoundA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1127,7 +1423,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetCurrentDirectoryA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'GetCurrentDirectoryA'),
+    GetRealProcAddress(Kernel32Handle, 'GetCurrentDirectoryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
@@ -1137,7 +1433,7 @@ begin
   if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryA hook');
   Core.p.WriteHiHook
   (
-    Windows.GetProcAddress(Kernel32Handle, 'SetCurrentDirectoryA'),
+    GetRealProcAddress(Kernel32Handle, 'SetCurrentDirectoryA'),
     PatchApi.SPLICE_,
     PatchApi.EXTENDED_,
     PatchApi.STDCALL_,
