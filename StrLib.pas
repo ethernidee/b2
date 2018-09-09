@@ -21,7 +21,7 @@ const
   // Raise error on invalid character for ansi page
   WC_ERR_INVALID_CHARS = $80;
 
-  FAIL_ON_ERROR = false;
+  FAIL_ON_ERROR = true;
 
 type
   (* IMPORT *)
@@ -200,6 +200,7 @@ function  IsBinaryStr (const Str: string): boolean;
 function  Utf8ToAnsi (const Str: string): string;
 function  PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
 function  WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
+function  WideStringToBuf (const Str: WideString; Buf: PWideChar): PWideChar;
 
 
 (***) implementation (***)
@@ -1403,5 +1404,17 @@ begin
     end;
   end; // .else
 end; // .function WideStringFromBuf
+
+function WideStringToBuf (const Str: WideString; Buf: PWideChar): PWideChar;
+begin
+  {!} Assert(Buf <> nil);
+  result := Buf;
+  // * * * * * //
+  if Str <> '' then begin
+    Utils.CopyMem(length(Str) * sizeof(WideChar) + sizeof(WideChar), pointer(Str), Buf);
+  end else begin
+    Buf^ := #0;
+  end;
+end; // .function WideStringToBuf
 
 end.
