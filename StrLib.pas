@@ -129,54 +129,42 @@ function  MapBytes (ByteSource: IByteSource): IByteMapper;
 function  InStrBounds (Pos: integer; const Str: string): boolean;
 function  BytesToAnsiString (PBytes: PBYTE; NumBytes: integer): AnsiString;
 function  BytesToWideString (PBytes: PBYTE; NumBytes: integer): WideString;
-function  FindCharEx
-(
-        Ch:       char;
-  const Str:      string;
-        StartPos: integer;
-  out   CharPos:  integer
-): boolean;
-
-function  ReverseFindCharEx
-(
-        Ch:       char;
-  const Str:      string;
-        StartPos: integer;
-  out   CharPos:  integer
-): boolean;
-
 function  FindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
+function  FindCharEx (Ch: char; const Str: string; StartPos: integer; out CharPos: integer): boolean;
+function  ReverseFindCharEx (Ch: char; const Str: string; StartPos: integer; out CharPos: integer): boolean;
 function  ReverseFindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
-
-function  FindCharsetEx
-(
-        Charset:  Utils.TCharSet;
-  const Str:      string;
-        StartPos: integer;
-  out   CharPos:  integer
-): boolean;
-
+function  FindCharW (Ch: WideChar; const Str: WideString; out CharPos: integer): boolean;
+function  FindCharExW (Ch: WideChar; const Str: WideString; StartPos: integer; out CharPos: integer): boolean;
+function  FindCharsetEx (Charset:  Utils.TCharSet; const Str: string; StartPos: integer; out CharPos: integer): boolean;
 function  FindCharset (Charset: Utils.TCharSet; const Str: string; out CharPos: integer): boolean;
-// Both FindSubstr routines are wrappers around Delphi Pos function
+
+(* Both FindSubstr routines are wrappers around Delphi Pos function *)
 function  FindSubstrEx (const Substr, Str: string; StartPos: integer; out SubstrPos: integer): boolean;
+
 function  FindSubstr (const Substr, Str: string; out SubstrPos: integer): boolean;
-// Knuth-Morris-Pratt stable speed fast search algorithm.
-// F('', Haystack, StartPos in range of Haystack) => true, StartPos
-// F('', Haystack, StartPos out of range of Haystack) => false
+
+(*
+  Knuth-Morris-Pratt stable speed fast search algorithm.
+  F('', Haystack, StartPos in range of Haystack) => true, StartPos
+  F('', Haystack, StartPos out of range of Haystack) => false
+*)
 function  FindStr (const Needle, Haystack: string; out FoundPos: integer): boolean;
+
 function  FindStrEx (const Needle, Haystack: string; Pos: integer; out FoundPos: integer): boolean;
-{
-f('') => NIL
-f(Str, '') => [Str]
-}
+
+(*
+  f('') => NIL
+  f(Str, '') => [Str]
+*)
 function  ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfStr;
 function  Explode (const Str: string; const Delim: string): TArrayOfStr;
 function  Join (const Arr: TArrayOfStr; const Glue: string): string;
-{
-TemplArgs - pairs of (ArgName, ArgValue).
-Example: f('Hello, ~UserName~. You are ~Years~ years old.', ['Years', '20', 'UserName', 'Bob'], '~') =>
-=> 'Hello, Bob. You are 20 years old'.
-}
+
+(*
+  TemplArgs - pairs of (ArgName, ArgValue).
+  Example: f('Hello, ~UserName~. You are ~Years~ years old.', ['Years', '20', 'UserName', 'Bob'], '~') =>
+  => 'Hello, Bob. You are 20 years old'.
+*)
 function  BuildStr (const Template: string; TemplArgs: array of string; TemplChar: char): string;
 function  CharsetToStr (const Charset: Utils.TCharSet): string;
 function  IntToRoman (Value: integer): string;
@@ -186,21 +174,28 @@ function  Capitalize (const Str: string): string;
 function  HexCharToByte (HexChar: char): byte;
 function  ByteToHexChar (ByteValue: byte): char;
 function  Concat (const Strings: array of string): string;
-{
-Base file name does not include extension.
-}
+
+(* Base file name does not include extension. *)
 function  TrimEx (const Str: string; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): string;
+
 function  ExtractBaseFileName (const FilePath: string): string;
 function  SubstrBeforeChar (const Str: string; Ch: char): string;
 function  Match (const Str, Pattern: string): boolean;
+function  MatchW (const Str, Pattern: WideString): boolean;
 function  ExtractFromPchar (Str: pchar; Count: integer): string;
 function  BufToStr ({n} Buf: pointer; BufSize: integer): string;
-// Detects characters in the BINARY_CHARACTERS set
+
+(*) Detects characters in the BINARY_CHARACTERS set *)
 function  IsBinaryStr (const Str: string): boolean;
+
 function  Utf8ToAnsi (const Str: string): string;
 function  PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
 function  WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
 function  WideStringToBuf (const Str: WideString; Buf: PWideChar): PWideChar;
+function  WideLowerCase (const Str: WideString): WideString;
+function  ExcludeTrailingDelimW (const Str: WideString): WideString;
+function  ExtractDirPathW (const Path: WideString): WideString;
+function  ExtractFileNameW (const Path: WideString): WideString;
 
 
 (***) implementation (***)
@@ -479,7 +474,7 @@ begin
       CharPos :=  i;
     end; // .if
   end; // .if
-end; // .function FindCharEx  
+end; // .function FindCharEx
 
 function ReverseFindCharEx
 (
@@ -517,6 +512,38 @@ function ReverseFindChar (Ch: char; const Str: string; out CharPos: integer): bo
 begin
   result := ReverseFindCharEx(Ch, Str, Length(Str), CharPos);
 end; // .function ReverseFindChar
+
+function FindCharExW (Ch: WideChar; const Str: WideString; StartPos: integer; out CharPos: integer): boolean;
+var
+  CharPtr: PWideChar;
+  StrLen:  integer;
+  i:       integer;
+
+begin
+  CharPtr := nil;
+  // * * * * * //
+  StrLen := Length(Str);
+  result := Math.InRange(StartPos, 1, StrLen);
+  
+  if result then begin
+    CharPtr := PWideChar(Str) + (StartPos - 1);
+
+    while (CharPtr^ <> #0) and (CharPtr^ <> Ch) do begin
+      Inc(CharPtr);
+    end;
+    
+    result := CharPtr^ <> #0;
+
+    if result then begin
+      CharPos := (CharPtr - PWideChar(Str)) + 1;
+    end;
+  end; // .if
+end; // .function FindCharExW
+
+function FindCharW (Ch: WideChar; const Str: WideString; out CharPos: integer): boolean;
+begin
+  result := FindCharExW(Ch, Str, 1, CharPos);
+end;
 
 function FindCharsetEx (Charset: Utils.TCharSet; const Str: string; StartPos: integer; out CharPos: integer): boolean;
 var
@@ -1223,15 +1250,15 @@ begin
           end; // .while
           
           if p <= PatternLen then begin
-            c    := Pattern[p];
-            State :=  STATE_FIRST_LETTER_SEARCH;
+            c     := Pattern[p];
+            State := STATE_FIRST_LETTER_SEARCH;
           end // .if
           else begin
             if s <= StrLen then begin
-              s :=  StrLen + 1;
+              s := StrLen + 1;
             end; // .if
           
-            State :=  STATE_EXIT;
+            State := STATE_EXIT;
           end; // .else
         end; // .case STATE_SKIP_WILDCARDS
         
@@ -1242,7 +1269,7 @@ begin
           end; // .while
           
           if s > StrLen then begin
-            State :=  STATE_EXIT;
+            State := STATE_EXIT;
           end // .if
           else begin
             StrBasePos     := s;
@@ -1258,16 +1285,16 @@ begin
           SkipMatchingSubstr;
           
           if (p > PatternLen) or (Pattern[p] = ANY_SYMS_WILDCARD) then begin
-            State :=  STATE_STRICT_COMPARE;
+            State := STATE_STRICT_COMPARE;
           end // .if
           else if ((PAttern[p]) = ONE_SYM_WILDCARD) or (s > StrLen) then begin
             STATE := STATE_EXIT;
           end // .ELSEIF
           else begin
             Inc(StrBasePos);
-            p    := PatternBasePos;
-            s    := StrBasePos;
-            State :=  STATE_FIRST_LETTER_SEARCH;
+            p     := PatternBasePos;
+            s     := StrBasePos;
+            State := STATE_FIRST_LETTER_SEARCH;
           end; // .else
         end; // .case STATE_MATCH_SUBSTR_TAIL
     end; // .SWITCH State
@@ -1275,6 +1302,57 @@ begin
   
   result := (s = (StrLen + 1)) and (p = (PatternLen + 1));
 end; // .function Match
+
+function MatchW (const Str, Pattern: WideString): boolean;
+var
+{n} StrAnchor:      PWideChar;
+{n} PatternAnchor:  PWideChar;
+    StrCharPtr:     PWideChar;
+    PatternCharPtr: PWideChar;
+
+begin
+  StrAnchor      := nil;
+  PatternAnchor  := nil;
+  StrCharPtr     := PWideChar(Str);
+  PatternCharPtr := PWideChar(Pattern);
+  // * * * * * //
+  while (StrCharPtr^ <> #0) and (PatternCharPtr^ <> '*') do begin
+    if (PatternCharPtr^ <> StrCharPtr^) and (PatternCharPtr^ <> '?') then begin
+      result := false;
+      exit;
+    end;
+
+    Inc(StrCharPtr);
+    Inc(PatternCharPtr);
+  end;
+
+  while StrCharPtr^ <> #0 do begin
+    if PatternCharPtr^ = '*' then begin
+      Inc(PatternCharPtr);
+
+      if PatternCharPtr^ = #0 then begin
+        result := true;
+        exit;
+      end;
+
+      PatternAnchor := PatternCharPtr;
+      StrAnchor     := StrCharPtr + 1;
+    end else if (StrCharPtr^ = PatternCharPtr^) or (PatternCharPtr^ = '?') then begin
+      Inc(StrCharPtr);
+      Inc(PatternCharPtr);
+    end else begin
+      PatternCharPtr := PatternAnchor;
+      StrCharPtr     := StrAnchor;
+      Inc(StrAnchor);
+    end;
+  end; // .while
+
+  while PatternCharPtr^ = '*' do begin
+    Inc(PatternCharPtr);
+  end;
+
+  result := PatternCharPtr^ = #0;
+end; // .function MatchW
 
 function ExtractFromPchar (Str: pchar; Count: integer): string;
 var
@@ -1416,5 +1494,91 @@ begin
     Buf^ := #0;
   end;
 end; // .function WideStringToBuf
+
+function WideLowerCase (const Str: WideString): WideString;
+begin
+  result := Str;
+
+  if result <> '' then begin
+    UniqueString(result);
+    Windows.CharLowerW(PWideChar(result));
+  end;  
+end;
+
+function ExcludeTrailingDelimW (const Str: WideString): WideString;
+var
+  StrLen: integer;
+  Pos:    integer;
+
+begin
+  result := Str;
+  
+  if result <> '' then begin
+    StrLen := Length(result);
+    Pos    := StrLen;
+
+    while (Pos >= 1) and (result[Pos] = '\') do begin
+      Dec(Pos);
+    end;
+
+    if Pos <> StrLen then begin
+      SetLength(result, Pos);
+    end;
+  end;
+end; // .function ExcludeTrailingDelimW
+
+function ExtractDirPathW (const Path: WideString): WideString;
+var
+  StartPtr: PWideChar;
+  CharPtr:  PWideChar;
+
+begin
+  StartPtr := PWideChar(Path);
+  CharPtr  := StartPtr + Length(Path);
+  // * * * * * //
+  result := '';
+
+  while (CharPtr >= StartPtr) and (CharPtr^ <> '\') do begin
+    Dec(CharPtr);
+  end;
+
+  if CharPtr > StartPtr then begin
+    while (CharPtr >= StartPtr) and (CharPtr^ = '\') do begin
+      Dec(CharPtr);
+    end;
+
+    Inc(CharPtr);
+  end;
+
+  if CharPtr > StartPtr then begin
+    SetLength(result, CharPtr - StartPtr);
+    Utils.CopyMem((CharPtr - StartPtr) * sizeof(CharPtr^), StartPtr, @result[1]);
+  end;
+end; // .function ExtractDirPathW
+
+function ExtractFileNameW (const Path: WideString): WideString;
+var
+  StartPtr: PWideChar;
+  EndPtr:   PWideChar;
+  CharPtr:  PWideChar;
+
+begin
+  StartPtr := PWideChar(Path);
+  EndPtr   := StartPtr + Length(Path);
+  CharPtr  := EndPtr;
+  // * * * * * //
+  result := '';
+
+  while (CharPtr >= StartPtr) and (CharPtr^ <> '\') do begin
+    Dec(CharPtr);
+  end;
+
+  Inc(CharPtr);
+
+  if CharPtr < EndPtr then begin
+    SetLength(result, EndPtr - CharPtr);
+    Utils.CopyMem((EndPtr - CharPtr) * sizeof(CharPtr^), CharPtr, @result[1]);
+  end;
+end; // .function ExtractFileNameW
 
 end.
