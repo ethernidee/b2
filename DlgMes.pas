@@ -177,10 +177,10 @@ begin
   SetLength(ResArr, Length(Vars));
   
   for i := 0 to High(Vars) do begin
-    ResArr[i] :=  VarToString(Vars[i]);
+    ResArr[i] := VarToString(Vars[i]);
   end; // .for
   
-  result  :=  StrLib.Join(ResArr, #13#10);
+  result := StrLib.Join(ResArr, #13#10);
 end; // .function ToString
 
 function PArrItemToString (var PArrItem: pointer; VarType: integer): string;

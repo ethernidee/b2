@@ -13,31 +13,50 @@ type
    public
     procedure Init;
     procedure Enter;
+    procedure SafeEnter (var ThreadVar_SectionEntered: boolean);
     procedure Leave;
+    procedure SafeLeave (var ThreadVar_SectionEntered: boolean);
     procedure Delete;
   end; // .record TCritSection
 
 
-implementation
+(***)  implementation  (***)
+
 
 procedure TCritSection.Init;
 begin
   Windows.InitializeCriticalSection(fCritSection);
-end; // .procedure TCritSection.Init
+end;
 
 procedure TCritSection.Enter;
 begin
   Windows.EnterCriticalSection(fCritSection);
-end; // .procedure TCritSection.Enter
+end;
+
+procedure TCritSection.SafeEnter (var ThreadVar_SectionEntered: boolean);
+begin
+  if not ThreadVar_SectionEntered then begin
+    Windows.EnterCriticalSection(fCritSection);
+    ThreadVar_SectionEntered := true;
+  end;
+end;
 
 procedure TCritSection.Leave;
 begin
   Windows.LeaveCriticalSection(fCritSection);
-end; // .procedure TCritSection.Leave
+end;
+
+procedure TCritSection.SafeLeave (var ThreadVar_SectionEntered: boolean);
+begin
+  if ThreadVar_SectionEntered then begin
+    Windows.LeaveCriticalSection(fCritSection);
+    ThreadVar_SectionEntered := false;
+  end;
+end;
 
 procedure TCritSection.Delete;
 begin
   Windows.DeleteCriticalSection(fCritSection);
-end; // .procedure TCritSection.Delete
+end;
 
 end.

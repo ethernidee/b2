@@ -10,7 +10,7 @@ TODO: Log all redirected api address, ex. kernel32 => api-ms...
 uses
   Windows, SysUtils, Math, MMSystem,
   Utils, Crypto, Lists, DataLib, StrLib, StrUtils, Files, Log, TypeWrappers,
-  PatchApi, Core, Ini, WinUtils, DlgMes (* DELETEME *);
+  PatchApi, Core, Ini, WinUtils, Concur, DlgMes;
 
 (*
   Redirects calls to:
@@ -85,10 +85,10 @@ var
   hSearch: integer = 1;
 
   CachedPathsCritSection: Windows.TRTLCriticalSection;
-  FileSearchCritSection:  Windows.TRTLCriticalSection;
+  FileSearchCritSection:  Concur.TCritSection;
   FileSearchInProgress:   boolean = false;
   CurrDirCritSection:     Windows.TRTLCriticalSection;
-  VfsCritSection:         Windows.TRTLCriticalSection;
+  VfsCritSection:         Concur.TCritSection;
 
   NativeGetFileAttributesW: function (FilePath: PWideChar): integer; stdcall;
   NativeCreateFileW:        function (lpFileName: PWideChar; dwDesiredAccess, dwShareMode: DWORD; lpSecurityAttributes: PSecurityAttributes;
@@ -764,20 +764,24 @@ begin
   VfsItem := nil;
   // * * * * * //
   result := '';
-  
-  {!} Windows.EnterCriticalSection(VfsCritSection);
 
-  VfsItem := VfsItems[WideStrToCaselessKey(AbsVirtPath)];
+  with VfsCritSection do begin
+    Enter;
 
-  if VfsItem <> nil then begin
-    result := VfsItem.RealPath;
+    if VfsIsRunning then begin
+      VfsItem := VfsItems[WideStrToCaselessKey(AbsVirtPath)];
 
-    if FileInfo <> nil then begin
-      FileInfo^ := VfsItem.Info;
-    end;
-  end;
+      if VfsItem <> nil then begin
+        result := VfsItem.RealPath;
 
-  {!} Windows.LeaveCriticalSection(VfsCritSection);
+        if FileInfo <> nil then begin
+          FileInfo^ := VfsItem.Info;
+        end;
+      end;
+    end; // .if
+
+    Leave;
+  end; // .with
 end; // .function GetVfsItemRealPath
 
 function AllocSearchHandle ({U} var {OUT} DirListing: TDirListing): integer;
@@ -812,9 +816,9 @@ begin
   end;
 end; // .function AllocSearchHandle
 
-procedure ReleaseSearchHandle (hSearch: integer);
+function ReleaseSearchHandle (hSearch: integer): boolean;
 begin
-  SearchHandles.DeleteItem(Ptr(hSearch));
+  result := SearchHandles.DeleteItem(Ptr(hSearch));
 end;
 
 function GetSearchData (SearchHandle: integer): {n} TDirListing;
@@ -1114,17 +1118,13 @@ var
 {U}  ItemFromVfs:      TVfsItem;
 {U}  DirListing:       TDirListing;
 {U}  FirstResult:      Windows.PWin32FindDataW;
+     IsStandardSearch: boolean;
      FullPath:         WideString;
      VirtDirPath:      WideString;
      SearchPattern:    WideString;
      OrigPathA:        string;
      FirstResultNameA: string;
      i:                integer;
-
-  procedure SafeLeaveCritSection;
-  begin
-    
-  end;
 
 begin
   DirVfsItem    := nil;
@@ -1133,60 +1133,72 @@ begin
   DirListing    := nil;
   FirstResult   := nil;
   // * * * * * //
-  if FileSearchInProgress or not ((fInfoLevelId = Windows.FindExInfoStandard) and (fSearchOp = Windows.FindExSearchNameMatch) and (lpSearchFilter = nil) and (dwAdditionalFlags = 0)) then begin
-    result := NativeFindFirstFileExW(lpFileName, fInfoLevelId, lpFindFileData, fSearchOp, lpSearchFilter, dwAdditionalFlags);
-  end else begin
-    FullPath := ExpandPath(lpFileName);
+  with FileSearchCritSection do begin
+    Enter;
 
-    if DebugOpt then begin
-      StrLib.PWideCharToAnsi(lpFileName, OrigPathA);
-    end;
+    IsStandardSearch := (fInfoLevelId = Windows.FindExInfoStandard) and (fSearchOp = Windows.FindExSearchNameMatch) and (lpSearchFilter = nil) and (dwAdditionalFlags = 0);
 
-    // Disallow empty or '\'-ending paths
-    if (FullPath = '') or (FullPath[Length(FullPath)] = '\') then begin
+    if FileSearchInProgress or not IsStandardSearch then begin
+      result := NativeFindFirstFileExW(lpFileName, fInfoLevelId, lpFindFileData, fSearchOp, lpSearchFilter, dwAdditionalFlags);
+    end else begin
+      FullPath := ExpandPath(lpFileName);
+
       if DebugOpt then begin
-        Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: INVALID_HANDLE_VALUE');
+        StrLib.PWideCharToAnsi(lpFileName, OrigPathA);
       end;
 
-      Windows.SetLastError(Windows.ERROR_INVALID_PARAMETER);
-      result := Windows.INVALID_HANDLE_VALUE;
-    end
-    // Non-empty path, dividable into directory path and pattern
-    else begin
-      AddedVfsItems := DataLib.NewDict(not Utils.OWNS_ITEMS, DataLib.CASE_SENSITIVE);
-      
-      {!} Windows.EnterCriticalSection(VfsCritSection);
-      FileSearchInProgress := true;
-      
-      result := AllocSearchHandle(DirListing);
+      // Disallow empty or '\'-ending paths
+      if (FullPath = '') or (FullPath[Length(FullPath)] = '\') then begin
+        if DebugOpt then begin
+          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: INVALID_HANDLE_VALUE');
+        end;
 
-      if result <> Windows.INVALID_HANDLE_VALUE then begin
-        DirVfsItem := VfsItems[NormalizePath(FullPath)];
+        Windows.SetLastError(Windows.ERROR_INVALID_PARAMETER);
+        result := Windows.INVALID_HANDLE_VALUE;
+      end
+      // Non-empty path, dividable into directory path and pattern
+      else begin
+        AddedVfsItems := DataLib.NewDict(not Utils.OWNS_ITEMS, DataLib.CASE_SENSITIVE);
+        result        := AllocSearchHandle(DirListing);
 
-        // Request for directory itself, record is found in VFS
-        if DirVfsItem <> nil then begin
-          DirListing.AddItem(@DirVfsItem.Info);
-        end
-        // Request with parent directory and files pattern
-        else begin
-          VirtDirPath   := StrLib.ExtractDirPathW(FullPath);
-          SearchPattern := StrLib.WideLowerCase(StrLib.ExtractFileNameW(FullPath));
-          DirVfsItem    := VfsItems[NormalizePath(VirtDirPath)];
+        if result <> Windows.INVALID_HANDLE_VALUE then begin
+          with VfsCritSection do begin
+            Enter;
 
-          // Found VFS directory, copy its items, that match pattern and remember copied names
-          if (DirVfsItem <> nil) and (DirVfsItem.Children <> nil) then begin
-            for i := 0 to DirVfsItem.Children.Count - 1 do begin
-              ItemFromVfs := TVfsItem(DirVfsItem.Children[i]);
+            DirVfsItem := VfsItems[NormalizePath(FullPath)];
 
-              if StrLib.MatchW(ItemFromVfs.SearchName, SearchPattern) then begin
-                AddedVfsItems[WideStrToCaselessKey(ItemFromVfs.SearchName)] := Ptr(1);
-                DirListing.AddItem(@ItemFromVfs.Info);
+            // Request for directory itself, record is found in VFS
+            if DirVfsItem <> nil then begin
+              DirListing.AddItem(@DirVfsItem.Info);
+            end
+            // Request with parent directory and files pattern
+            else begin
+              VirtDirPath   := StrLib.ExtractDirPathW(FullPath);
+              SearchPattern := StrLib.WideLowerCase(StrLib.ExtractFileNameW(FullPath));
+              DirVfsItem    := VfsItems[NormalizePath(VirtDirPath)];
+
+              // Found VFS directory, copy its items, that match pattern and remember copied names
+              if (DirVfsItem <> nil) and (DirVfsItem.Children <> nil) then begin
+                for i := 0 to DirVfsItem.Children.Count - 1 do begin
+                  ItemFromVfs := TVfsItem(DirVfsItem.Children[i]);
+
+                  if StrLib.MatchW(ItemFromVfs.SearchName, SearchPattern) then begin
+                    AddedVfsItems[WideStrToCaselessKey(ItemFromVfs.SearchName)] := Ptr(1);
+                    DirListing.AddItem(@ItemFromVfs.Info);
+                  end;
+                end;
               end;
-            end;
-          end;
 
-          // Scan real directory
-          RealScanDir(FullPath, AddedVfsItems, DirListing);
+              FileSearchInProgress := true;
+
+              // Scan real directory
+              RealScanDir(FullPath, AddedVfsItems, DirListing);
+
+              FileSearchInProgress := false;
+            end; // .else
+
+            Leave;
+          end; // .with VfsCritSection
 
           FirstResult := DirListing.GetNextItem();
 
@@ -1197,26 +1209,42 @@ begin
           end else begin
             lpFindFileData := FirstResult^;
           end;
-        end; // .else
-      end; // .if
+        end; // .if
+      end; // .else
 
-      FileSearchInProgress := false;
-      {!} Windows.LeaveCriticalSection(VfsCritSection);
+      if DebugOpt then begin
+        if result = Windows.INVALID_HANDLE_VALUE then begin
+          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: INVALID_HANDLE_VALUE');
+        end else begin
+          StrLib.PWideCharToAnsi(lpFindFileData.cFileName, FirstResultNameA);
+          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: ' + SysUtils.IntToStr(integer(result)) + '. Found: "' + FirstResultNameA + '"');
+        end;
+      end;
     end; // .else
 
-    if DebugOpt then begin
-      if result = Windows.INVALID_HANDLE_VALUE then begin
-        Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: INVALID_HANDLE_VALUE');
-      end else begin
-        StrLib.PWideCharToAnsi(lpFindFileData.cFileName, FirstResultNameA);
-        Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: ' + SysUtils.IntToStr(integer(result)) + '. Found: "' + FirstResultNameA + '"');
-      end;
-    end;
-  end; // .else
+    Leave;
+  end; // .with FileSearchCritSection
 end; // .function Hook_FindFirstFileExW
 
-function Hook_FindFirstFileExA (Hook: PatchApi.THiHook; lpFileName: PAnsiChar; fInfoLevelId: TFindexInfoLevels; lpFindFileData: TWIN32FindDataA;
+function Hook_FindFirstFileExA (Hook: PatchApi.THiHook; lpFileName: PAnsiChar; fInfoLevelId: TFindexInfoLevels; var lpFindFileData: TWIN32FindDataA;
                                 fSearchOp: TFindexSearchOps; lpSearchFilter: Pointer; dwAdditionalFlags: DWORD): THandle; stdcall;
+var
+  FileInfo: Windows.TWin32FindDataW;
+
+begin
+  result := THandle(Windows.FindFirstFileExW(PWideChar(WideString(String(lpFileName))), fInfoLevelId, @FileInfo, fSearchOp, lpSearchFilter, dwAdditionalFlags));
+
+  if result <> Windows.INVALID_HANDLE_VALUE then begin
+    ConvertWin32FindDataToAnsi(@FileInfo, @lpFindFileData);
+  end;
+end;
+
+function Hook_FindFirstFileW (Hook: PatchApi.THiHook; lpFileName: PWideChar; var lpFindFileData: TWIN32FindDataW): THandle; stdcall;
+begin
+  result := THandle(Windows.FindFirstFileExW(lpFileName, Windows.FindExInfoStandard, @lpFindFileData, Windows.FindExSearchNameMatch, nil, 0));
+end;
+
+function Hook_FindFirstFileA (Hook: PatchApi.THiHook; lpFileName: PAnsiChar; var lpFindFileData: TWIN32FindDataA): THandle; stdcall;
 var
   FileInfo: Windows.TWin32FindDataW;
 
@@ -1240,52 +1268,54 @@ begin
   DirListing := nil;
   FileInfo   := nil;
   // * * * * * //
-  // Real search or real/invalid handle (pointer)
-  if FileSearchInProgress or (hFindFile <= 0) or (hFindFile > MAX_SEARCH_HANDLE) then begin
-    result := NativeFindNextFileW(hFindFile, lpFindFileData);
-  end
-  // Virtual search handle
-  else begin
-    {!} Windows.EnterCriticalSection(VfsCritSection);
+  with FileSearchCritSection do begin
+    Enter;
 
-    result     := false;
-    Status     := Windows.ERROR_SUCCESS;
-    DirListing := GetSearchData(integer(hFindFile));
+    // Real search or real/invalid handle (pointer)
+    if FileSearchInProgress or (hFindFile <= 0) or (hFindFile > MAX_SEARCH_HANDLE) then begin
+      result := NativeFindNextFileW(hFindFile, lpFindFileData);
+    end
+    // Virtual search handle
+    else begin
+      result     := false;
+      Status     := Windows.ERROR_SUCCESS;
+      DirListing := GetSearchData(integer(hFindFile));
 
-    if DirListing = nil then begin
-      Windows.SetLastError(Windows.ERROR_INVALID_HANDLE);
-      Status := ERROR_INVALID_HANDLE;
-    end else begin
-      FileInfo := DirListing.GetNextItem();
-
-      if FileInfo = nil then begin
-        Windows.SetLastError(Windows.ERROR_NO_MORE_FILES);
-        Status := Windows.ERROR_NO_MORE_FILES;
+      if DirListing = nil then begin
+        Windows.SetLastError(Windows.ERROR_INVALID_HANDLE);
+        Status := ERROR_INVALID_HANDLE;
       end else begin
-        Windows.SetLastError(Windows.ERROR_SUCCESS);
-        lpFindFileData := FileInfo^;
-        result         := true;
-      end;
+        FileInfo := DirListing.GetNextItem();
+
+        if FileInfo = nil then begin
+          Windows.SetLastError(Windows.ERROR_NO_MORE_FILES);
+          Status := Windows.ERROR_NO_MORE_FILES;
+        end else begin
+          Windows.SetLastError(Windows.ERROR_SUCCESS);
+          lpFindFileData := FileInfo^;
+          result         := true;
+        end;
+      end; // .else
+
+      if DebugOpt then begin
+        if result then begin
+          StrLib.PWideCharToAnsi(@FileInfo.cFileName, FileNameA);
+          Log.Write('VFS', 'FindNextFileW', SysUtils.Format('Handle: %x. Result: "%s"', [integer(hFindFile), FileNameA]));
+        end else begin
+          case Status of
+            Windows.ERROR_INVALID_HANDLE: ErrorName := 'ERROR_INVALID_HANDLE';
+            Windows.ERROR_NO_MORE_FILES:  ErrorName := 'ERROR_NO_MORE_FILES';
+          else
+            ErrorName := 'UNKNOWN_ERROR';
+          end;
+          
+          Log.Write('VFS', 'FindNextFileW', SysUtils.Format('Handle: %x. Result: %s', [integer(hFindFile), ErrorName]));
+        end; // .else
+      end; // .if
     end; // .else
 
-    {!} Windows.LeaveCriticalSection(VfsCritSection);
-
-    if DebugOpt then begin
-      if result then begin
-        StrLib.PWideCharToAnsi(@FileInfo.cFileName, FileNameA);
-        Log.Write('VFS', 'FindNextFileW', SysUtils.Format('Handle: %x. Result: "%s"', [integer(hFindFile), FileNameA]));
-      end else begin
-        case Status of
-          Windows.ERROR_INVALID_HANDLE: ErrorName := 'ERROR_INVALID_HANDLE';
-          Windows.ERROR_NO_MORE_FILES:  ErrorName := 'ERROR_NO_MORE_FILES';
-        else
-          ErrorName := 'UNKNOWN_ERROR';
-        end;
-        
-        Log.Write('VFS', 'FindNextFileW', SysUtils.Format('Handle: %x. Result: %s', [integer(hFindFile), ErrorName]));
-      end; // .else
-    end; // .if
-  end; // .else
+    Leave;
+  end; // .with FileSearchCritSection
 end; // .function Hook_FindNextFileW
 
 function Hook_FindNextFileA (Hook: PatchApi.THiHook; hFindFile: THandle; var lpFindFileData: TWIN32FindDataA): BOOL; stdcall;
@@ -1302,36 +1332,25 @@ end;
 
 function Hook_FindClose (Hook: PatchApi.THiHook; hFindFile: THandle): BOOL; stdcall;
 begin
-  {!} Windows.EnterCriticalSection(FileSearchCritSection);
+  with FileSearchCritSection do begin
+    Enter;
 
-  if FileSearchInProgress or (hFindFile < 1) or (hFindFile >= MAX_SEARCH_HANDLE) then begin
-    {!} Windows.LeaveCriticalSection(FileSearchCritSection);
-
-    result := BOOL(PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [hFindFile]));
-  end else begin
-    if DebugOpt then begin
-      Log.Write('VFS', 'FindClose', 'Handle: ' + SysUtils.IntToStr(hFindFile))
-    end; // .if
-
-    result := SearchHandles[Ptr(hFindFile)] <> nil;
-
-    if result then begin
-      SearchHandles.DeleteItem(Ptr(hFindFile));
-      Windows.SetLastError(Windows.ERROR_SUCCESS);
+    // Native search or native/invalid handle
+    if FileSearchInProgress or (hFindFile <= 0) or (hFindFile > MAX_SEARCH_HANDLE) then begin
+      result := NativeFindClose(hFindFile);
+    end
+    // Closing VFS search handle
+    else begin
+      result := ReleaseSearchHandle(integer(hFindFile));
+      Windows.SetLastError(Utils.IfThen(result, Windows.ERROR_SUCCESS, Windows.ERROR_INVALID_HANDLE));
 
       if DebugOpt then begin
-        Log.Write('VFS', 'FindClose', 'result: ERROR_SUCCESS');
-      end; // .if
-    end else begin
-      Windows.SetLastError(Windows.ERROR_INVALID_HANDLE);
+        Log.Write('VFS', 'FindClose', Format('Handle: . Result: ', [integer(hFindFile), Utils.IfThen(result, 'ERROR_SUCCESS', 'ERROR_INVALID_HANDLE')]));
+      end;
+    end;
 
-      if DebugOpt then begin
-        Log.Write('VFS', 'FindClose', 'result: ERROR_INVALID_HANDLE');
-      end; // .if
-    end; // .else
-
-    {!} Windows.LeaveCriticalSection(FileSearchCritSection);
-  end; // .else
+    Leave;
+  end; // .with FileSearchCritSection;
 end; // .function Hook_FindClose
 
 function Hook_GetPrivateProfileStringA (Hook: PatchApi.THiHook;
@@ -1391,15 +1410,17 @@ end;
 
 procedure ResetVfs;
 begin
-  {!} Windows.EnterCriticalSection(VfsCritSection);
+  with VfsCritSection do begin
+    Enter;
 
-  if VfsIsRunning then begin
-    VfsItems.Clear();
-    VfsIsRunning := false;
+    if VfsIsRunning then begin
+      VfsItems.Clear();
+      VfsIsRunning := false;
+    end;
+
+    Leave;
   end;
-
-  {!} Windows.LeaveCriticalSection(VfsCritSection);
-end;
+end; // .procedure ResetVfs
 
 procedure InstallVfsHooks;
 var
@@ -1514,6 +1535,26 @@ begin
       @Hook_FindFirstFileExA,
     );
 
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileW hook');
+    Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'FindFirstFileW'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_FindFirstFileW,
+    );
+
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
+    Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_FindFirstFileA,
+    );
+
     if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileW hook');
     NativeFindNextFileW := pointer(Core.p.WriteHiHook
     (
@@ -1550,17 +1591,19 @@ end; // .procedure InstallVfsHooks
 
 procedure RunVfs (DirListingOrder: TDirListingSortType);
 begin
-  {!} Windows.EnterCriticalSection(VfsCritSection);
+  with VfsCritSection do begin
+    Enter;
 
-  if not VfsIsRunning then begin
-    RebuildVfsItemsTree();
-    SortVfsDirListings(DirListingOrder);
-    InstallVfsHooks();
-    VfsIsRunning := true;
-  end;
+    if not VfsIsRunning then begin
+      RebuildVfsItemsTree();
+      SortVfsDirListings(DirListingOrder);
+      InstallVfsHooks();
+      VfsIsRunning := true;
+    end;
 
-  {!} Windows.LeaveCriticalSection(VfsCritSection);
-end;
+    Leave;
+  end; // .with VfsCritSection
+end; // .procedure RunVfs
 
 procedure AssertHandler (const Mes, FileName: string; LineNumber: integer; Address: pointer);
 var
@@ -1658,10 +1701,8 @@ function String2Hex(const Buffer: Ansistring): string;
  s: string;
 
 begin
-  Windows.InitializeCriticalSection(CachedPathsCritSection);
-  Windows.InitializeCriticalSection(FileSearchCritSection);
-  Windows.InitializeCriticalSection(CurrDirCritSection);
-  Windows.InitializeCriticalSection(VfsCritSection);
+  FileSearchCritSection.Init;
+  VfsCritSection.Init;
 
   AssertErrorProc := AssertHandler;
 
