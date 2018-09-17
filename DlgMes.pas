@@ -41,7 +41,7 @@ function  VarToString (const VarRec: TVarRec): string;
 function  ToString (const Vars: array of const): string;
 function  PArrItemToString (var PArrItem: pointer; VarType: integer): string;
 function  PVarToString (PVar: pointer; VarType: integer): string;
-procedure VarDump (const Vars: array of const; const Title: string);
+procedure VarDump (const Vars: array of const; const Title: string = 'VAR DUMP');
 procedure ArrDump
 (
   const Arr:        pointer;

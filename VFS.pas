@@ -4,11 +4,15 @@ DESCRIPTION:  Virtual File System
 AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 
 TODO: Log all redirected api address, ex. kernel32 => api-ms...
+
+!!!!!!!!!!!!! Due to OPEN_EXISTING and TRUNCATE_EXITING VFS does not guarantee, that mod files will not
+be changed(!).
+Drives (root directories) cannot be mapped to (insufficient support).
 }
 
 (***)  interface  (***)
 uses
-  Windows, SysUtils, Math, MMSystem,
+  Windows, WinNative, SysUtils, Math, MMSystem,
   Utils, Crypto, Lists, DataLib, StrLib, StrUtils, Files, Log, TypeWrappers,
   PatchApi, Core, Ini, WinUtils, Concur, DlgMes;
 
@@ -54,7 +58,7 @@ type
   end; // .class TSearchList
 
   TDirListing = class
-   protected
+   public(*FIXME to private*)
     {O} FileList: {O} DataLib.TList {OF TFileInfo};
         FileInd:  integer;
 
@@ -67,7 +71,6 @@ type
   end; // .class TDirListing
 
   TDirListingSortType = (SORT_FIFO, SORT_LIFO);
-
 
 var
 {O} ModList: Lists.TStringList;
@@ -99,6 +102,8 @@ var
                                       fSearchOp: TFindexSearchOps; lpSearchFilter: Pointer; dwAdditionalFlags: DWORD): THandle; stdcall;
   NativeFindNextFileW:      function (hFindFile: THandle; var lpFindFileData: TWIN32FindDataW): BOOL; stdcall;
   NativeFindClose:          function (hFindFile: THandle): BOOL; stdcall;
+  NativeNtOpenFile:         function (FileHandle: THandle; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES;
+                                      IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall;
 
   Kernel32Handle: integer;
   User32Handle:   integer;
@@ -223,7 +228,7 @@ begin
   result := nil;
   // * * * * * //
   if Self.FileInd < Self.FileList.Count then begin
-    result := Self.FileList[Self.FileInd];
+    result := @TFileInfo(Self.FileList[Self.FileInd]).Data;
     Inc(Self.FileInd);
   end;
 end;
@@ -855,7 +860,7 @@ begin
   SortNativeDirListing(Items);
 
   for i := 0 to Items.Count - 1 do begin
-    DirListing.AddItem(@Item.Info);
+    DirListing.AddItem(@TVfsItem(Items[i]).Info);
   end;
   // * * * * * //
   SysUtils.FreeAndNil(Items);
@@ -912,12 +917,14 @@ var
   RedirectedPathA:  string;
 
 begin
-  UseRedirection := ((dwCreationDisposition and Windows.OPEN_EXISTING) = Windows.OPEN_EXISTING) and ((dwDesiredAccess and Windows.GENERIC_WRITE) <> Windows.GENERIC_WRITE);
+  UseRedirection := ((dwCreationDisposition and Windows.OPEN_EXISTING) = Windows.OPEN_EXISTING) or ((dwCreationDisposition and Windows.TRUNCATE_EXISTING) = Windows.TRUNCATE_EXISTING);
 
   if UseRedirection then begin
     RedirectedPath := GetVfsItemRealPath(NormalizePath(lpFileName, @HadTrailingDelim));
     UseRedirection := RedirectedPath <> '';
   end;
+
+  Log.Write('VFS', 'CreateFileW', Format('Searched VFS for %s. Disposition: %x. Access: %x', [NormalizePath(lpFileName), dwCreationDisposition, dwDesiredAccess]));
 
   if DebugOpt then begin
     StrLib.PWideCharToAnsi(lpFileName, OrigPathA);
@@ -937,7 +944,7 @@ begin
 
     result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [PWideChar(RedirectedPath), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile]);
   end else begin
-    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile]);
+    result := NativeCreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
   end;
 end; // .function Hook_CreateFileW
 
@@ -952,7 +959,7 @@ end; // .function Hook_CreateFileA
 
 function Hook_OpenFile (Hook: PatchApi.THiHook; const lpFileName: LPCSTR; var lpReOpenBuff: TOFStruct; uStyle: UINT): THandle; stdcall;
 const
-  NOT_SUPPORTED_FLAGS = Windows.OF_CREATE or Windows.OF_DELETE or Windows.OF_READWRITE or Windows.OF_WRITE;
+  NOT_SUPPORTED_FLAGS = Windows.OF_CREATE or Windows.OF_DELETE;
 
 var
   UseRedirection:   boolean;
@@ -961,6 +968,7 @@ var
   RedirectedPathA:  string;
 
 begin
+  {!!!!!!!!!!!!!!!!!!!!!!!!!! The directory where an application is loaded must be searched FIRST}
   UseRedirection := (uStyle and NOT_SUPPORTED_FLAGS) = 0;
 
   if UseRedirection then begin
@@ -1150,7 +1158,7 @@ begin
       // Disallow empty or '\'-ending paths
       if (FullPath = '') or (FullPath[Length(FullPath)] = '\') then begin
         if DebugOpt then begin
-          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: INVALID_HANDLE_VALUE');
+          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: ERROR_INVALID_PARAMETER');
         end;
 
         Windows.SetLastError(Windows.ERROR_INVALID_PARAMETER);
@@ -1175,7 +1183,7 @@ begin
             else begin
               VirtDirPath   := StrLib.ExtractDirPathW(FullPath);
               SearchPattern := StrLib.WideLowerCase(StrLib.ExtractFileNameW(FullPath));
-              DirVfsItem    := VfsItems[NormalizePath(VirtDirPath)];
+              DirVfsItem    := VfsItems[WideStrToCaselessKey(NormalizePath(VirtDirPath))];
 
               // Found VFS directory, copy its items, that match pattern and remember copied names
               if (DirVfsItem <> nil) and (DirVfsItem.Children <> nil) then begin
@@ -1190,10 +1198,12 @@ begin
               end;
 
               FileSearchInProgress := true;
+              VfsIsRunning         := false;
 
               // Scan real directory
-              RealScanDir(FullPath, AddedVfsItems, DirListing);
+              RealScanDir(lpFileName, AddedVfsItems, DirListing);
 
+              VfsIsRunning         := true;
               FileSearchInProgress := false;
             end; // .else
 
@@ -1214,7 +1224,7 @@ begin
 
       if DebugOpt then begin
         if result = Windows.INVALID_HANDLE_VALUE then begin
-          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: INVALID_HANDLE_VALUE');
+          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: INVALID_HANDLE_VALUE. Expanded: ' + FullPath + '. Current Directory: ' + GetCurrentDir());
         end else begin
           StrLib.PWideCharToAnsi(lpFindFileData.cFileName, FirstResultNameA);
           Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: ' + SysUtils.IntToStr(integer(result)) + '. Found: "' + FirstResultNameA + '"');
@@ -1345,7 +1355,7 @@ begin
       Windows.SetLastError(Utils.IfThen(result, Windows.ERROR_SUCCESS, Windows.ERROR_INVALID_HANDLE));
 
       if DebugOpt then begin
-        Log.Write('VFS', 'FindClose', Format('Handle: . Result: ', [integer(hFindFile), Utils.IfThen(result, 'ERROR_SUCCESS', 'ERROR_INVALID_HANDLE')]));
+        Log.Write('VFS', 'FindClose', Format('Handle: %d. Result: %s', [integer(hFindFile), Utils.IfThen(result, 'ERROR_SUCCESS', 'ERROR_INVALID_HANDLE')]));
       end;
     end;
 
@@ -1645,45 +1655,58 @@ begin
 end;
 
 procedure Init ({U} aModList: Lists.TStringList);
-var
-{U} SetProcessDEPPolicyAddr: pointer;
-
 begin
   {!} Assert(aModList <> nil);
-  SetProcessDEPPolicyAddr := nil;
   // * * * * * //
   InitModList(aModList);
   //BuildVfsSnapshot();
+  ResetVfs;
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Phoenix', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG_Native_Dialogs', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Quick Savings', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Secondary Skills Scrolling', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Fast Battle Animation', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Yona', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dlg_ExpaMon', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\BattleHeroes', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Vallex Portraits', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Morn battlefields', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Big Spellbook', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\New Music Pack', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG Rus', DONT_OVERWRITE_EXISTING);
+  RunVfs(SORT_FIFO);
 
-  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
-  Core.p.WriteHiHook
-  (
-    GetRealProcAddress(Kernel32Handle, 'GetPrivateProfileStringA'),
-    PatchApi.SPLICE_,
-    PatchApi.EXTENDED_,
-    PatchApi.STDCALL_,
-    @Hook_GetPrivateProfileStringA,
-  );
+  // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
+  // Core.p.WriteHiHook
+  // (
+  //   GetRealProcAddress(Kernel32Handle, 'GetPrivateProfileStringA'),
+  //   PatchApi.SPLICE_,
+  //   PatchApi.EXTENDED_,
+  //   PatchApi.STDCALL_,
+  //   @Hook_GetPrivateProfileStringA,
+  // );
 
-  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadCursorFromFileA hook');
-  Core.p.WriteHiHook
-  (
-    GetRealProcAddress(User32Handle, 'LoadCursorFromFileA'),
-    PatchApi.SPLICE_,
-    PatchApi.EXTENDED_,
-    PatchApi.STDCALL_,
-    @Hook_LoadCursorFromFileA,
-  );
+  // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadCursorFromFileA hook');
+  // Core.p.WriteHiHook
+  // (
+  //   GetRealProcAddress(User32Handle, 'LoadCursorFromFileA'),
+  //   PatchApi.SPLICE_,
+  //   PatchApi.EXTENDED_,
+  //   PatchApi.STDCALL_,
+  //   @Hook_LoadCursorFromFileA,
+  // );
 
-  if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing PlaySoundA hook');
-  Core.p.WriteHiHook
-  (
-    GetRealProcAddress(Windows.LoadLibrary('winmm.dll'), 'PlaySoundA'),
-    PatchApi.SPLICE_,
-    PatchApi.EXTENDED_,
-    PatchApi.STDCALL_,
-    @Hook_PlaySoundA,
-  );
+  // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing PlaySoundA hook');
+  // Core.p.WriteHiHook
+  // (
+  //   GetRealProcAddress(Windows.LoadLibrary('winmm.dll'), 'PlaySoundA'),
+  //   PatchApi.SPLICE_,
+  //   PatchApi.EXTENDED_,
+  //   PatchApi.STDCALL_,
+  //   @Hook_PlaySoundA,
+  // );
 end; // .procedure Init
 
 function String2Hex(const Buffer: Ansistring): string;
@@ -1713,43 +1736,35 @@ begin
 
   DllRealApiAddrs := DataLib.NewObjDict(Utils.OWNS_ITEMS);
 
-  ResetVfs;
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Phoenix', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG_Native_Dialogs', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Quick Savings', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Secondary Skills Scrolling', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Fast Battle Animation', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Yona', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dlg_ExpaMon', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\BattleHeroes', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Vallex Portraits', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Morn battlefields', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Big Spellbook', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\New Music Pack', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG Rus', DONT_OVERWRITE_EXISTING);
-  RunVfs(SORT_FIFO);
-
-  if SysUtils.FileExists('D:\Heroes 3\Data\s\38 wog - first money.erm') then begin
-    Files.ReadFileContents('D:\Heroes 3\Data\s\38 wog - first money.erm', s);
-  end;
+  // s := '';
   
-  Msg(s);
+  // with Files.Locate('D:\Heroes 3\Data\s\*.erm', FILES_AND_DIRS) do begin
+  //   while (FindNext()) do begin
+  //     s := s + GetFoundName + ' ' + inttostr(GetFoundRec().Rec.Size) + #13#10;
+  //   end;
+  // end;
 
-  s := '';
+  // Msg(s);
 
-  with (TVfsItem(VfsItems[WideStrToCaselessKey('D:\Heroes 3\Data')]).Children) do begin
-    for i := 0 to Count - 1 do begin
-      s := s + TVfsItem(Items[i]).RealPath + ' ' + inttostr(TVfsItem(Items[i]).Priority) + #13#10;
-    end;
-  end;
+  // if SysUtils.FileExists('D:\Heroes 3\Data\s\38 wog - first money.erm') then begin
+  //   Files.ReadFileContents('D:\Heroes 3\Data\s\38 wog - first money.erm', s);
+  // end;
+  
+  // Msg(s);
 
-  Msg(s);
+  // s := '';
+
+  // with (TVfsItem(VfsItems[WideStrToCaselessKey('D:\Heroes 3\Data\s')]).Children) do begin
+  //   for i := 0 to Count - 1 do begin
+  //     s := s + TVfsItem(Items[i]).RealPath + ' ' + inttostr(TVfsItem(Items[i]).Priority) + #13#10;
+  //   end;
+  // end;
+
+  // Msg(s);
 
   //Msg(Utils.IfThen(MatchW('tests24523', 't?s*23'), 'Match', 'Not Match'));
 
   //RedirectFile('D:/heroes 3/h3ERA.exe', 'D:\soft\games\heroes3\era\h3era.exe', OVERWRITE_EXISTING);
 
-  Core.KillThisProcess();
+  //Core.KillThisProcess();
 end.
