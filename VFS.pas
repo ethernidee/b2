@@ -102,8 +102,7 @@ var
                                       fSearchOp: TFindexSearchOps; lpSearchFilter: Pointer; dwAdditionalFlags: DWORD): THandle; stdcall;
   NativeFindNextFileW:      function (hFindFile: THandle; var lpFindFileData: TWIN32FindDataW): BOOL; stdcall;
   NativeFindClose:          function (hFindFile: THandle): BOOL; stdcall;
-  NativeNtOpenFile:         function (FileHandle: THandle; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES;
-                                      IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall;
+  NativeNtOpenFile:         WinNative.TNtOpenFile;
 
   Kernel32Handle: integer;
   User32Handle:   integer;
@@ -1363,6 +1362,33 @@ begin
   end; // .with FileSearchCritSection;
 end; // .function Hook_FindClose
 
+function Hook_NtOpenFile (Hook: PatchApi.THiHook; FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES;
+                          IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall;
+var
+  UseRedirection: boolean;
+  FilePath:       WideString;
+  OrigPathA:      string;
+
+begin
+  // FilePath := WideStringFromBuf(ObjectAttributes.ObjectName.Buffer, ObjectAttributes.ObjectName.GetLength());
+
+  // if DebugOpt then begin
+  //   StrLib.PWideCharToAnsi(PWideChar(FilePath), OrigPathA);
+  // end;
+
+  // // Disallow empty or '\'-ending paths
+  // if (FullPath = '') then begin
+  //   if DebugOpt then begin
+  //     Log.Write('VFS', 'NtOpenFile', 'Path: "' + OrigPathA + '". Result: ERROR_INVALID_PARAMETER');
+  //   end;
+
+  //   Windows.SetLastError(Windows.ERROR_INVALID_PARAMETER);
+  //   result := Windows.INVALID_HANDLE_VALUE;
+  // end
+
+  result := NativeNtOpenFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+end; // .function Hook_NtOpenFile
+
 function Hook_GetPrivateProfileStringA (Hook: PatchApi.THiHook;
                                         lpAppName, lpKeyName, lpDefault: PAnsiChar;
                                         lpReturnedString: PAnsiChar; nSize: DWORD;
@@ -1437,11 +1463,13 @@ var
 {U} SetProcessDEPPolicyAddr: pointer;
     Kernel32Handle: integer;
     User32Handle:   integer;
+    NtdllHandle:    integer;
 
 begin
   if not VfsHooksInstalled then begin
     Kernel32Handle := Windows.GetModuleHandle('kernel32.dll');
     User32Handle   := Windows.GetModuleHandle('user32.dll');
+    NtdllHandle    := Windows.GetModuleHandle('ntdll.dll');
     FindOutRealSystemApiAddrs([Kernel32Handle, User32Handle]);
 
     (* Trying to turn off DEP *)
@@ -1593,6 +1621,16 @@ begin
       PatchApi.EXTENDED_,
       PatchApi.STDCALL_,
       @Hook_FindClose,
+    ).GetDefaultFunc());
+
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing ZwOpenFile hook');
+    NativeNtOpenFile := pointer(Core.p.WriteHiHook
+    (
+      GetProcAddress(NtdllHandle, 'ZwOpenFile'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_NtOpenFile,
     ).GetDefaultFunc());
 
     VfsHooksInstalled := true;

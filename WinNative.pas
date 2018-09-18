@@ -38,9 +38,11 @@ type
   PCOEM_STRING = POEM_STRING;
 
   _UNICODE_STRING = packed record
-    Length: USHORT;
-    MaximumLength: USHORT;
+    Length: USHORT; // in bytes
+    MaximumLength: USHORT; // in bytes
     Buffer: PWSTR;
+
+    function GetLength (): integer; inline; // in characters
   end;
   
   UNICODE_STRING   = _UNICODE_STRING;
@@ -76,6 +78,110 @@ type
   PIO_STATUS_BLOCK = ^IO_STATUS_BLOCK;
   TIoStatusBlock   = IO_STATUS_BLOCK;
   PIoStatusBlock   = ^TIoStatusBlock;
+
+type
+  _FILE_INFORMATION_CLASS = (
+    FileDirectoryInformation = 1              ,
+    FileFullDirectoryInformation              ,
+    FileBothDirectoryInformation              ,
+    FileBasicInformation                      ,
+    FileStandardInformation                   ,
+    FileInternalInformation                   ,
+    FileEaInformation                         ,
+    FileAccessInformation                     ,
+    FileNameInformation                       ,
+    FileRenameInformation                     ,
+    FileLinkInformation                       ,
+    FileNamesInformation                      ,
+    FileDispositionInformation                ,
+    FilePositionInformation                   ,
+    FileFullEaInformation                     ,
+    FileModeInformation                       ,
+    FileAlignmentInformation                  ,
+    FileAllInformation                        ,
+    FileAllocationInformation                 ,
+    FileEndOfFileInformation                  ,
+    FileAlternateNameInformation              ,
+    FileStreamInformation                     ,
+    FilePipeInformation                       ,
+    FilePipeLocalInformation                  ,
+    FilePipeRemoteInformation                 ,
+    FileMailslotQueryInformation              ,
+    FileMailslotSetInformation                ,
+    FileCompressionInformation                ,
+    FileObjectIdInformation                   ,
+    FileCompletionInformation                 ,
+    FileMoveClusterInformation                ,
+    FileQuotaInformation                      ,
+    FileReparsePointInformation               ,
+    FileNetworkOpenInformation                ,
+    FileAttributeTagInformation               ,
+    FileTrackingInformation                   ,
+    FileIdBothDirectoryInformation            ,
+    FileIdFullDirectoryInformation            ,
+    FileValidDataLengthInformation            ,
+    FileShortNameInformation                  ,
+    FileIoCompletionNotificationInformation   ,
+    FileIoStatusBlockRangeInformation         ,
+    FileIoPriorityHintInformation             ,
+    FileSfioReserveInformation                ,
+    FileSfioVolumeInformation                 ,
+    FileHardLinkInformation                   ,
+    FileProcessIdsUsingFileInformation        ,
+    FileNormalizedNameInformation             ,
+    FileNetworkPhysicalNameInformation        ,
+    FileIdGlobalTxDirectoryInformation        ,
+    FileIsRemoteDeviceInformation             ,
+    FileUnusedInformation                     ,
+    FileNumaNodeInformation                   ,
+    FileStandardLinkInformation               ,
+    FileRemoteProtocolInformation             ,
+    FileRenameInformationBypassAccessCheck    ,
+    FileLinkInformationBypassAccessCheck      ,
+    FileVolumeNameInformation                 ,
+    FileIdInformation                         ,
+    FileIdExtdDirectoryInformation            ,
+    FileReplaceCompletionInformation          ,
+    FileHardLinkFullIdInformation             ,
+    FileIdExtdBothDirectoryInformation        ,
+    FileDispositionInformationEx              ,
+    FileRenameInformationEx                   ,
+    FileRenameInformationExBypassAccessCheck  ,
+    FileDesiredStorageClassInformation        ,
+    FileStatInformation                       ,
+    FileMemoryPartitionInformation            ,
+    FileStatLxInformation                     ,
+    FileCaseSensitiveInformation              ,
+    FileMaximumInformation
+  ); // _FILE_INFORMATION_CLASS
+  
+  FILE_INFORMATION_CLASS  = _FILE_INFORMATION_CLASS;
+  TFileInformationClass   = FILE_INFORMATION_CLASS;
+
+//
+// Large (64-bit) integer types and operations
+//
+
+type
+  LPLARGE_INTEGER = ^LARGE_INTEGER;
+  _LARGE_INTEGER  = Windows._LARGE_INTEGER;
+  LARGE_INTEGER   = Windows.LARGE_INTEGER;
+  TLargeInteger   = Windows.TLargeInteger;
+
+  PLARGE_INTEGER = ^LARGE_INTEGER;
+  PLargeInteger  = LPLARGE_INTEGER;
+
+  LPULARGE_INTEGER = ^ULARGE_INTEGER;
+
+  ULARGE_INTEGER = Windows.ULARGE_INTEGER;
+  TULargeInteger = Windows.TULargeInteger;
+  PULargeInteger = Windows.PULargeInteger;
+
+  PULARGE_INTEGER = ^ULARGE_INTEGER;
+
+  TIME  = LARGE_INTEGER;
+  _TIME = _LARGE_INTEGER;
+  PTIME = PLARGE_INTEGER;
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -152,11 +258,46 @@ type
 ////////////////////////////////////////////////////////////////////////
 
 type
-  TNtOpenFile = function (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK;  ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall;
+  TNtOpenFile = function (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall;
+  
+  TNtCreateFile = function(FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
+                           FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall;
+
+  TNtQueryInformationFile = function (FileHandle: HANDLE; PIO_STATUS_BLOCK: TIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: FILE_INFORMATION_CLASS): NTSTATUS; stdcall;
+
+
+function NT_SUCCESS     (Status: NTSTATUS): boolean; inline;
+function NT_INFORMATION (Status: NTSTATUS): boolean; inline;
+function NT_WARNING     (Status: NTSTATUS): boolean; inline;
+function NT_ERROR       (Status: NTSTATUS): boolean; inline;
 
 
 (***)  implementation  (***)
 
 
+function _UNICODE_STRING.GetLength: integer;
+begin
+  result := Self.Length shr 1;
+end;
+
+function NT_SUCCESS (Status: NTSTATUS): boolean; inline;
+begin
+  result := Status >= 0;
+end;
+
+function NT_INFORMATION (Status: NTSTATUS): boolean; inline;
+begin
+  result := (Status shr 30) = 1;
+end;
+
+function NT_WARNING (Status: NTSTATUS): boolean; inline;
+begin
+  result := (Status shr 30) = 2;
+end;
+
+function NT_ERROR (Status: NTSTATUS): boolean; inline;
+begin
+  result := (Status shr 30) = 3;
+end;
 
 end.
