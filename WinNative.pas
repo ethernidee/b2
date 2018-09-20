@@ -7,7 +7,7 @@ unit WinNative;
 (***)  interface  (***)
 
 uses
-  Windows, SysUtils, Utils;
+  Windows, SysUtils, Utils, StrLib;
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -16,6 +16,14 @@ uses
 //                                                                    //
 ////////////////////////////////////////////////////////////////////////
 
+const
+  (* Used in wrappers. Specifies to calculate zero-terminated string length automatically *)
+  AUTO_LENGTH = -1;
+
+  EMPTY_STR = WideString('');
+
+  STATUS_SUCCESS = 0;
+
 type
   NTSTATUS  = Longword;
   USHORT    = word;
@@ -23,7 +31,9 @@ type
   PWSTR     = PWideChar;
   HANDLE    = THandle;
   PVOID     = pointer;
+  LONG      = integer;
   ULONG_PTR = pointer;
+  SIZE_T    = cardinal;
 
   _STRING = packed record
     Length:        USHORT;
@@ -38,12 +48,29 @@ type
   PCOEM_STRING = POEM_STRING;
 
   _UNICODE_STRING = packed record
-    Length: USHORT; // in bytes
+    Length:        USHORT; // in bytes
     MaximumLength: USHORT; // in bytes
-    Buffer: PWSTR;
+    Buffer:        PWSTR;
 
-    function GetLength (): integer; inline; // in characters
-  end;
+    function  GetLength (): integer; inline; // in characters
+    
+    (* Allocates new buffer, copies data and sets up record fields *)
+    procedure AssignNewStr (const Str: WideString); overload;
+    
+    (* Allocates new buffer, copies data and sets up record fields *)
+    procedure AssignNewStr (const {n} Str: PWideChar; NumChars: integer = AUTO_LENGTH); overload;
+
+    (* Changes fields to point to existing buffer, updates buffer size info *)
+    procedure AssignExistingStr (const {n} Str: PWideChar; NumChars: integer = AUTO_LENGTH); overload;
+
+    (* Changes fields to point to existing buffer, updates buffer size info *)
+    procedure AssignExistingStr (Str: WideString); overload;
+    
+    (* Frees buffer, if any and sets Length to 0 *)
+    procedure Release;
+    
+    function  ToWideStr: WideString;
+  end; // .record _UNICODE_STRING
   
   UNICODE_STRING   = _UNICODE_STRING;
   PUNICODE_STRING  = ^UNICODE_STRING;
@@ -184,6 +211,33 @@ type
   PTIME = PLARGE_INTEGER;
 
 
+  PLIST_ENTRY = ^_LIST_ENTRY;
+  _LIST_ENTRY = packed record
+    Flink: PLIST_ENTRY;
+    Blink: PLIST_ENTRY;
+  end;
+  
+  LIST_ENTRY   = _LIST_ENTRY;
+  PRLIST_ENTRY = PLIST_ENTRY;
+
+  PRTL_BITMAP = ^RTL_BITMAP;
+  RTL_BITMAP  = packed record
+    SizeOfBitMap: ULONG;  (* Number of bits in the bitmap *)
+    Buffer:       PULONG; (* Bitmap data, assumed sized to a DWORD boundary *)
+  end;
+  
+  RTL_CRITICAL_SECTION  = record (* implementation dependent *) end;
+  PRTL_CRITICAL_SECTION = ^RTL_CRITICAL_SECTION;
+
+  _CLIENT_ID = packed record
+    UniqueProcess: HANDLE;
+    UniqueThread:  HANDLE;
+  end;
+  
+  CLIENT_ID  = _CLIENT_ID;
+  PCLIENT_ID = ^CLIENT_ID;
+
+
 ////////////////////////////////////////////////////////////////////////
 //                                                                    //
 //                             ACCESS TYPES                           //
@@ -253,6 +307,228 @@ type
 
 ////////////////////////////////////////////////////////////////////////
 //                                                                    //
+//                              PEB, TEB                              //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+
+type
+  _CURDIR = packed record
+    DosPath: UNICODE_STRING;
+    Handle:  Windows.THandle;
+  end;
+  
+  CURDIR  = _CURDIR;
+  PCURDIR = ^CURDIR;
+
+  PRTL_DRIVE_LETTER_CURDIR = ^RTL_DRIVE_LETTER_CURDIR;
+  RTL_DRIVE_LETTER_CURDIR  = packed record
+    Flags:     USHORT;
+    Length:    USHORT;
+    TimeStamp: ULONG;
+    DosPath:   UNICODE_STRING;
+  end;
+
+  _RTL_USER_PROCESS_PARAMETERS = packed record
+    AllocationSize:     ULONG;
+    Size:               ULONG;
+    Flags:              ULONG;
+    DebugFlags:         ULONG;
+    ConsoleHandle:      HANDLE;
+    ConsoleFlags:       ULONG;
+    hStdInput:          HANDLE;
+    hStdOutput:         HANDLE;
+    hStdError:          HANDLE;
+    CurrentDirectory:   CURDIR;
+    DllPath:            UNICODE_STRING;
+    ImagePathName:      UNICODE_STRING;
+    CommandLine:        UNICODE_STRING;
+    Environment:        PWSTR;
+    dwX:                ULONG;
+    dwY:                ULONG;
+    dwXSize:            ULONG;
+    dwYSize:            ULONG;
+    dwXCountChars:      ULONG;
+    dwYCountChars:      ULONG;
+    dwFillAttribute:    ULONG;
+    dwFlags:            ULONG;
+    wShowWindow:        ULONG;
+    WindowTitle:        UNICODE_STRING;
+    Desktop:            UNICODE_STRING;
+    ShellInfo:          UNICODE_STRING;
+    RuntimeInfo:        UNICODE_STRING;
+    DLCurrentDirectory: array [0..31] of RTL_DRIVE_LETTER_CURDIR;
+  end; // .record _RTL_USER_PROCESS_PARAMETERS
+
+  RTL_USER_PROCESS_PARAMETERS  = _RTL_USER_PROCESS_PARAMETERS;
+  PRTL_USER_PROCESS_PARAMETERS = ^RTL_USER_PROCESS_PARAMETERS;
+
+  _PEB_LDR_DATA = packed record
+    Length:                          ULONG;
+    Initialized:                     BOOLEAN;
+    SsHandle:                        PVOID;
+    InLoadOrderModuleList:           LIST_ENTRY;
+    InMemoryOrderModuleList:         LIST_ENTRY;
+    InInitializationOrderModuleList: LIST_ENTRY;
+    EntryInProgress:                 PVOID;
+  end;
+  
+  PEB_LDR_DATA  = _PEB_LDR_DATA;
+  PPEB_LDR_DATA = ^PEB_LDR_DATA;
+
+  _PEB = packed record
+                                                                  (* win32/win64 *)
+    InheritedAddressSpace:          BOOLEAN;                      (* 000/000 *)
+    ReadImageFileExecOptions:       BOOLEAN;                      (* 001/001 *)
+    BeingDebugged:                  BOOLEAN;                      (* 002/002 *)
+    SpareBool:                      BOOLEAN;                      (* 003/003 *)
+    Mutant:                         HANDLE;                       (* 004/008 *)
+    ImageBaseAddress:               HMODULE;                      (* 008/010 *)
+    LdrData:                        PPEB_LDR_DATA;                (* 00c/018 *)
+    ProcessParameters:              ^RTL_USER_PROCESS_PARAMETERS; (* 010/020 *)
+    SubSystemData:                  PVOID;                        (* 014/028 *)
+    ProcessHeap:                    HANDLE;                       (* 018/030 *)
+    FastPebLock:                    PRTL_CRITICAL_SECTION;        (* 01c/038 *)
+    FastPebLockRoutine:             PVOID (*PPEBLOCKROUTINE*);    (* 020/040 *)
+    FastPebUnlockRoutine:           PVOID (*PPEBLOCKROUTINE*);    (* 024/048 *)
+    EnvironmentUpdateCount:         ULONG;                        (* 028/050 *)
+    KernelCallbackTable:            PVOID;                        (* 02c/058 *)
+    Reserved:                       array [0..1] of ULONG;        (* 030/060 *)
+    FreeList:                       PVOID (*PPEB_FREE_BLOCK*);    (* 038/068 *)
+    TlsExpansionCounter:            ULONG;                        (* 03c/070 *)
+    TlsBitmap:                      PRTL_BITMAP;                  (* 040/078 *)
+    TlsBitmapBits:                  array [0..1] of ULONG;        (* 044/080 *)
+    ReadOnlySharedMemoryBase:       PVOID;                        (* 04c/088 *)
+    ReadOnlySharedMemoryHeap:       PVOID;                        (* 050/090 *)
+    ReadOnlyStaticServerData:       ^PVOID;                       (* 054/098 *)
+    AnsiCodePageData:               PVOID;                        (* 058/0a0 *)
+    OemCodePageData:                PVOID;                        (* 05c/0a8 *)
+    UnicodeCaseTableData:           PVOID;                        (* 060/0b0 *)
+    NumberOfProcessors:             ULONG;                        (* 064/0b8 *)
+    NtGlobalFlag:                   ULONG;                        (* 068/0bc *)
+    CriticalSectionTimeout:         LARGE_INTEGER;                (* 070/0c0 *)
+    HeapSegmentReserve:             SIZE_T;                       (* 078/0c8 *)
+    HeapSegmentCommit:              SIZE_T;                       (* 07c/0d0 *)
+    HeapDeCommitTotalFreeThreshold: SIZE_T;                       (* 080/0d8 *)
+    HeapDeCommitFreeBlockThreshold: SIZE_T;                       (* 084/0e0 *)
+    NumberOfHeaps:                  ULONG;                        (* 088/0e8 *)
+    MaximumNumberOfHeaps:           ULONG;                        (* 08c/0ec *)
+    ProcessHeaps:                   ^PVOID;                       (* 090/0f0 *)
+    GdiSharedHandleTable:           PVOID;                        (* 094/0f8 *)
+    ProcessStarterHelper:           PVOID;                        (* 098/100 *)
+    GdiDCAttributeList:             PVOID;                        (* 09c/108 *)
+    LoaderLock:                     PVOID;                        (* 0a0/110 *)
+    OSMajorVersion:                 ULONG;                        (* 0a4/118 *)
+    OSMinorVersion:                 ULONG;                        (* 0a8/11c *)
+    OSBuildNumber:                  ULONG;                        (* 0ac/120 *)
+    OSPlatformId:                   ULONG;                        (* 0b0/124 *)
+    ImageSubSystem:                 ULONG;                        (* 0b4/128 *)
+    ImageSubSystemMajorVersion:     ULONG;                        (* 0b8/12c *)
+    ImageSubSystemMinorVersion:     ULONG;                        (* 0bc/130 *)
+    ImageProcessAffinityMask:       ULONG;                        (* 0c0/134 *)
+    GdiHandleBuffer:                array [0..27] of HANDLE;      (* 0c4/138 *)
+    unknown:                        array [0..5] of ULONG;        (* 134/218 *)
+    PostProcessInitRoutine:         PVOID;                        (* 14c/230 *)
+    TlsExpansionBitmap:             PRTL_BITMAP;                  (* 150/238 *)
+    TlsExpansionBitmapBits:         array [0..31] of ULONG;       (* 154/240 *)
+    SessionId:                      ULONG;                        (* 1d4/2c0 *)
+    AppCompatFlags:                 ULARGE_INTEGER;               (* 1d8/2c8 *)
+    AppCompatFlagsUser:             ULARGE_INTEGER;               (* 1e0/2d0 *)
+    ShimData:                       PVOID;                        (* 1e8/2d8 *)
+    AppCompatInfo:                  PVOID;                        (* 1ec/2e0 *)
+    CSDVersion:                     UNICODE_STRING;               (* 1f0/2e8 *)
+    ActivationContextData:          PVOID;                        (* 1f8/2f8 *)
+    ProcessAssemblyStorageMap:      PVOID;                        (* 1fc/300 *)
+    SystemDefaultActivationData:    PVOID;                        (* 200/308 *)
+    SystemAssemblyStorageMap:       PVOID;                        (* 204/310 *)
+    MinimumStackCommit:             SIZE_T;                       (* 208/318 *)
+    FlsCallback:                    ^PVOID;                       (* 20c/320 *)
+    FlsListHead:                    LIST_ENTRY;                   (* 210/328 *)
+    FlsBitmap:                      PRTL_BITMAP;                  (* 218/338 *)
+    FlsBitmapBits:                  array [0..3] of ULONG;        (* 21c/340 *)
+  end; // .record _PEB
+  
+  PEB  = _PEB;
+  PPEB = ^PEB;
+
+  _TEB = packed record
+                                                               (* win32/win64 *)
+    Tib:                          array [1..$1c] of byte; (* NT_TIB; *) (* 000/0000 *)
+    EnvironmentPointer:           PVOID;                       (* 01c/0038 *)
+    ClientId:                     CLIENT_ID;                   (* 020/0040 *)
+    ActiveRpcHandle:              PVOID;                       (* 028/0050 *)
+    ThreadLocalStoragePointer:    PVOID;                       (* 02c/0058 *)
+    Peb:                          PPEB;                        (* 030/0060 *)
+    LastErrorValue:               ULONG;                       (* 034/0068 *)
+    CountOfOwnedCriticalSections: ULONG;                       (* 038/006c *)
+    CsrClientThread:              PVOID;                       (* 03c/0070 *)
+    Win32ThreadInfo:              PVOID;                       (* 040/0078 *)
+    Win32ClientInfo:              array [0..31 - 1] of ULONG;  (* 044/0080 used for user32 private data in Wine *)
+    WOW32Reserved:                PVOID;                       (* 0c0/0100 *)
+    CurrentLocale:                ULONG;                       (* 0c4/0108 *)
+    FpSoftwareStatusRegister:     ULONG;                       (* 0c8/010c *)
+    SystemReserved1:              array [0..54 - 1] of PVOID;  (* 0cc/0110 used for kernel32 private data in Wine *)
+    ExceptionCode:                LONG;                        (* 1a4/02c0 *)
+    ActivationContextStack:       array [1..20] of byte; (* ACTIVATION_CONTEXT_STACK; *) (* 1a8/02c8 *)
+    SpareBytes1:                  array [0..24 - 1] of BYTE;   (* 1bc/02e8 *)
+    SystemReserved2:              array [0..10 - 1] of PVOID;  (* 1d4/0300 used for ntdll platform-specific private data in Wine *)
+    GdiTebBatch:                  array [1..1248] of byte; (* GDI_TEB_BATCH; *) (* 1fc/0350 used for ntdll private data in Wine *)
+    gdiRgn:                       HANDLE;                      (* 6dc/0838 *)
+    gdiPen:                       HANDLE;                      (* 6e0/0840 *)
+    gdiBrush:                     HANDLE;                      (* 6e4/0848 *)
+    RealClientId:                 CLIENT_ID;                   (* 6e8/0850 *)
+    GdiCachedProcessHandle:       HANDLE;                      (* 6f0/0860 *)
+    GdiClientPID:                 ULONG;                       (* 6f4/0868 *)
+    GdiClientTID:                 ULONG;                       (* 6f8/086c *)
+    GdiThreadLocaleInfo:          PVOID;                       (* 6fc/0870 *)
+    UserReserved:                 array [0..5 - 1] of ULONG;   (* 700/0878 *)
+    glDispatchTable:              array [0..280 - 1] of PVOID; (* 714/0890 *)
+    glReserved1:                  array [0..26 - 1] of PVOID;  (* b74/1150 *)
+    glReserved2:                  PVOID;                       (* bdc/1220 *)
+    glSectionInfo:                PVOID;                       (* be0/1228 *)
+    glSection:                    PVOID;                       (* be4/1230 *)
+    glTable:                      PVOID;                       (* be8/1238 *)
+    glCurrentRC:                  PVOID;                       (* bec/1240 *)
+    glContext:                    PVOID;                       (* bf0/1248 *)
+    LastStatusValue:              ULONG;                       (* bf4/1250 *)
+    StaticUnicodeString:          UNICODE_STRING;              (* bf8/1258 used by advapi32 *)
+    StaticUnicodeBuffer:          array [0..261 - 1] of WCHAR; (* c00/1268 used by advapi32 *)
+    DeallocationStack:            PVOID;                       (* e0c/1478 *)
+    TlsSlots:                     array [0..64 - 1] of PVOID;  (* e10/1480 *)
+    TlsLinks:                     LIST_ENTRY;                  (* f10/1680 *)
+    Vdm:                          PVOID;                       (* f18/1690 *)
+    ReservedForNtRpc:             PVOID;                       (* f1c/1698 *)
+    DbgSsReserved:                array [0..2 - 1] of PVOID;   (* f20/16a0 *)
+    HardErrorDisabled:            ULONG;                       (* f28/16b0 *)
+    Instrumentation:              array [0..16 - 1] of PVOID;  (* f2c/16b8 *)
+    WinSockData:                  PVOID;                       (* f6c/1738 *)
+    GdiBatchCount:                ULONG;                       (* f70/1740 *)
+    Spare2:                       ULONG;                       (* f74/1744 *)
+    Spare3:                       PVOID;                       (* f78/1748 *)
+    Spare4:                       PVOID;                       (* f7c/1750 *)
+    ReservedForOle:               PVOID;                       (* f80/1758 *)
+    WaitingOnLoaderLock:          ULONG;                       (* f84/1760 *)
+    Reserved5:                    array [0..3 - 1] of PVOID;   (* f88/1768 *)
+    TlsExpansionSlots:            ^PVOID;                      (* f94/1780 *)
+    {$IFDEF WIN64}
+    DeallocationBStore:           PVOID;                       (*    /1788 *)
+    BStoreLimit:                  PVOID;                       (*    /1790 *)
+    {$ENDIF}
+    ImpersonationLocale:          ULONG;                       (* f98/1798 *)
+    IsImpersonating:              ULONG;                       (* f9c/179c *)
+    NlsCache:                     PVOID;                       (* fa0/17a0 *)
+    ShimData:                     PVOID;                       (* fa4/17a8 *)
+    HeapVirtualAffinity:          ULONG;                       (* fa8/17b0 *)
+    CurrentTransactionHandle:     PVOID;                       (* fac/17b8 *)
+    ActiveFrame:                  PVOID; (* ^TEB_ACTIVE_FRAME; *) (* fb0/17c0 *)
+    FlsSlots:                     ^PVOID;                      (* fb4/17c8 *)
+  end; // .record _TEB
+  
+  TEB  = _TEB;
+  PTEB = ^TEB;
+
+
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
 //                         EXPORTED FUNCTIONS                         //
 //                                                                    //
 ////////////////////////////////////////////////////////////////////////
@@ -263,7 +539,18 @@ type
   TNtCreateFile = function(FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
                            FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall;
 
-  TNtQueryInformationFile = function (FileHandle: HANDLE; PIO_STATUS_BLOCK: TIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: FILE_INFORMATION_CLASS): NTSTATUS; stdcall;
+  TNtQueryInformationFile = function (FileHandle: HANDLE; PIO_STATUS_BLOCK: PIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: integer (* FILE_INFORMATION_CLASS *)): NTSTATUS; stdcall;
+  
+  function  wcslen (Str: PWideChar): integer; stdcall; external 'ntdll.dll';
+  function  RtlAllocateHeap (HeapHandle: HANDLE; Flags: ULONG; Size: SIZE_T): PVOID; stdcall; external 'ntdll.dll';
+  procedure RtlFreeHeap     (HeapHandle: HANDLE; Flags: ULONG; BaseAddress: PVOID); stdcall; external 'ntdll.dll';
+  procedure RtlAcquirePebLock; stdcall; external 'ntdll.dll';
+  procedure RtlReleasePebLock; stdcall; external 'ntdll.dll';
+  function  MemAlloc (Size: cardinal): pointer;
+  procedure MemFree ({n} Ptr: pointer);
+  procedure MemFreeAndNil (var Ptr);
+  function  GetTeb: PTEB;
+
 
 
 function NT_SUCCESS     (Status: NTSTATUS): boolean; inline;
@@ -280,9 +567,91 @@ begin
   result := Self.Length shr 1;
 end;
 
+procedure _UNICODE_STRING.AssignNewStr (const Str: WideString);
+begin
+  Self.AssignNewStr(PWideChar(Str), System.Length(Str));
+end;
+
+procedure _UNICODE_STRING.AssignNewStr (const {n} Str: PWideChar; NumChars: integer = AUTO_LENGTH);
+const
+  NULL_CHAR_SIZE = sizeof(WideChar);
+
+var
+  BufSize: integer;
+
+begin
+  {!} Assert((NumChars < 0) or Utils.IsValidBuf(Str, NumChars));
+  
+  if (NumChars = 0) or (Str = nil) or (Str^ = #0) then begin
+    Self.Length        := 0;
+    Self.MaximumLength := 0;
+    Self.Buffer        := PWideChar(EMPTY_STR);
+  end else begin
+    if NumChars < 0 then begin
+      BufSize := wcslen(Str) * sizeof(Str[1]) + NULL_CHAR_SIZE;
+    end else begin
+      BufSize := NumChars * sizeof(Str[1]) + NULL_CHAR_SIZE;
+    end;
+    
+    Self.Buffer        := MemAlloc(BufSize);
+    Self.Length        := BufSize - NULL_CHAR_SIZE;
+    Self.MaximumLength := BufSize - NULL_CHAR_SIZE;
+    pword(Utils.PtrOfs(Self.Buffer, BufSize - NULL_CHAR_SIZE))^ := 0;
+    Utils.CopyMem(BufSize - NULL_CHAR_SIZE, Str, Self.Buffer);
+  end; // .else
+end; // .procedure _UNICODE_STRING.AssignNewStr
+
+procedure _UNICODE_STRING.AssignExistingStr (const {n} Str: PWideChar; NumChars: integer = AUTO_LENGTH);
+var
+  BufSize: integer;
+
+begin
+  {!} Assert((NumChars < 0) or Utils.IsValidBuf(Str, NumChars));
+  
+  if (NumChars = 0) or (Str = nil) or (Str^ = #0) then begin
+    Self.Length        := 0;
+    Self.MaximumLength := 0;
+    Self.Buffer        := PWideChar(EMPTY_STR);
+  end else begin
+    if NumChars < 0 then begin
+      BufSize := wcslen(Str) * sizeof(Str[1]);
+    end else begin
+      BufSize := NumChars * sizeof(Str[1]);
+    end;
+    
+    Self.Buffer        := Str;
+    Self.Length        := BufSize;
+    Self.MaximumLength := BufSize;
+  end; // .else
+end; // .procedure _UNICODE_STRING.AssignExistingStr
+
+procedure _UNICODE_STRING.AssignExistingStr (Str: WideString);
+begin
+  Self.AssignExistingStr(PWideChar(Str), System.Length(Str));
+end;
+
+procedure _UNICODE_STRING.Release;
+begin
+  if Self.Length > 0 then begin
+    MemFree(Self.Buffer);
+    Self.Buffer        := PWideChar(EMPTY_STR);
+    Self.Length        := 0;
+    Self.MaximumLength := 0;
+  end;
+end;
+
+function _UNICODE_STRING.ToWideStr: WideString;
+begin
+  if Self.Length = 0 then begin
+    result := '';
+  end else begin
+    result := StrLib.WideStringFromBuf(Self.Buffer, Self.GetLength());
+  end;
+end;
+
 function NT_SUCCESS (Status: NTSTATUS): boolean; inline;
 begin
-  result := Status >= 0;
+  result := integer(Status) >= 0;
 end;
 
 function NT_INFORMATION (Status: NTSTATUS): boolean; inline;
@@ -298,6 +667,30 @@ end;
 function NT_ERROR (Status: NTSTATUS): boolean; inline;
 begin
   result := (Status shr 30) = 3;
+end;
+
+function MemAlloc (Size: cardinal): pointer;
+begin
+  result := RtlAllocateHeap(Windows.GetProcessHeap(), Windows.HEAP_GENERATE_EXCEPTIONS, Size);
+end;
+
+procedure MemFree ({n} Ptr: pointer);
+begin
+  if Ptr <> nil then begin
+    RtlFreeHeap(Windows.GetProcessHeap(), 0, Ptr);
+  end;
+end;
+
+procedure MemFreeAndNil (var Ptr);
+begin
+  MemFree(pointer(Ptr));
+  pointer(Ptr) := nil;
+end;
+
+function GetTeb: PTEB; assembler; 
+asm
+  db $64, $A1, $18, $00, $00, $00; // mov [eax], dword [FS:$18]
+  mov result, eax
 end;
 
 end.

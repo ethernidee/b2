@@ -93,16 +93,18 @@ var
   CurrDirCritSection:     Windows.TRTLCriticalSection;
   VfsCritSection:         Concur.TCritSection;
 
-  NativeGetFileAttributesW: function (FilePath: PWideChar): integer; stdcall;
-  NativeCreateFileW:        function (lpFileName: PWideChar; dwDesiredAccess, dwShareMode: DWORD; lpSecurityAttributes: PSecurityAttributes;
-                                      dwCreationDisposition, dwFlagsAndAttributes: DWORD; hTemplateFile: THandle): THandle; stdcall;
-  NativeOpenFile:           function (const lpFileName: LPCSTR; var lpReOpenBuff: TOFStruct; uStyle: UINT): THandle; stdcall;
-  NativeLoadLibraryW:       function (lpLibFileName: PWideChar): HMODULE; stdcall;
-  NativeFindFirstFileExW:   function (lpFileName: PWideChar; fInfoLevelId: TFindexInfoLevels; var lpFindFileData: TWin32FindDataW;
-                                      fSearchOp: TFindexSearchOps; lpSearchFilter: Pointer; dwAdditionalFlags: DWORD): THandle; stdcall;
-  NativeFindNextFileW:      function (hFindFile: THandle; var lpFindFileData: TWIN32FindDataW): BOOL; stdcall;
-  NativeFindClose:          function (hFindFile: THandle): BOOL; stdcall;
-  NativeNtOpenFile:         WinNative.TNtOpenFile;
+  NativeGetFileAttributesW:   function (FilePath: PWideChar): integer; stdcall;
+  NativeCreateFileW:          function (lpFileName: PWideChar; dwDesiredAccess, dwShareMode: DWORD; lpSecurityAttributes: PSecurityAttributes;
+                                        dwCreationDisposition, dwFlagsAndAttributes: DWORD; hTemplateFile: THandle): THandle; stdcall;
+  NativeOpenFile:             function (const lpFileName: LPCSTR; var lpReOpenBuff: TOFStruct; uStyle: UINT): THandle; stdcall;
+  NativeLoadLibraryW:         function (lpLibFileName: PWideChar): HMODULE; stdcall;
+  NativeFindFirstFileExW:     function (lpFileName: PWideChar; fInfoLevelId: TFindexInfoLevels; var lpFindFileData: TWin32FindDataW;
+                                        fSearchOp: TFindexSearchOps; lpSearchFilter: Pointer; dwAdditionalFlags: DWORD): THandle; stdcall;
+  NativeFindNextFileW:        function (hFindFile: THandle; var lpFindFileData: TWIN32FindDataW): BOOL; stdcall;
+  NativeFindClose:            function (hFindFile: THandle): BOOL; stdcall;
+  NativeSetCurrentDirectoryW: function (lpPathName: LPWSTR): BOOL; stdcall;
+  NativeNtQueryInformationFile: WinNative.TNtQueryInformationFile;
+  NativeNtOpenFile:           WinNative.TNtOpenFile;
 
   Kernel32Handle: integer;
   User32Handle:   integer;
@@ -1362,15 +1364,93 @@ begin
   end; // .with FileSearchCritSection;
 end; // .function Hook_FindClose
 
+function GetFilePathByHandle (hFile: THandle): WideString;
+const
+  BUFSIZE_PREFIX_SIZE = 4;
+
+var
+  Buf:             WideString;
+  BufSize:         integer;
+  BufSizeRequired: integer;
+  IoStatusBlock:   WinNative.IO_STATUS_BLOCK;
+  NumChars:        integer;
+
+begin
+  result := '';
+  Buf    := '';
+  
+  SetLength(Buf, Windows.MAX_PATH + BUFSIZE_PREFIX_SIZE div 2);
+  BufSize := Length(Buf) * sizeof(Buf[1]);
+
+  if NativeNtQueryInformationFile(hFile, @IoStatusBlock, PWideChar(Buf), BufSize, ord(WinNative.FileNameInformation)) <> WinNative.STATUS_SUCCESS then begin
+    exit;
+  end;
+
+  BufSizeRequired := pinteger(Buf)^ + BUFSIZE_PREFIX_SIZE;
+
+  while BufSizeRequired > BufSize do begin
+    BufSize := BufSizeRequired;
+    SetLength(Buf, BufSizeRequired div sizeof(Buf[1]));
+    
+    if NativeNtQueryInformationFile(hFile, @IoStatusBlock, PWideChar(Buf), BufSize, ord(WinNative.FileNameInformation)) <> WinNative.STATUS_SUCCESS then begin
+      exit;
+    end;
+
+    BufSizeRequired := pinteger(Buf)^ + BUFSIZE_PREFIX_SIZE;
+  end;
+
+  if BufSizeRequired > BUFSIZE_PREFIX_SIZE then begin
+    NumChars := (BufSizeRequired - BUFSIZE_PREFIX_SIZE) div sizeof(Buf[1]);
+    SetLength(result, NumChars);
+    Utils.CopyMem(NumChars * sizeof(Buf[1]), Utils.PtrOfs(PWideChar(Buf), BUFSIZE_PREFIX_SIZE), @result[1]);
+  end;
+end; // .function GetFilePathByHandle
+
+function StripNtAbsPathPrefix (const Path: WideString): WideString;
+begin
+  result := Path;
+
+  if (Length(Path) >= 4) and (Path[1] = '\') and (Path[2] = '?') and (Path[3] = '?') and (Path[4] = '\') then begin
+    result := Copy(Path, 4 + 1);
+  end;
+end;
+
+function GetFileObjectPath (ObjectAttributes: POBJECT_ATTRIBUTES): WideString;
+var
+  FilePath: WideString;
+
+begin
+  FilePath := ObjectAttributes.ObjectName.ToWideStr();
+
+  if FilePath = '' then begin
+    result := '';
+  end else begin
+    if FilePath[1] = '\' then begin
+      FilePath := StripNtAbsPathPrefix(FilePath);
+    end;
+
+    if ObjectAttributes.RootDirectory <> 0 then begin
+      result := ExpandPath(ExpandPath(GetFilePathByHandle(ObjectAttributes.RootDirectory)) + '\' + FilePath);
+    end else begin
+      result := FilePath;
+    end;
+  end; // .else
+end; // .function GetFileObjectPath
+
 function Hook_NtOpenFile (Hook: PatchApi.THiHook; FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES;
                           IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall;
 var
   UseRedirection: boolean;
-  FilePath:       WideString;
+  DirPath:        WideString;
+  RedirectedPath: WideString;
+  RedirectedPathRec:  WinNative.UNICODE_STRING;
+  RedirectedObjAttrs: WinNative.TObjectAttributes;
   OrigPathA:      string;
+  CurrDir:        WinNative.PCURDIR;
+
 
 begin
-  // FilePath := WideStringFromBuf(ObjectAttributes.ObjectName.Buffer, ObjectAttributes.ObjectName.GetLength());
+  //DirPath := WideStringFromBuf(ObjectAttributes.ObjectName.Buffer, ObjectAttributes.ObjectName.GetLength());
 
   // if DebugOpt then begin
   //   StrLib.PWideCharToAnsi(PWideChar(FilePath), OrigPathA);
@@ -1386,8 +1466,94 @@ begin
   //   result := Windows.INVALID_HANDLE_VALUE;
   // end
 
-  result := NativeNtOpenFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+  UseRedirection := false;
+
+  DirPath := GetFileObjectPath(ObjectAttributes);
+
+  if DirPath <> '' then begin
+    RedirectedPath := GetVfsItemRealPath(DirPath);
+    UseRedirection := RedirectedPath <> '';
+  end;
+
+  //VarDump(['@OpenFile', GetFileObjectPath(ObjectAttributes)]);
+
+  if UseRedirection then begin
+    RedirectedPath            := '\??\' + RedirectedPath;
+    RedirectedObjAttrs        := ObjectAttributes^;
+    RedirectedObjAttrs.Length := sizeof(RedirectedObjAttrs);
+    RedirectedObjAttrs.ObjectName.AssignExistingStr(RedirectedPath);
+    
+    result := NativeNtOpenFile(FileHandle, DesiredAccess, @RedirectedObjAttrs, IoStatusBlock, ShareAccess, OpenOptions);
+  end else begin
+    result := NativeNtOpenFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+  end;
 end; // .function Hook_NtOpenFile
+
+function Hook_SetCurrentDirectoryW (Hook: PatchApi.THiHook; lpPathName: PWideChar): LONGBOOL; stdcall;
+var
+  UseRedirection: boolean;
+  DirPath:        WideString;
+  RedirectedPath: WideString;
+  OrigPathA:      string;
+  CurrDir:        WinNative.PCURDIR;
+
+begin
+  CurrDir := nil;
+  // * * * * * //
+  VarDump(['Set current dir to: ', lpPathName, 'Current is by handle: ', ExpandPath(GetFilePathByHandle(GetTeb().Peb.ProcessParameters.CurrentDirectory.Handle))]);
+  result := NativeSetCurrentDirectoryW(lpPathName);
+  VarDump(['@New current dir: ', GetCurrentDir(), 'Expanding test.abc', ExpandPath('test.abc')]);
+
+  // if not result then begin
+  //   DirPath := NormalizePath(lpPathName);
+
+  //   if DirPath <> '' then begin
+  //     RedirectedPath := GetVfsItemRealPath(DirPath);
+  //     VarDump(['Redirected path: ', RedirectedPath]);
+  //     UseRedirection := RedirectedPath <> '';
+
+  //     if UseRedirection then begin
+  //       DirPath := DirPath + '\';
+
+  //       RtlAcquirePebLock;
+  //       CurrDir := @GetTeb().Peb.ProcessParameters.CurrentDirectory;
+  //       CurrDir.DosPath.Release;
+  //       CurrDir.DosPath.AssignNewStr(DirPath);
+  //       RtlReleasePebLock;
+
+  //       result := true;
+  //     end;
+  //   end; // .if
+  // end; // .if
+  // DirPath := WideStringFromBuf(ObjectAttributes.ObjectName.Buffer, ObjectAttributes.ObjectName.GetLength());
+
+  // if DebugOpt then begin
+  //   StrLib.PWideCharToAnsi(PWideChar(DirPath), OrigPathA);
+  // end;
+
+  // // Disallow empty or '\'-ending paths
+  // if (FullPath = '') then begin
+  //   if DebugOpt then begin
+  //     Log.Write('VFS', 'NtOpenFile', 'Path: "' + OrigPathA + '". Result: ERROR_INVALID_PARAMETER');
+  //   end;
+
+  //   Windows.SetLastError(Windows.ERROR_INVALID_PARAMETER);
+  //   result := Windows.INVALID_HANDLE_VALUE;
+  // end
+  //asm int 3 end;
+
+  //VarDump([GetCurrentDir()]);
+end; // .function Hook_SetCurrentDirectoryW
+
+function Hook_SetCurrentDirectoryA (Hook: PatchApi.THiHook; lpPathName: pchar): LONGBOOL; stdcall;
+begin
+  result := Windows.SetCurrentDirectoryW(PWideChar(WideString(String(lpPathName))));
+end;
+
+function Hook_NtQueryInformationFile (Hook: PatchApi.THiHook; FileHandle: HANDLE; PIO_STATUS_BLOCK: PIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: integer): NTSTATUS; stdcall;
+begin
+  result := NativeNtQueryInformationFile(FileHandle, PIO_STATUS_BLOCK, FileInformation, Length, FileInformationClass);
+end;
 
 function Hook_GetPrivateProfileStringA (Hook: PatchApi.THiHook;
                                         lpAppName, lpKeyName, lpDefault: PAnsiChar;
@@ -1623,7 +1789,37 @@ begin
       @Hook_FindClose,
     ).GetDefaultFunc());
 
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing ZwOpenFile hook');
+    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryW hook');
+    // NativeSetCurrentDirectoryW := pointer(Core.p.WriteHiHook
+    // (
+    //   GetRealProcAddress(Kernel32Handle, 'SetCurrentDirectoryW'),
+    //   PatchApi.SPLICE_,
+    //   PatchApi.EXTENDED_,
+    //   PatchApi.STDCALL_,
+    //   @Hook_SetCurrentDirectoryW,
+    // ).GetDefaultFunc());
+
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryA hook');
+    Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'SetCurrentDirectoryA'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_SetCurrentDirectoryA,
+    );
+
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtQueryInformationFile hook');
+    NativeNtQueryInformationFile := pointer(Core.p.WriteHiHook
+    (
+      GetRealProcAddress(NtdllHandle, 'NtQueryInformationFile'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_NtQueryInformationFile,
+    ).GetDefaultFunc());
+
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtOpenFile hook');
     NativeNtOpenFile := pointer(Core.p.WriteHiHook
     (
       GetProcAddress(NtdllHandle, 'ZwOpenFile'),
@@ -1699,21 +1895,21 @@ begin
   InitModList(aModList);
   //BuildVfsSnapshot();
   ResetVfs;
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Phoenix', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG', DONT_OVERWRITE_EXISTING);
+  //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Phoenix', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\BattleHeroes', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Morn battlefields', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Big Spellbook', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Vallex Portraits', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\New Music Pack', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dlg_ExpaMon', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Yona', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Fast Battle Animation', DONT_OVERWRITE_EXISTING);
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG_Native_Dialogs', DONT_OVERWRITE_EXISTING);
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Quick Savings', DONT_OVERWRITE_EXISTING);
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Secondary Skills Scrolling', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Fast Battle Animation', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Yona', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dlg_ExpaMon', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\BattleHeroes', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Vallex Portraits', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Morn battlefields', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Big Spellbook', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\New Music Pack', DONT_OVERWRITE_EXISTING);
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG Rus', DONT_OVERWRITE_EXISTING);
+  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG', DONT_OVERWRITE_EXISTING);
+  //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
   RunVfs(SORT_FIFO);
 
   // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
