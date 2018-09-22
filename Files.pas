@@ -712,9 +712,14 @@ end; // .function TLocator.FindNext
 
 procedure TLocator.Locate (const MaskedPath: string; SearchSubj: TSearchSubj);
 begin
-  Self.fDir         :=  SysUtils.ExtractFileDir(MaskedPath);
-  Self.fFileMask    :=  SysUtils.ExtractFileName(MaskedPath);
-  Self.fSearchSubj  :=  SearchSubj;
+  Self.fDir := SysUtils.ExtractFileDir(MaskedPath);
+
+  if Self.fDir = '' then begin
+    Self.fDir := '.';
+  end;
+
+  Self.fFileMask   := SysUtils.ExtractFileName(MaskedPath);
+  Self.fSearchSubj := SearchSubj;
 end;
 
 function TLocator.GetFoundName: string;

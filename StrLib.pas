@@ -14,6 +14,8 @@ const
 
   BINARY_CHARACTERS: set of char = [#0..#8, #11..#12, #14..#31];
 
+  PATH_DELIMS = ['\', '/'];
+
   (* Windows 7+ *)
   // Translate any Unicode characters that do not translate directly to multibyte equivalents to the default character specified by lpDefaultChar
   WC_NO_BEST_FIT_CHARS = $00000400;
@@ -193,9 +195,11 @@ function  PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: b
 function  WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
 function  WideStringToBuf (const Str: WideString; Buf: PWideChar): PWideChar;
 function  WideLowerCase (const Str: WideString): WideString;
-function  ExcludeTrailingDelimW (const Str: WideString): WideString;
+function  ExcludeTrailingDelimW (const Str: WideString; {n} HadTrailingDelim: pboolean = nil): WideString;
 function  ExtractDirPathW (const Path: WideString): WideString;
 function  ExtractFileNameW (const Path: WideString): WideString;
+function  CompareWideChars (Str1Ptr, Str2Ptr: PWideChar; Len: integer = -1): integer;
+function  CompareBinStringsW (const Str1, Str2: WideString): integer;
 
 
 (***) implementation (***)
@@ -1505,7 +1509,7 @@ begin
   end;  
 end;
 
-function ExcludeTrailingDelimW (const Str: WideString): WideString;
+function ExcludeTrailingDelimW (const Str: WideString; {n} HadTrailingDelim: pboolean = nil): WideString;
 var
   StrLen: integer;
   Pos:    integer;
@@ -1517,13 +1521,17 @@ begin
     StrLen := Length(result);
     Pos    := StrLen;
 
-    while (Pos >= 1) and (result[Pos] = '\') do begin
+    while (Pos >= 1) and (result[Pos] in PATH_DELIMS) do begin
       Dec(Pos);
     end;
 
     if Pos <> StrLen then begin
       SetLength(result, Pos);
     end;
+  end;
+
+  if HadTrailingDelim <> nil then begin
+    HadTrailingDelim^ := Length(result) <> Length(Str);
   end;
 end; // .function ExcludeTrailingDelimW
 
@@ -1538,12 +1546,12 @@ begin
   // * * * * * //
   result := '';
 
-  while (CharPtr >= StartPtr) and (CharPtr^ <> '\') do begin
+  while (CharPtr >= StartPtr) and not (CharPtr^ in PATH_DELIMS) do begin
     Dec(CharPtr);
   end;
 
   if CharPtr > StartPtr then begin
-    while (CharPtr >= StartPtr) and (CharPtr^ = '\') do begin
+    while (CharPtr >= StartPtr) and (CharPtr^ in PATH_DELIMS) do begin
       Dec(CharPtr);
     end;
 
@@ -1569,7 +1577,7 @@ begin
   // * * * * * //
   result := '';
 
-  while (CharPtr >= StartPtr) and (CharPtr^ <> '\') do begin
+  while (CharPtr >= StartPtr) and not (CharPtr^ in PATH_DELIMS) do begin
     Dec(CharPtr);
   end;
 
@@ -1580,5 +1588,66 @@ begin
     Utils.CopyMem((EndPtr - CharPtr) * sizeof(CharPtr^), CharPtr, @result[1]);
   end;
 end; // .function ExtractFileNameW
+
+function CompareWideChars (Str1Ptr, Str2Ptr: PWideChar; Len: integer = -1): integer;
+var
+  Char1: WideChar;
+  Char2: WideChar;
+  Pos:   integer;
+
+begin
+  {!} Assert(Str1Ptr <> nil);
+  {!} Assert(Str2Ptr <> nil);
+  // * * * * * //
+  Char1  := #0;
+  Char2  := #0;
+  Pos    := 0;
+  result := 0;
+
+  if Len < 0 then begin
+    Len := high(integer);
+  end;
+
+  while Pos < Len do begin
+    Char1 := Str1Ptr^;
+    Char2 := Str2Ptr^;
+
+    if Char1 = Char2 then begin
+      if Char1 = #0 then begin
+        exit;
+      end;
+
+      Inc(Str1Ptr);
+      Inc(Str2Ptr);
+    end else begin
+      break;
+    end;
+
+    Inc(Pos);
+  end; // .while
+
+  // Characters differ, fix up each one if they're both in or above the surrogate range, then compare them
+  if (ord(Char1) >= $D800) and (ord(Char2) >= $D800) then begin
+    if ord(Char1) >= $E000 then begin
+      Char1 := WideChar(ord(Char1) - $800);
+    end else begin
+      Char1 := WideChar(ord(Char1) + $2000);
+    end;
+
+    if ord(Char2) >= $E000 then begin
+      Char2 := WideChar(ord(Char2) - $800);
+    end else begin
+      Char2 := WideChar(ord(Char2) + $2000);
+    end;
+  end;
+
+  // Now both characters are in code point order
+  result := ord(Char1) - ord(Char2);
+end; // .function CompareWideChars
+
+function CompareBinStringsW (const Str1, Str2: WideString): integer;
+begin
+  result := CompareWideChars(PWideChar(Str1), PWideChar(Str2));
+end;
 
 end.
