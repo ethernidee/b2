@@ -669,7 +669,7 @@ type
   function  NtQueryInformationFile (FileHandle: HANDLE; PIO_STATUS_BLOCK: PIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: integer (* FILE_INFORMATION_CLASS *)): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtCreateFile (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
                           FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
-  function  PathIsRelativeW (lpFileName: PWideChar): boolean; stdcall; external 'kernel32.dll';
+  function  PathIsRelativeW (lpFileName: PWideChar): boolean; stdcall; external 'Shlwapi.dll';
 
   function  MemAlloc (Size: cardinal): pointer;
   procedure MemFree ({n} Ptr: pointer);

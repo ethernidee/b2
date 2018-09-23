@@ -1562,6 +1562,10 @@ begin
     SetLength(result, CharPtr - StartPtr);
     Utils.CopyMem((CharPtr - StartPtr) * sizeof(CharPtr^), StartPtr, @result[1]);
   end;
+
+  if result = '' then begin
+    result := '.';
+  end;
 end; // .function ExtractDirPathW
 
 function ExtractFileNameW (const Path: WideString): WideString;

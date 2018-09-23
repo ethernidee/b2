@@ -772,7 +772,7 @@ begin
   end; // .else
 
   if result <> Windows.INVALID_HANDLE_VALUE then begin
-    DirListing := TDirListing.Create();
+    DirListing                 := TDirListing.Create();
     SearchHandles[Ptr(result)] := DirListing;
   end;
 end; // .function AllocSearchHandle
@@ -787,18 +787,18 @@ begin
   result := TDirListing(SearchHandles[Ptr(SearchHandle)]);
 end;
 
-procedure RealScanDir (const FullPath: WideString; Exclude: TDict {OF not NIL}; DirListing: TDirListing);
+procedure RealScanDir (const SearchPath: WideString; Exclude: TDict {OF not NIL}; DirListing: TDirListing);
 var
-{O} Items:     {O} TList {OF TVfsItem};
-{O} Item:      {O} TVfsItem;
-    hSearch:   THandle;
-    i:         integer;
+{O} Items:   {O} TList {OF TVfsItem};
+{O} Item:    {O} TVfsItem;
+    hSearch: THandle;
+    i:       integer;
 
 begin
   Items := DataLib.NewList(Utils.OWNS_ITEMS);
   Item  := TVfsItem.Create;
   // * * * * * //
-  hSearch := NativeFindFirstFileExW(PWideChar(FullPath), Windows.FindExInfoStandard, Item.Info, Windows.FindExSearchNameMatch, nil, 0);
+  hSearch := NativeFindFirstFileExW(PWideChar(SearchPath), Windows.FindExInfoStandard, Item.Info, Windows.FindExSearchNameMatch, nil, 0);
 
   if hSearch <> Windows.INVALID_HANDLE_VALUE then begin
     repeat
@@ -1052,7 +1052,6 @@ begin
       StrLib.PWideCharToAnsi(PWideChar(RedirectedPath), RedirectedPathA);
 
       if UseRedirection then begin
-        VarDump([OrigPathA, RedirectedPathA]);
         Log.Write('VFS', 'LoadLibraryW', 'Redirected "' + OrigPathA + '" => "' + RedirectedPathA + '"');
       end else begin
         Log.Write('VFS', 'LoadLibraryW', 'Redirected library was not loaded: "' + OrigPathA + '" => "' + RedirectedPathA + '"');
@@ -1083,6 +1082,7 @@ var
 {U}  ItemFromVfs:      TVfsItem;
 {U}  DirListing:       TDirListing;
 {U}  FirstResult:      Windows.PWin32FindDataW;
+     PrevDisableVfsForThisThread: boolean;
      IsStandardSearch: boolean;
      FullPath:         WideString;
      VirtDirPath:      WideString;
@@ -1098,9 +1098,13 @@ begin
   DirListing    := nil;
   FirstResult   := nil;
   // * * * * * //
+
+  // WHRE IS REACTION FOR VFS BEING OFF???
+
   with FileSearchCritSection do begin
     Enter;
 
+    // {TODO} Optimize check, move it ouside critical section
     IsStandardSearch := (fInfoLevelId = Windows.FindExInfoStandard) and (fSearchOp = Windows.FindExSearchNameMatch) and (lpSearchFilter = nil) and (dwAdditionalFlags = 0);
 
     if FileSearchInProgress or not IsStandardSearch then begin
@@ -1130,9 +1134,9 @@ begin
           with VfsCritSection do begin
             Enter;
 
-            DirVfsItem := VfsItems[NormalizePath(FullPath)];
+            DirVfsItem := VfsItems[WideStrToCaselessKey(FullPath)];
 
-            // Request for directory itself, record is found in VFS
+            // Request for file/directory itself, record is found in VFS
             if DirVfsItem <> nil then begin
               DirListing.AddItem(@DirVfsItem.Info);
             end
@@ -1155,12 +1159,13 @@ begin
               end;
 
               FileSearchInProgress := true;
-              VfsIsRunning         := false;
+              PrevDisableVfsForThisThread := DisableVfsForThisThread;
+              DisableVfsForThisThread         := true; // what's about previous state ????????????????????????????????????????????????????
 
               // Scan real directory
               RealScanDir(lpFileName, AddedVfsItems, DirListing);
 
-              VfsIsRunning         := true;
+              DisableVfsForThisThread         := PrevDisableVfsForThisThread;
               FileSearchInProgress := false;
             end; // .else
 
@@ -1533,29 +1538,6 @@ begin
   result := NativeNtCreateFile(FileHandle, DesiredAccess, @ReplacedObjAttrs, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 end; // .function Hook_NtCreateFile
 
-function Hook_NtDeleteFile (Hook: PatchApi.THiHook; ObjectAttributes: POBJECT_ATTRIBUTES): NTSTATUS; stdcall;
-var
-  ExpandedPath:     WideString;
-  RedirectedPath:   WideString;
-  ReplacedObjAttrs: WinNative.TObjectAttributes;
-
-begin
-  ReplacedObjAttrs        := ObjectAttributes^;
-  ReplacedObjAttrs.Length := sizeof(ReplacedObjAttrs);
-  ExpandedPath            := GetFileObjectPath(ObjectAttributes);
-  RedirectedPath          := ExpandedPath;
-    
-  if (RedirectedPath <> '') and (RedirectedPath[1] <> '\') then begin
-    RedirectedPath := '\??\' + RedirectedPath;
-  end;
-
-  ReplacedObjAttrs.RootDirectory := 0;
-  ReplacedObjAttrs.Attributes    := ReplacedObjAttrs.Attributes or WinNative.OBJ_CASE_INSENSITIVE;
-  ReplacedObjAttrs.ObjectName.AssignExistingStr(RedirectedPath);
-  
-  result := NativeNtDeleteFile(ObjectAttributes);
-end; // .function Hook_NtDeleteFile
-
 function Hook_SetCurrentDirectoryW (Hook: PatchApi.THiHook; lpPathName: PWideChar): LONGBOOL; stdcall;
 var
   UseRedirection: boolean;
@@ -1571,7 +1553,7 @@ begin
   // * * * * * //
   DirPath := NormalizePath(lpPathName);
 
-  VarDump(['Set current dir to: ', lpPathName, 'Current is by handle: ', ExpandPath(GetFilePathByHandle(GetTeb().Peb.ProcessParameters.CurrentDirectory.Handle))]);
+  //VarDump(['Set current dir to: ', lpPathName, 'Current is by handle: ', ExpandPath(GetFilePathByHandle(GetTeb().Peb.ProcessParameters.CurrentDirectory.Handle))]);
 
   with CurrDirCritSection do begin
     Enter;
@@ -1603,7 +1585,7 @@ begin
     Leave;
   end; // .with CurrDirCritSection
   
-  VarDump(['@New current dir: ', GetCurrentDir(), '@New real dir path:', CurrDirRealLoweredPath, 'Expanding test.abc', ExpandPath('test.abc')]);
+  //VarDump(['@New current dir: ', GetCurrentDir(), '@New real dir path:', CurrDirRealLoweredPath, 'Expanding test.abc', ExpandPath('test.abc')]);
 
   // if not result then begin
   //   DirPath := NormalizePath(lpPathName);
@@ -1822,75 +1804,75 @@ begin
     //   @Hook_LoadLibraryA,
     // );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExW hook');
-    // NativeFindFirstFileExW := pointer(Core.p.WriteHiHook
-    // (
-    //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileExW'),
-    //   PatchApi.SPLICE_,
-    //   PatchApi.EXTENDED_,
-    //   PatchApi.STDCALL_,
-    //   @Hook_FindFirstFileExW,
-    // ).GetDefaultFunc());
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExW hook');
+    NativeFindFirstFileExW := pointer(Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'FindFirstFileExW'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_FindFirstFileExW,
+    ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExA hook');
-    // Core.p.WriteHiHook
-    // (
-    //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
-    //   PatchApi.SPLICE_,
-    //   PatchApi.EXTENDED_,
-    //   PatchApi.STDCALL_,
-    //   @Hook_FindFirstFileExA,
-    // );
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExA hook');
+    Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_FindFirstFileExA,
+    );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileW hook');
-    // Core.p.WriteHiHook
-    // (
-    //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileW'),
-    //   PatchApi.SPLICE_,
-    //   PatchApi.EXTENDED_,
-    //   PatchApi.STDCALL_,
-    //   @Hook_FindFirstFileW,
-    // );
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileW hook');
+    Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'FindFirstFileW'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_FindFirstFileW,
+    );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
-    // Core.p.WriteHiHook
-    // (
-    //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
-    //   PatchApi.SPLICE_,
-    //   PatchApi.EXTENDED_,
-    //   PatchApi.STDCALL_,
-    //   @Hook_FindFirstFileA,
-    // );
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
+    Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_FindFirstFileA,
+    );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileW hook');
-    // NativeFindNextFileW := pointer(Core.p.WriteHiHook
-    // (
-    //   GetRealProcAddress(Kernel32Handle, 'FindNextFileW'),
-    //   PatchApi.SPLICE_,
-    //   PatchApi.EXTENDED_,
-    //   PatchApi.STDCALL_,
-    //   @Hook_FindNextFileW,
-    // ).GetDefaultFunc());
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileW hook');
+    NativeFindNextFileW := pointer(Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'FindNextFileW'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_FindNextFileW,
+    ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileA hook');
-    // Core.p.WriteHiHook
-    // (
-    //   GetRealProcAddress(Kernel32Handle, 'FindNextFileA'),
-    //   PatchApi.SPLICE_,
-    //   PatchApi.EXTENDED_,
-    //   PatchApi.STDCALL_,
-    //   @Hook_FindNextFileA,
-    // );
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileA hook');
+    Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'FindNextFileA'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_FindNextFileA,
+    );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindClose hook');
-    // NativeFindClose := pointer(Core.p.WriteHiHook
-    // (
-    //   GetRealProcAddress(Kernel32Handle, 'FindClose'),
-    //   PatchApi.SPLICE_,
-    //   PatchApi.EXTENDED_,
-    //   PatchApi.STDCALL_,
-    //   @Hook_FindClose,
-    // ).GetDefaultFunc());
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindClose hook');
+    NativeFindClose := pointer(Core.p.WriteHiHook
+    (
+      GetRealProcAddress(Kernel32Handle, 'FindClose'),
+      PatchApi.SPLICE_,
+      PatchApi.EXTENDED_,
+      PatchApi.STDCALL_,
+      @Hook_FindClose,
+    ).GetDefaultFunc());
 
     if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryW hook');
     NativeSetCurrentDirectoryW := pointer(Core.p.WriteHiHook
@@ -1950,16 +1932,6 @@ begin
       PatchApi.EXTENDED_,
       PatchApi.STDCALL_,
       @Hook_NtCreateFile,
-    ).GetDefaultFunc());
-
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtDeleteFile hook');
-    NativeNtDeleteFile := pointer(Core.p.WriteHiHook
-    (
-      GetProcAddress(NtdllHandle, 'NtDeleteFile'),
-      PatchApi.SPLICE_,
-      PatchApi.EXTENDED_,
-      PatchApi.STDCALL_,
-      @Hook_NtDeleteFile,
     ).GetDefaultFunc());
 
     VfsHooksInstalled := true;
@@ -2022,11 +1994,15 @@ begin
 end;
 
 procedure Init ({U} aModList: Lists.TStringList);
+var
+s: string;
+
 begin
   {!} Assert(aModList <> nil);
   // * * * * * //
   InitModList(aModList);
   //BuildVfsSnapshot();
+  DebugOpt:=true;
   ResetVfs;
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Phoenix', DONT_OVERWRITE_EXISTING);
   //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\BattleHeroes', DONT_OVERWRITE_EXISTING);
@@ -2044,7 +2020,26 @@ begin
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG', DONT_OVERWRITE_EXISTING);
   //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
   RunVfs(SORT_FIFO);
-  DebugOpt := true;
+  // SetCurrentDir('D:\Heroes 3\Data\s');
+  // //VarDump([LoadCursorFromFileA('Data\zvs\Lib1.res\arrowcur.cur')]);
+
+
+  // // CurrDirIsVirtual := true;
+  // // CurrDirRealLoweredPath := 'd:';
+  // // CurrDirVirtPath := 'd:\mods\wog';
+  // if FileExists('29 wog - Henchmen.erm') then begin
+  //   ReadFileContents('29 wog - Henchmen.erm', s);
+  //   Msg(s);
+  // end;
+
+  
+  
+  // // Обнаруживается файл из Mods\Dev, разузнать(!)
+  //Msg(FilesEx.GetFileList('D:\Heroes 3\*.*', FILES_AND_DIRS).ToText(#13#10));
+  //halt;
+
+  // halt;
+
 
   // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
   // Core.p.WriteHiHook
@@ -2106,41 +2101,7 @@ begin
 
   DllRealApiAddrs := DataLib.NewObjDict(Utils.OWNS_ITEMS);
 
-  ResetVfs;
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Phoenix', DONT_OVERWRITE_EXISTING);
-  //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\BattleHeroes', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Morn battlefields', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Big Spellbook', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Vallex Portraits', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\New Music Pack', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dlg_ExpaMon', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Yona', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Fast Battle Animation', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG_Native_Dialogs', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Quick Savings', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Secondary Skills Scrolling', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG Rus', DONT_OVERWRITE_EXISTING);
-  MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG', DONT_OVERWRITE_EXISTING);
-  //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
-  RunVfs(SORT_FIFO);
-  SetCurrentDir('D:\Heroes 3\');
-  VarDump([DeleteFileW('angel.dll')]);
-
-
-  // CurrDirIsVirtual := true;
-  // CurrDirRealLoweredPath := 'd:';
-  // CurrDirVirtPath := 'd:\mods\wog';
-  if FileExists('29 wog - Henchmen.erm') then begin
-    ReadFileContents('29 wog - Henchmen.erm', s);
-    Msg(s);
-  end;
-
   
-  
-  // Обнаруживается файл из Mods\Dev, разузнать(!)
-  Msg(FilesEx.GetFileList('*.erm', FILES_AND_DIRS).ToText(#13#10));
-
-  halt;
 
   // s := '';
   
