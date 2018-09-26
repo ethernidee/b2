@@ -1517,47 +1517,53 @@ var
   HadTrailingDelim: boolean;
 
 begin
-  ReplacedObjAttrs        := ObjectAttributes^;
-  ReplacedObjAttrs.Length := sizeof(ReplacedObjAttrs);
-  ExpandedPath            := GetFileObjectPath(ObjectAttributes);
-  RedirectedPath          := '';
+  with VfsCritSection do begin
+    Enter;
 
-  if ExpandedPath <> '' then begin
-    RedirectedPath := GetVfsItemRealPath(StrLib.ExcludeTrailingDelimW(ExpandedPath, @HadTrailingDelim), @FileInfo);
-  end;
+    ReplacedObjAttrs        := ObjectAttributes^;
+    ReplacedObjAttrs.Length := sizeof(ReplacedObjAttrs);
+    ExpandedPath            := GetFileObjectPath(ObjectAttributes);
+    RedirectedPath          := '';
 
-  // Return cached VFS file info with fake ChangeTime = LastWriteTime
-  if RedirectedPath <> '' then begin
-    if not HadTrailingDelim or ((FileInfo.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) = Windows.FILE_ATTRIBUTE_DIRECTORY) then begin
-      FileInformation.CreationTime   := WinNative.LARGE_INTEGER(FileInfo.ftCreationTime);
-      FileInformation.LastAccessTime := WinNative.LARGE_INTEGER(FileInfo.ftLastAccessTime);
-      FileInformation.LastWriteTime  := WinNative.LARGE_INTEGER(FileInfo.ftLastWriteTime);
-      FileInformation.ChangeTime     := WinNative.LARGE_INTEGER(FileInfo.ftLastWriteTime);
-      FileInformation.FileAttributes := FileInfo.dwFileAttributes;
-      result                         := WinNative.STATUS_SUCCESS;
-    end else begin
-      result := WinNative.STATUS_NO_SUCH_FILE;
-    end;
-  end
-  // Query file with real path
-  else begin
-    RedirectedPath := ExpandedPath;
-
-    if (RedirectedPath <> '') and (RedirectedPath[1] <> '\') then begin
-      RedirectedPath := '\??\' + RedirectedPath;
+    if ExpandedPath <> '' then begin
+      RedirectedPath := GetVfsItemRealPath(StrLib.ExcludeTrailingDelimW(ExpandedPath, @HadTrailingDelim), @FileInfo);
     end;
 
-    ReplacedObjAttrs.RootDirectory := 0;
-    ReplacedObjAttrs.Attributes    := ReplacedObjAttrs.Attributes or WinNative.OBJ_CASE_INSENSITIVE;
-    ReplacedObjAttrs.ObjectName.AssignExistingStr(RedirectedPath);
-    
-    result := NativeNtQueryAttributesFile(@ReplacedObjAttrs, FileInformation);
-  end; // .else
+    // Return cached VFS file info with fake ChangeTime = LastWriteTime
+    if RedirectedPath <> '' then begin
+      if not HadTrailingDelim or ((FileInfo.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) = Windows.FILE_ATTRIBUTE_DIRECTORY) then begin
+        FileInformation.CreationTime   := WinNative.LARGE_INTEGER(FileInfo.ftCreationTime);
+        FileInformation.LastAccessTime := WinNative.LARGE_INTEGER(FileInfo.ftLastAccessTime);
+        FileInformation.LastWriteTime  := WinNative.LARGE_INTEGER(FileInfo.ftLastWriteTime);
+        FileInformation.ChangeTime     := WinNative.LARGE_INTEGER(FileInfo.ftLastWriteTime);
+        FileInformation.FileAttributes := FileInfo.dwFileAttributes;
+        result                         := WinNative.STATUS_SUCCESS;
+      end else begin
+        result := WinNative.STATUS_NO_SUCH_FILE;
+      end;
+    end
+    // Query file with real path
+    else begin
+      RedirectedPath := ExpandedPath;
 
-  if DebugOpt then begin
-    Log.Write('VFS', 'NtQueryAttributesFile', ObjectAttributes.ObjectName.ToWideStr());
-    Log.Write('VFS', 'NtQueryAttributesFile', Format('Result: %d. Attrs: %x. Path: "%s" => "%s"', [result, FileInformation.FileAttributes, string(ExpandedPath), string(RedirectedPath)]));
-  end;
+      if (RedirectedPath <> '') and (RedirectedPath[1] <> '\') then begin
+        RedirectedPath := '\??\' + RedirectedPath;
+      end;
+
+      ReplacedObjAttrs.RootDirectory := 0;
+      ReplacedObjAttrs.Attributes    := ReplacedObjAttrs.Attributes or WinNative.OBJ_CASE_INSENSITIVE;
+      ReplacedObjAttrs.ObjectName.AssignNewStr(RedirectedPath);
+      
+      result := NativeNtQueryAttributesFile(@ReplacedObjAttrs, FileInformation);
+    end; // .else
+
+    if DebugOpt then begin
+      Log.Write('VFS', 'NtQueryAttributesFile', ObjectAttributes.ObjectName.ToWideStr());
+      Log.Write('VFS', 'NtQueryAttributesFile', Format('Result: %d. Attrs: %x. Path: "%s" => "%s"', [result, FileInformation.FileAttributes, string(ExpandedPath), string(RedirectedPath)]));
+    end;
+
+    Leave;
+  end; // .with
 end; // .function Hook_NtQueryAttributesFile
 
 function Hook_NtQueryFullAttributesFile (Hook: PatchApi.THiHook; ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_NETWORK_OPEN_INFORMATION): NTSTATUS; stdcall;
@@ -1568,40 +1574,52 @@ var
   HadTrailingDelim: boolean;
 
 begin
-  ReplacedObjAttrs        := ObjectAttributes^;
-  ReplacedObjAttrs.Length := sizeof(ReplacedObjAttrs);
-  ExpandedPath            := GetFileObjectPath(ObjectAttributes);
-  RedirectedPath          := '';
+  with VfsCritSection do begin
+    Enter;
 
-  if ExpandedPath <> '' then begin
-    RedirectedPath := GetVfsItemRealPath(StrLib.ExcludeTrailingDelimW(ExpandedPath, @HadTrailingDelim));
-  end;
+    ReplacedObjAttrs        := ObjectAttributes^;
+    ReplacedObjAttrs.Length := sizeof(ReplacedObjAttrs);
+    ExpandedPath            := GetFileObjectPath(ObjectAttributes);
+    RedirectedPath          := '';
 
-  if RedirectedPath = '' then begin
-    RedirectedPath := ExpandedPath;
-  end else if HadTrailingDelim then begin
-    RedirectedPath := RedirectedPath + '\';
-  end;
+    if ExpandedPath <> '' then begin
+      RedirectedPath := GetVfsItemRealPath(StrLib.ExcludeTrailingDelimW(ExpandedPath, @HadTrailingDelim));
+    end;
+
+    if RedirectedPath = '' then begin
+      RedirectedPath := ExpandedPath;
+    end else if HadTrailingDelim then begin
+      RedirectedPath := RedirectedPath + '\';
+    end;
+      
+    if (RedirectedPath <> '') and (RedirectedPath[1] <> '\') then begin
+      RedirectedPath := '\??\' + RedirectedPath;
+    end;
+
+    ReplacedObjAttrs.RootDirectory := 0;
+    ReplacedObjAttrs.Attributes    := ReplacedObjAttrs.Attributes or WinNative.OBJ_CASE_INSENSITIVE;
+    ReplacedObjAttrs.ObjectName.AssignExistingStr(RedirectedPath);
     
-  if (RedirectedPath <> '') and (RedirectedPath[1] <> '\') then begin
-    RedirectedPath := '\??\' + RedirectedPath;
-  end;
+    result := NativeNtQueryFullAttributesFile(@ReplacedObjAttrs, FileInformation);
 
-  ReplacedObjAttrs.RootDirectory := 0;
-  ReplacedObjAttrs.Attributes    := ReplacedObjAttrs.Attributes or WinNative.OBJ_CASE_INSENSITIVE;
-  ReplacedObjAttrs.ObjectName.AssignExistingStr(RedirectedPath);
-  
-  result := NativeNtQueryFullAttributesFile(@ReplacedObjAttrs, FileInformation);
+    Leave;
+  end;
 end; // .Hook_NtQueryFullAttributesFile
 
 function Hook_NtOpenFile (Hook: PatchApi.THiHook; FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES;
                           IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall;
 begin
-  if DebugOpt then begin
-    Log.Write('VFS', 'NtOpenFile', ObjectAttributes.ObjectName.ToWideStr());
-  end;
+  with VfsCritSection do begin
+    Enter;
 
-  result := WinNative.NtCreateFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, nil, 0, ShareAccess, WinNative.FILE_OPEN, OpenOptions, nil, 0);
+    if DebugOpt then begin
+      Log.Write('VFS', 'NtOpenFile', ObjectAttributes.ObjectName.ToWideStr());
+    end;
+
+    result := WinNative.NtCreateFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, nil, 0, ShareAccess, WinNative.FILE_OPEN, OpenOptions, nil, 0);
+
+    Leave;
+  end;
 end;
 
 function Hook_NtCreateFile (Hook: PatchApi.THiHook; FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
@@ -1616,48 +1634,54 @@ var
   FileInfo: Windows.TWin32FindDataW;
 
 begin
-  if DebugOpt then begin
-    Log.Write('VFS', 'NtCreateFile', ObjectAttributes.ObjectName.ToWideStr());
-  end;
+  with VfsCritSection do begin
+    Enter;
 
-  ReplacedObjAttrs        := ObjectAttributes^;
-  ReplacedObjAttrs.Length := sizeof(ReplacedObjAttrs);
-  ExpandedPath            := GetFileObjectPath(ObjectAttributes);
-  RedirectedPath          := ExpandedPath;
-
-  if (ExpandedPath <> '') and ((DesiredAccess and WinNative.DELETE) = 0) and (CreateDisposition = WinNative.FILE_OPEN) then begin
-    RedirectedPath := GetVfsItemRealPath(StrLib.ExcludeTrailingDelimW(ExpandedPath, @HadTrailingDelim), @FileInfo);
-
-    // This will break SetCurrentDirectory
-    if (FileInfo.dwFileAttributes and FILE_ATTRIBUTE_DIRECTORY) = FILE_ATTRIBUTE_DIRECTORY then begin
-      RedirectedPath := '';
+    if DebugOpt then begin
+      Log.Write('VFS', 'NtCreateFile', ObjectAttributes.ObjectName.ToWideStr());
     end;
 
-    if RedirectedPath <> '' then begin
-      if HadTrailingDelim then begin
-        RedirectedPath := RedirectedPath + '\';
+    ReplacedObjAttrs        := ObjectAttributes^;
+    ReplacedObjAttrs.Length := sizeof(ReplacedObjAttrs);
+    ExpandedPath            := GetFileObjectPath(ObjectAttributes);
+    RedirectedPath          := ExpandedPath;
+
+    if (ExpandedPath <> '') and ((DesiredAccess and WinNative.DELETE) = 0) and (CreateDisposition = WinNative.FILE_OPEN) then begin
+      RedirectedPath := GetVfsItemRealPath(StrLib.ExcludeTrailingDelimW(ExpandedPath, @HadTrailingDelim), @FileInfo);
+
+      // This will break SetCurrentDirectory
+      if (FileInfo.dwFileAttributes and FILE_ATTRIBUTE_DIRECTORY) = FILE_ATTRIBUTE_DIRECTORY then begin
+        RedirectedPath := '';
       end;
-    end else begin
-      RedirectedPath := ExpandedPath;
+
+      if RedirectedPath <> '' then begin
+        if HadTrailingDelim then begin
+          RedirectedPath := RedirectedPath + '\';
+        end;
+      end else begin
+        RedirectedPath := ExpandedPath;
+      end;
     end;
-  end;
 
-  if (RedirectedPath <> '') and (RedirectedPath[1] <> '\') then begin
-    RedirectedPath := '\??\' + RedirectedPath;
-  end;
-
-  ReplacedObjAttrs.RootDirectory := 0;
-  ReplacedObjAttrs.Attributes    := ReplacedObjAttrs.Attributes or WinNative.OBJ_CASE_INSENSITIVE;
-  ReplacedObjAttrs.ObjectName.AssignExistingStr(RedirectedPath);
-
-  result := NativeNtCreateFile(FileHandle, DesiredAccess, @ReplacedObjAttrs, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-
-  if DebugOpt then begin
-    if ExpandedPath <> StripNtAbsPathPrefix(RedirectedPath) then begin
-      Log.Write('VFS', 'NtCreateFile', Format('Access: $%x. Handle: %d. Status: %d. Redirected "%s" => "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath), StrLib.WideToAnsiSubstitute(StripNtAbsPathPrefix(RedirectedPath))]));
-    end else begin
-      Log.Write('VFS', 'NtCreateFile', Format('Access: $%x. Handle: %d. Status: %d. Path: "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath)]));
+    if (RedirectedPath <> '') and (RedirectedPath[1] <> '\') then begin
+      RedirectedPath := '\??\' + RedirectedPath;
     end;
+
+    ReplacedObjAttrs.RootDirectory := 0;
+    ReplacedObjAttrs.Attributes    := ReplacedObjAttrs.Attributes or WinNative.OBJ_CASE_INSENSITIVE;
+    ReplacedObjAttrs.ObjectName.AssignExistingStr(RedirectedPath); // FIXME TO EXISTING STR
+
+    result := NativeNtCreateFile(FileHandle, DesiredAccess, @ReplacedObjAttrs, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+
+    if DebugOpt then begin
+      if ExpandedPath <> StripNtAbsPathPrefix(RedirectedPath) then begin
+        Log.Write('VFS', 'NtCreateFile', Format('Access: $%x. Handle: %d. Status: %d. Redirected "%s" => "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath), StrLib.WideToAnsiSubstitute(StripNtAbsPathPrefix(RedirectedPath))]));
+      end else begin
+        Log.Write('VFS', 'NtCreateFile', Format('Access: $%x. Handle: %d. Status: %d. Path: "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath)]));
+      end;
+    end;
+
+    Leave;
   end;
 end; // .function Hook_NtCreateFile
 

@@ -716,9 +716,6 @@ begin
 end;
 
 procedure _UNICODE_STRING.AssignNewStr (const {n} Str: PWideChar; NumChars: integer = AUTO_LENGTH);
-const
-  NULL_CHAR_SIZE = sizeof(WideChar);
-
 var
   BufSize: integer;
 
@@ -728,19 +725,19 @@ begin
   if (NumChars = 0) or (Str = nil) or (Str^ = #0) then begin
     Self.Length        := 0;
     Self.MaximumLength := 0;
-    Self.Buffer        := PWideChar(EMPTY_STR);
+    Self.Buffer        := nil;
   end else begin
     if NumChars < 0 then begin
-      BufSize := wcslen(Str) * sizeof(Str[1]) + NULL_CHAR_SIZE;
+      BufSize := wcslen(Str) * sizeof(Str[1]) + WIDE_NULL_CHAR_SIZE;
     end else begin
-      BufSize := NumChars * sizeof(Str[1]) + NULL_CHAR_SIZE;
+      BufSize := NumChars * sizeof(Str[1]) + WIDE_NULL_CHAR_SIZE;
     end;
     
     Self.Buffer        := MemAlloc(BufSize);
-    Self.Length        := BufSize - NULL_CHAR_SIZE;
-    Self.MaximumLength := BufSize - NULL_CHAR_SIZE;
-    pword(Utils.PtrOfs(Self.Buffer, BufSize - NULL_CHAR_SIZE))^ := 0;
-    Utils.CopyMem(BufSize - NULL_CHAR_SIZE, Str, Self.Buffer);
+    Self.Length        := BufSize - WIDE_NULL_CHAR_SIZE;
+    Self.MaximumLength := BufSize;
+    pword(Utils.PtrOfs(Self.Buffer, Self.Length))^ := 0;
+    Utils.CopyMem(BufSize - WIDE_NULL_CHAR_SIZE, Str, Self.Buffer);
   end; // .else
 end; // .procedure _UNICODE_STRING.AssignNewStr
 
@@ -754,7 +751,7 @@ begin
   if (NumChars = 0) or (Str = nil) or (Str^ = #0) then begin
     Self.Length        := 0;
     Self.MaximumLength := 0;
-    Self.Buffer        := PWideChar(EMPTY_STR);
+    Self.Buffer        := nil;
   end else begin
     if NumChars < 0 then begin
       BufSize := wcslen(Str) * sizeof(Str[1]);
@@ -777,7 +774,7 @@ procedure _UNICODE_STRING.Release;
 begin
   if Self.Length > 0 then begin
     MemFree(Self.Buffer);
-    Self.Buffer        := PWideChar(EMPTY_STR);
+    Self.Buffer        := nil;
     Self.Length        := 0;
     Self.MaximumLength := 0;
   end;
@@ -815,15 +812,13 @@ end;
 function MemAlloc (Size: cardinal): pointer;
 begin
   {!} Assert(Size <> 0);
-  //result := RtlAllocateHeap(Windows.GetProcessHeap(), Windows.HEAP_GENERATE_EXCEPTIONS, Size);
-  GetMem(result, Size);
+  result := RtlAllocateHeap(Windows.GetProcessHeap(), Windows.HEAP_GENERATE_EXCEPTIONS, Size);
 end;
 
 procedure MemFree ({n} Ptr: pointer);
 begin
   if Ptr <> nil then begin
-    FreeMem(Ptr);
-    //RtlFreeHeap(Windows.GetProcessHeap(), 0, Ptr);
+    RtlFreeHeap(Windows.GetProcessHeap(), 0, Ptr);
   end;
 end;
 
