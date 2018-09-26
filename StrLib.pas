@@ -192,6 +192,10 @@ function  IsBinaryStr (const Str: string): boolean;
 
 function  Utf8ToAnsi (const Str: string): string;
 function  PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
+
+(* Converts null-terminated WideString to AnsiString, substituting invalid characters with special character *)
+function  WideToAnsiSubstitute (const Str: WideString): string;
+
 function  WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
 function  WideStringToBuf (const Str: WideString; Buf: PWideChar): PWideChar;
 function  WideLowerCase (const Str: WideString): WideString;
@@ -1464,6 +1468,11 @@ begin
     end;
   end; // .if
 end; // .function PWideCharToAnsi
+
+function WideToAnsiSubstitute (const Str: WideString): string;
+begin
+  PWideCharToAnsi(PWideChar(Str), result, not FAIL_ON_ERROR);
+end;
 
 function WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
 begin

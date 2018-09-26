@@ -20,10 +20,13 @@ const
   (* Used in wrappers. Specifies to calculate zero-terminated string length automatically *)
   AUTO_LENGTH = -1;
 
-  EMPTY_STR = WideString('');
+  EMPTY_STR           = WideString('');
+  WIDE_NULL_CHAR_SIZE = sizeof(WideChar);
 
   STATUS_SUCCESS      = 0;
   STATUS_NO_SUCH_FILE = $C000000F;
+
+  INVALID_FILE_ATTRIBUTES = -1;
 
 type
   NTSTATUS  = Longword;
@@ -371,6 +374,23 @@ type
 //
 
 const
+  FILE_READ_DATA            = $0001;        (* file & pipe *)
+  FILE_LIST_DIRECTORY       = $0001;        (* directory *)
+  FILE_WRITE_DATA           = $0002;        (* file & pipe *)
+  FILE_ADD_FILE             = $0002;        (* directory *)
+  FILE_APPEND_DATA          = $0004;        (* file *)
+  FILE_ADD_SUBDIRECTORY     = $0004;        (* directory *)
+  FILE_CREATE_PIPE_INSTANCE = $0004;        (* named pipe *)
+  FILE_READ_EA              = $0008;        (* file & directory *)
+  FILE_READ_PROPERTIES      = FILE_READ_EA;
+  FILE_WRITE_EA             = $0010;        (* file & directory *)
+  FILE_WRITE_PROPERTIES     = FILE_READ_EA;
+  FILE_EXECUTE              = $0020;        (* file *)
+  FILE_TRAVERSE             = $0020;        (* directory *)
+  FILE_DELETE_CHILD         = $0040;        (* directory *)
+  FILE_READ_ATTRIBUTES      = $0080;        (* all *)
+  FILE_WRITE_ATTRIBUTES     = $0100;        (* all *)
+
   DELETE                   = $00010000;
   READ_CONTROL             = $00020000;
   WRITE_DAC                = $00040000;
@@ -744,7 +764,7 @@ begin
     
     Self.Buffer        := Str;
     Self.Length        := BufSize;
-    Self.MaximumLength := BufSize;
+    Self.MaximumLength := BufSize + WIDE_NULL_CHAR_SIZE;
   end; // .else
 end; // .procedure _UNICODE_STRING.AssignExistingStr
 
@@ -794,13 +814,16 @@ end;
 
 function MemAlloc (Size: cardinal): pointer;
 begin
-  result := RtlAllocateHeap(Windows.GetProcessHeap(), Windows.HEAP_GENERATE_EXCEPTIONS, Size);
+  {!} Assert(Size <> 0);
+  //result := RtlAllocateHeap(Windows.GetProcessHeap(), Windows.HEAP_GENERATE_EXCEPTIONS, Size);
+  GetMem(result, Size);
 end;
 
 procedure MemFree ({n} Ptr: pointer);
 begin
   if Ptr <> nil then begin
-    RtlFreeHeap(Windows.GetProcessHeap(), 0, Ptr);
+    FreeMem(Ptr);
+    //RtlFreeHeap(Windows.GetProcessHeap(), 0, Ptr);
   end;
 end;
 
