@@ -116,8 +116,8 @@ function ObjFromMethod (Method: TObjProcedure): TObject; inline;
 function ClassFromMethod (Method: TObjProcedure): TClass; inline;
 
 (* Ternary operator *)
-function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload;
-function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload;
+function IfElse (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload;
+function IfElse (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload;
 
 
 (***)  implementation  (***)
@@ -126,20 +126,20 @@ function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: inte
 function PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer;
 begin
   result := pointer(integer(BasePtr) + Offset);
-end; // .function PtrOfs
+end;
 
 function IsValidBuf ({n} Buf: pointer; BufSize: integer): boolean;
 begin
   {Buf <> NIL and BufSize = 0 is OK. Buf = NIL and BufSize > 0 is BAD. !BufSize >= 0}
   result := (BufSize >= 0) and ((Buf <> nil) or (BufSize = 0));
-end; // .function IsValidBuf
+end;
 
 procedure CopyMem (Count: integer; {n} Source, Destination: pointer);
 begin
   {!} Assert(Count >= 0);
   {!} Assert((Count = 0) or ((Source <> nil) and (Destination <> nil)));
   System.Move(Source^, Destination^, Count);
-end; // .procedure CopyMem
+end;
 
 procedure Exchange (var A, B: integer);
 var
@@ -149,7 +149,7 @@ begin
   C :=  A;
   A :=  B;
   B :=  C;
-end; // .procedure Exchange
+end;
 
 procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer);
 var
@@ -169,13 +169,13 @@ end; // .procedure SetPcharValue
 
 procedure TCloneable.Assign (Source: TCloneable);
 begin
-end; // .procedure TCloneable.Assign
+end;
 
 function TCloneable.Clone: TCloneable;
 begin
   result := TCloneable(Self.ClassType.Create);
   result.Assign(Self);
-end; // .function TCloneable.CreateNew
+end;
 
 procedure TDefItemGuard.Assign (Source: TCloneable);
 var
@@ -187,17 +187,17 @@ begin
   // * * * * * //
   Self.ItemType := SrcItemGuard.ItemType;
   Self.AllowNIL := SrcItemGuard.AllowNIL;
-end; // .procedure TDefItemGuard.Assign
+end;
 
 function Even (Num: integer): boolean;
 begin
   result := not ODD(Num);
-end; // .function Even
+end;
 
 function NoItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 begin
   result := TRUE;
-end; // .function NoItemGuardProc
+end;
 
 function DefItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 var
@@ -216,7 +216,7 @@ end; // .function DefItemGuardProc
 function EqualMethods (A, B: TMethod): boolean;
 begin
   result := (A.Code = B.Code) and (A.Data = B.Data);
-end; // .function EqualMethods
+end;
 
 procedure CastOrFree ({On} Obj: TObject; CastToType: TClass; out {O} Res);
 begin
@@ -226,7 +226,7 @@ begin
     Obj.Free;
     TObject(Res) := nil;
   end; // .else
-end; // .procedure CastOrFree
+end;
 
 function ObjFromMethod (Method: TObjProcedure): TObject; inline;
 begin
@@ -238,7 +238,7 @@ begin
   result := TClass(TMethod(Method).Data);
 end;
 
-function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
-function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfElse (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfElse (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
 
 end.

@@ -525,7 +525,6 @@ function FindCharExW (Ch: WideChar; const Str: WideString; StartPos: integer; ou
 var
   CharPtr: PWideChar;
   StrLen:  integer;
-  i:       integer;
 
 begin
   CharPtr := nil;
@@ -1482,11 +1481,7 @@ begin
     {!} Assert(Utils.IsValidBuf(Buf, NumChars));
     result := '';
 
-    if NumChars > 0 then begin
-      if ord(PWideChar(Utils.PtrOfs(Buf, (NumChars - 1) * sizeof(WideChar)))^) = 0 then begin
-        dec(NumChars);
-      end;
-      
+    if NumChars > 0 then begin    
       SetLength(result, NumChars);
 
       if NumChars > 0 then begin

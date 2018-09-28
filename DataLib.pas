@@ -42,7 +42,7 @@ type
       function  Take (Ind: integer): {OUn} TObject; virtual; abstract;
       procedure Delete (Ind: integer); virtual; abstract;
       procedure Clear; virtual; abstract;
-      procedure  Add (const Key: string; {OUn} Value: TObject);
+      procedure Add (const Key: string; {OUn} Value: TObject);
 
       property Count: integer read GetCount;
       

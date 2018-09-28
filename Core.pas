@@ -7,7 +7,7 @@ AUTHOR:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 (***)  interface  (***)
 uses
   Windows, PsApi, Math, StrUtils, SysUtils,
-  hde32, PatchApi,
+  hde32, PatchApi, ApiJack,
   Utils, Alg, WinWrappers, DlgMes, CFiles, Files, DataLib, StrLib, Concur,
   DebugMaps;
 
@@ -758,15 +758,11 @@ begin
   CurrentProcess := GetCurrentProcess;
   SetLength(ModuleHandles, 16000);
 
-  if PsApi.EnumProcessModules(CurrentProcess, @ModuleHandles[0],
-                              Length(ModuleHandles) * sizeof(ModuleHandles[0]), SizeNeeded)
-  then begin
+  if PsApi.EnumProcessModules(CurrentProcess, @ModuleHandles[0], Length(ModuleHandles) * sizeof(ModuleHandles[0]), SizeNeeded) then begin
     NumModules := SizeNeeded div sizeof(HMODULE);
 
     for i := 0 to NumModules - 1 do begin
-      if PsApi.GetModuleInformation(CurrentProcess, ModuleHandles[i], @ModuleInfoRes,
-                                    sizeof(ModuleInfoRes))
-      then begin
+      if PsApi.GetModuleInformation(CurrentProcess, ModuleHandles[i], @ModuleInfoRes, sizeof(ModuleInfoRes)) then begin
         ModuleInfo := TModuleInfo.Create;
 
         with ModuleInfo do begin
@@ -785,8 +781,7 @@ begin
   FreeAndNil(ModuleInfo);
 end; // .function GetModuleList
 
-function FindModuleByAddr ({n} Addr: pointer; ModuleList: TModuleList;
-                           out ModuleInd: integer): boolean;
+function FindModuleByAddr ({n} Addr: pointer; ModuleList: TModuleList; out ModuleInd: integer): boolean;
 var
   i: integer;
 
@@ -797,11 +792,9 @@ begin
   if result then begin
     i := 0;
 
-    while (i < ModuleList.Count) and
-           not (TObject(ModuleList.Values[i]) as TModuleInfo).OwnsAddr(Addr)
-    do begin
+    while (i < ModuleList.Count) and not (TObject(ModuleList.Values[i]) as TModuleInfo).OwnsAddr(Addr) do begin
       Inc(i);
-    end; // .while
+    end; 
 
     result := i < ModuleList.Count;
 

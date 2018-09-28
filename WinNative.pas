@@ -1,7 +1,6 @@
 unit WinNative;
 (*
-  Windows native API (ntdll, etc).
-  Adapted from: https://github.com/magicmonty/delphi-code-coverage/
+  Windows system libraries API (ntdll, etc).
 *)
 
 (***)  interface  (***)
@@ -20,7 +19,6 @@ const
   (* Used in wrappers. Specifies to calculate zero-terminated string length automatically *)
   AUTO_LENGTH = -1;
 
-  EMPTY_STR           = WideString('');
   WIDE_NULL_CHAR_SIZE = sizeof(WideChar);
 
   STATUS_SUCCESS      = 0;
@@ -197,8 +195,8 @@ type
     FileMaximumInformation
   ); // _FILE_INFORMATION_CLASS
   
-  FILE_INFORMATION_CLASS  = _FILE_INFORMATION_CLASS;
-  TFileInformationClass   = FILE_INFORMATION_CLASS;
+  FILE_INFORMATION_CLASS = _FILE_INFORMATION_CLASS;
+  TFileInformationClass  = FILE_INFORMATION_CLASS;
 
 //
 // Large (64-bit) integer types and operations
@@ -722,7 +720,7 @@ var
 begin
   {!} Assert((NumChars < 0) or Utils.IsValidBuf(Str, NumChars));
   
-  if (NumChars = 0) or (Str = nil) or (Str^ = #0) then begin
+  if (NumChars = 0) or (Str = nil) or ((NumChars = AUTO_LENGTH) and (Str^ = #0)) then begin
     Self.Length        := 0;
     Self.MaximumLength := 0;
     Self.Buffer        := nil;
@@ -737,9 +735,14 @@ begin
     Self.Length        := BufSize - WIDE_NULL_CHAR_SIZE;
     Self.MaximumLength := BufSize;
     pword(Utils.PtrOfs(Self.Buffer, Self.Length))^ := 0;
-    Utils.CopyMem(BufSize - WIDE_NULL_CHAR_SIZE, Str, Self.Buffer);
+    Utils.CopyMem(Self.Length, Str, Self.Buffer);
   end; // .else
 end; // .procedure _UNICODE_STRING.AssignNewStr
+
+procedure _UNICODE_STRING.AssignExistingStr (const Str: WideString);
+begin
+  Self.AssignExistingStr(PWideChar(Str), System.Length(Str));
+end;
 
 procedure _UNICODE_STRING.AssignExistingStr (const {n} Str: PWideChar; NumChars: integer = AUTO_LENGTH);
 var
@@ -765,15 +768,13 @@ begin
   end; // .else
 end; // .procedure _UNICODE_STRING.AssignExistingStr
 
-procedure _UNICODE_STRING.AssignExistingStr (const Str: WideString);
-begin
-  Self.AssignExistingStr(PWideChar(Str), System.Length(Str));
-end;
-
 procedure _UNICODE_STRING.Release;
 begin
-  if Self.Length > 0 then begin
-    MemFree(Self.Buffer);
+  if (Self.Length > 0) then begin
+    if Self.Buffer <> nil then begin
+      MemFree(Self.Buffer);
+    end;
+    
     Self.Buffer        := nil;
     Self.Length        := 0;
     Self.MaximumLength := 0;

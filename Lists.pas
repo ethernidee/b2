@@ -487,7 +487,6 @@ begin
   result  :=  Ind < Self.Count;
 end; // .function TList.Find
 
-// !FIXME if duplicates are allowed, then what???
 function TList.QuickFind ((* n *) Item: pointer; out Ind: integer): boolean;
 var
   LeftInd:    integer;
@@ -495,9 +494,9 @@ var
   MiddleItem: integer;
 
 begin
-  result    := false;
-  LeftInd   := 0;
-  RightInd  := Self.Count - 1;
+  result   := false;
+  LeftInd  := 0;
+  RightInd := Self.Count - 1;
   
   while (not result) and (LeftInd <= RightInd) do begin
     Ind        := LeftInd + (RightInd - LeftInd) shr 1;
@@ -505,27 +504,24 @@ begin
     
     if integer(Item) < MiddleItem then begin
       RightInd := Ind - 1;
-    end // .if
-    else if integer(Item) > MiddleItem then begin
+    end else if integer(Item) > MiddleItem then begin
       LeftInd := Ind + 1;
-    end // .else
-    else begin
+    end else begin
       result := TRUE;
-    end; // .else
-  end; // .while
+    end;
+  end;
   
   if not result then begin
     Ind := LeftInd;
-  end // .if
-  else begin
+  end else begin
     Inc(Ind);
     
     while (Ind < Self.fCount) and (Self.fData[Ind] = Item) do begin
       Inc(Ind);
-    end; // .while
+    end;
     
     Dec(Ind);
-  end; // .else
+  end;
 end; // .function TList.QuickFind
 
 procedure TList.Sort;
