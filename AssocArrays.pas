@@ -1471,7 +1471,7 @@ end; // .procedure TObjArray.EndIterate
 
 procedure TObjArray.BeginIterate;
 var
-  OptimalNumIterNodes:  integer;
+  OptimalNumIterNodes: integer;
   
 begin
   {!} Assert(not Self.fLocked);
@@ -1479,17 +1479,16 @@ begin
   
   if Length(Self.fIterNodes) < OptimalNumIterNodes then begin
     SetLength(Self.fIterNodes, OptimalNumIterNodes);
-  end; // .if
+  end;
   
   if Self.NodeCount > 0 then begin
-    Self.fIterNodeInd   :=  0;
-    Self.fIterNodes[0]  :=  Self.fRoot;
-  end // .if
-  else begin
-    Self.fIterNodeInd :=  -1;
-  end; // .else
+    Self.fIterNodeInd  := 0;
+    Self.fIterNodes[0] := Self.fRoot;
+  end else begin
+    Self.fIterNodeInd := -1;
+  end;
   
-  Self.fLocked  :=  TRUE;
+  Self.fLocked := TRUE;
 end; // .procedure TObjArray.BeginIterate
 
 function TObjArray.IterateNext (out {Un} Key: pointer; out {Un} Value: pointer): boolean;
@@ -1500,9 +1499,9 @@ begin
   {!} Assert(Self.Locked);
   {!} Assert(Key = nil);
   {!} Assert(Value = nil);
-  IterNode  :=  nil;
+  IterNode := nil;
   // * * * * * //
-  result  :=  Self.fIterNodeInd >= 0;
+  result := Self.fIterNodeInd >= 0;
   
   if result then begin
     IterNode  :=  Self.fIterNodes[Self.fIterNodeInd];
@@ -1510,16 +1509,16 @@ begin
     
     if IterNode.ChildNodes[LEFT_CHILD] <> nil then begin
       Inc(Self.fIterNodeInd);
-      Self.fIterNodes[Self.fIterNodeInd]  :=  IterNode.ChildNodes[LEFT_CHILD];
+      Self.fIterNodes[Self.fIterNodeInd] := IterNode.ChildNodes[LEFT_CHILD];
     end; // .if
     
     if IterNode.ChildNodes[RIGHT_CHILD] <> nil then begin
       Inc(Self.fIterNodeInd);
-      Self.fIterNodes[Self.fIterNodeInd]  :=  IterNode.ChildNodes[RIGHT_CHILD];
+      Self.fIterNodes[Self.fIterNodeInd] := IterNode.ChildNodes[RIGHT_CHILD];
     end; // .if
     
-    Key   :=  Self.HashToKey(IterNode.Hash);
-    Value :=  IterNode.Value;
+    Key   := Self.HashToKey(IterNode.Hash);
+    Value := IterNode.Value;
   end; // .if
 end; // .function TObjArray.IterateNext
 

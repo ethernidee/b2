@@ -7,7 +7,7 @@ AUTHOR:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 (***)  interface  (***)
 uses
   Windows, PsApi, Math, StrUtils, SysUtils,
-  hde32, PatchApi, ApiJack,
+  hde32, PatchApi,
   Utils, Alg, WinWrappers, DlgMes, CFiles, Files, DataLib, StrLib, Concur,
   DebugMaps;
 

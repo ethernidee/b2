@@ -20,7 +20,7 @@ Possible VFS item attributes to implement:
 uses
   Windows, WinNative, SysUtils, Math, MMSystem,
   Utils, Crypto, Lists, DataLib, StrLib, StrUtils, Files, FilesEx (* removeme *), Log, TypeWrappers,
-  PatchApi, Core, Ini, WinUtils, Concur, PatchForge, ApiJack, DlgMes;
+  PatchApi, Core, Ini, WinUtils, Concur, PatchForge, {ApiJack, }DlgMes;
 
 (*
   Redirects calls to:
@@ -1881,6 +1881,11 @@ var
 begin
   if not VfsHooksInstalled then begin
   (* WHERE ARE VFS LOCKS???????????????? *)
+    asm int 3; end;
+
+    with TPatchHelper.Init(TPatchMaker.Create) do begin
+      Write([777, '123', 3.14]);
+    end;
 
     Kernel32Handle := Windows.GetModuleHandle('kernel32.dll');
     User32Handle   := Windows.GetModuleHandle('user32.dll');
@@ -2059,13 +2064,13 @@ begin
     //   @Hook_SetCurrentDirectoryA,
     // );
 
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtQueryAttributesFile hook');
-    NativeNtQueryAttributesFile := ApiJack.Splice
-    (
-      GetRealProcAddress(NtdllHandle, 'NtQueryAttributesFile'),
-      @Hook_NtQueryAttributesFile,
-      ApiJack.AUTO_SIZE
-    ).OrigFunc;
+    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtQueryAttributesFile hook');
+    // NativeNtQueryAttributesFile := ApiJack.Splice
+    // (
+    //   GetRealProcAddress(NtdllHandle, 'NtQueryAttributesFile'),
+    //   @Hook_NtQueryAttributesFile,
+    //   ApiJack.AUTO_SIZE
+    // ).OrigFunc;
 
     // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtQueryFullAttributesFile hook');
     // NativeNtQueryFullAttributesFile := pointer(Core.p.WriteHiHook

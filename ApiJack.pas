@@ -7,7 +7,7 @@
 (***)  interface  (***)
 
 uses
-  Windows, SysUtils, hde32, Utils, Math, Alg, DataLib;
+  Windows, SysUtils, hde32, Utils, Math, Alg, DataLib, PatchForge;
 
 const
   // Function argument. Size must be detected automatically.
@@ -446,6 +446,8 @@ type
   TPushOrigFuncAsArg = packed record
 
   end;
+
+  add custom data as optional parameter
 
 const
   BRIDGE_TO_HOOK_SIZE              = 24;

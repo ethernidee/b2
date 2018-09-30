@@ -28,6 +28,12 @@ function  IntCompare (Int1, Int2: integer): integer;
 function  CardCompare (Card1, Card2: cardinal): integer;
 function  PtrCompare (Ptr1, Ptr2: pointer): integer;
 function  Int64To32 (Value: INT64): integer; {No overflow, bounds to LOW(INT32)..HIGH(IN32)}
+function  IsSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer): boolean; { Ascendantly }
+function  IsCustomSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFunc): boolean; overload;
+function  IsCustomSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareMethod): boolean; overload;
+function  IsDescSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer): boolean;
+function  IsCustomDescSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFunc): boolean; overload;
+function  IsCustomDescSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareMethod): boolean; overload;
 procedure QuickSort (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer);
 procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer;
                            CompareItems: TCompareFunc); overload;
@@ -59,71 +65,153 @@ var
   
 begin
   {!} Assert(Num > 0);
-  result    :=  0;
-  TestValue :=  1;
+  result    := 0;
+  TestValue := 1;
   
   while TestValue < cardinal(Num) do begin
     Inc(result);
-    TestValue :=  TestValue shl 1;
+    TestValue := TestValue shl 1;
   end; // .while
 end; // .function IntLog2
 
 function IntCompare (Int1, Int2: integer): integer;
 begin
   if Int1 > Int2 then begin
-    result  :=  +1;
-  end // .if
-  else if Int1 < Int2 then begin
-    result  :=  -1;
-  end // .ELSEIF
-  else begin
-    result  :=  0;
-  end; // .else
+    result := +1;
+  end else if Int1 < Int2 then begin
+    result := -1;
+  end else begin
+    result := 0;
+  end;
 end; // .function IntCompare
 
 function CardCompare (Card1, Card2: cardinal): integer;
 begin
   if Card1 > Card2 then begin
     result := +1;
-  end // .if
-  else if Card1 < Card2 then begin
+  end else if Card1 < Card2 then begin
     result := -1;
-  end // .ELSEIF
-  else begin
+  end else begin
     result := 0;
-  end; // .else
+  end;
 end; // .function CardCompare
 
 function PtrCompare (Ptr1, Ptr2: pointer): integer;
 begin
   if cardinal(Ptr1) > cardinal(Ptr2) then begin
     result := +1;
-  end // .if
-  else if cardinal(Ptr1) < cardinal(Ptr2) then begin
+  end else if cardinal(Ptr1) < cardinal(Ptr2) then begin
     result := -1;
-  end // .ELSEIF
-  else begin
+  end else begin
     result := 0;
-  end; // .else
+  end;
 end; // .function PtrCompare
 
 function Int64To32 (Value: INT64): integer;
 begin
   if Value > High(integer) then begin
     result  :=  High(integer);
-  end // .if
-  else if Value < Low(integer) then begin
+  end else if Value < Low(integer) then begin
     result  :=  Low(integer);
-  end // .ELSEIF
-  else begin
+  end else begin
     result  :=  Value;
-  end; // .else
+  end;
 end; // .function Int64To32
+
+function IsSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer): boolean;
+var
+  i: integer;
+
+begin
+  result := true;
+
+  for i := MinInd + 1 to MaxInd do begin
+    if Arr[i - 1] > Arr[i] then begin
+      result := false;
+      break;
+    end;
+  end;
+end; // .function IsSortedArr
+
+function IsCustomSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFunc): boolean;
+var
+  i: integer;
+
+begin
+  result := true;
+
+  for i := MinInd + 1 to MaxInd do begin
+    if CompareItems(Arr[i - 1], Arr[i]) > 0 then begin
+      result := false;
+      break;
+    end;
+  end;
+end; // .function IsCustomSortedArr
+
+function IsCustomSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareMethod): boolean;
+var
+  i: integer;
+
+begin
+  result := true;
+
+  for i := MinInd + 1 to MaxInd do begin
+    if CompareItems(Arr[i - 1], Arr[i]) > 0 then begin
+      result := false;
+      break;
+    end;
+  end;
+end; // .function IsCustomSortedArr
+
+function IsDescSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer): boolean;
+var
+  i: integer;
+
+begin
+  result := true;
+
+  for i := MinInd + 1 to MaxInd do begin
+    if Arr[i - 1] > Arr[i] then begin
+      result := false;
+      break;
+    end;
+  end;
+end; // .function IsDescSortedArr
+
+function IsCustomDescSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFunc): boolean;
+var
+  i: integer;
+
+begin
+  result := true;
+
+  for i := MinInd + 1 to MaxInd do begin
+    if CompareItems(Arr[i - 1], Arr[i]) > 0 then begin
+      result := false;
+      break;
+    end;
+  end;
+end; // .function IsCustomDescSortedArr
+
+function IsCustomDescSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareMethod): boolean;
+var
+  i: integer;
+
+begin
+  result := true;
+
+  for i := MinInd + 1 to MaxInd do begin
+    if CompareItems(Arr[i - 1], Arr[i]) > 0 then begin
+      result := false;
+      break;
+    end;
+  end;
+end; // .function IsCustomDescSortedArr
 
 procedure QuickSort (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer);
 begin
   CustomQuickSort(Arr, MinInd, MaxInd, IntCompare);
-end; // .procedure QuickSort
+end;
 
 procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer;
                            CompareItems: TCompareFunc); overload;

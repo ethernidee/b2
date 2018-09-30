@@ -54,8 +54,10 @@ type
       function  Find ((* n *) Item: pointer; out Ind: integer): boolean;
       {Binary search assuming list is sorted}
       function  QuickFind ((* n *) Item: pointer; out Ind: integer): boolean;
+
       procedure Sort;
-      procedure CustomSort (Compare: Alg.TCompareFunc);
+      procedure CustomSort (Compare: Alg.TCompareFunc); overload;
+      procedure CustomSort (Compare: Alg.TCompareMethod); overload;
       
       property  Capacity:             integer read fCapacity;
       property  Count:                integer read fCount;
@@ -526,13 +528,24 @@ end; // .function TList.QuickFind
 
 procedure TList.Sort;
 begin
-  Alg.QuickSort(@Self.fData[0], 0, Self.Count - 1);
-end; // .procedure TList.Sort
+  if not Alg.IsSortedArr(pointer(Self.fData), 0, Self.Count - 1) then begin
+    Alg.QuickSort(pointer(Self.fData), 0, Self.Count - 1);
+  end;
+end;
 
 procedure TList.CustomSort (Compare: Alg.TCompareFunc);
 begin
-  Alg.CustomQuickSort(@Self.fData[0], 0, Self.Count - 1, Compare);
-end; // .procedure TList.CustomSort
+  if not Alg.IsCustomSortedArr(pointer(Self.fData), 0, Self.Count - 1, Compare) then begin
+    Alg.CustomQuickSort(@Self.fData[0], 0, Self.Count - 1, Compare);
+  end;
+end;
+
+procedure TList.CustomSort (Compare: Alg.TCompareMethod);
+begin
+  if not Alg.IsCustomSortedArr(pointer(Self.fData), 0, Self.Count - 1, Compare) then begin
+    Alg.CustomQuickSort(@Self.fData[0], 0, Self.Count - 1, Compare);
+  end;
+end;
 
 constructor TStringListQuickSortAdapter.Create ({U} List: TStringList; {n} CompareFunc: TStringListCompareFunc);
 begin

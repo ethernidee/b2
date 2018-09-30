@@ -236,99 +236,99 @@ end; // .function NewStrListFromStrArr
 function NewHashedList (OwnsItems, CaseInsensitive: boolean): {O} THashedList;
 begin
   result  :=  TStdHashedList.Create(OwnsItems, CaseInsensitive);
-end; // .function NewHashedList
+end;
 
 procedure THashedList.Add (const Key: string; {OUn} Value: TObject);
 begin
   Self.InsertBefore(Key, Value, Self.Count);
-end; // .procedure THashedList.Add
+end;
 
 constructor TStdHashedList.Create (OwnsItems, CaseInsensitive: boolean);
 begin
-  Self.fItemList  :=  NewStrList(OwnsItems, CaseInsensitive);
-  Self.fItems     :=  NewDict(not Utils.OWNS_ITEMS, CaseInsensitive);
-end; // .constructor TStdHashedList.Create
+  Self.fItemList := NewStrList(OwnsItems, CaseInsensitive);
+  Self.fItems    := NewDict(not Utils.OWNS_ITEMS, CaseInsensitive);
+end;
 
 destructor TStdHashedList.Destroy;
 begin
   SysUtils.FreeAndNil(Self.fItems);
   SysUtils.FreeAndNil(Self.fItemList);
-end; // .destructor TStdHashedList.Destroy
+end;
 
 function TStdHashedList.GetItem (const Key: string): {Un} TObject;
 begin
-  result  :=  Self.fItems[Key];
-end; // .function TStdHashedList.GetItem
+  result := Self.fItems[Key];
+end;
 
 function TStdHashedList.GetKey (Ind: integer): string;
 begin
-  result  :=  Self.fItemList.Keys[Ind];
-end; // .function TStdHashedList.GetKey
+  result := Self.fItemList.Keys[Ind];
+end;
 
 function TStdHashedList.GetValue (Ind: integer): {Un} TObject;
 begin
-  result  :=  Self.fItemList.Values[Ind];
-end; // .function TStdHashedList.GetValue
+  result := Self.fItemList.Values[Ind];
+end;
 
 procedure TStdHashedList.SetValue (Ind: integer; {OUn} NewValue: TObject);
 begin
-  Self.fItemList.Values[Ind]        :=  NewValue;
-  Self.fItems[Self.fItemList[Ind]]  :=  NewValue;
-end; // .procedure TStdHashedList.SetValue
+  Self.fItemList.Values[Ind]       := NewValue;
+  Self.fItems[Self.fItemList[Ind]] := NewValue;
+end;
 
 function TStdHashedList.GetCount: integer;
 begin
-  result  :=  Self.fItemList.Count;
-end; // .function TStdHashedList.GetCount
+  result := Self.fItemList.Count;
+end;
 
 function TStdHashedList.LinearFind (const Key: string; out Ind: integer): boolean;
 begin
-  result  :=  Self.fItemList.Find(Key, Ind);
-end; // .function TStdHashedList.LinearFind 
+  result := Self.fItemList.Find(Key, Ind);
+end;
 
 procedure TStdHashedList.InsertBefore
 (
-        const Key:        string;
-  {OUn}       Value:      TObject;
-              BeforeInd:  integer
+        const Key:       string;
+  {OUn}       Value:     TObject;
+              BeforeInd: integer
 );
 
 var
 {U} OldValue: TObject;
 
 begin
-  OldValue  :=  nil;
+  OldValue := nil;
   // * * * * * //
   {!} Assert(not Self.fItems.GetExistingValue(Key, pointer(OldValue)));
   Self.fItemList.InsertObj(Key, Value, BeforeInd);
-  Self.fItems[Key]  :=  Value;
+  Self.fItems[Key] := Value;
 end; // .procedure TStdHashedList.InsertBefore
 
 procedure TStdHashedList.Delete (Ind: integer);  
 begin
   Self.fItems.DeleteItem(Self.fItemList[Ind]);
   Self.fItemList.Delete(Ind);
-end; // .procedure TStdHashedList.Delete
+end;
 
 function TStdHashedList.Take (Ind: integer): {OUn} TObject;
 begin
-  result  :=  nil;
+  result := nil;
   Self.fItems.TakeValue(Self.fItemList[Ind], pointer(result));
   Self.fItemList.TakeValue(Ind);
-end; // .function TStdHashedList.Take
+end;
 
 procedure TStdHashedList.Clear;
 begin
   Self.fItemList.Clear;
   Self.fItems.Clear;
-end; // .procedure TStdHashedList.Clear
+end;
 
 procedure TDictIterator.BeginIterate ({U} Dict: TDict);
 begin
   {!} Assert(Dict <> nil);
   {!} Assert(not Dict.Locked);
-  Self.fDict      :=  Dict;
-  Self.fIterating :=  TRUE;
+  Self.fDict      := Dict;
+  Self.fIterating := TRUE;
   Dict.BeginIterate;
 end; // .procedure TDictIterator.BeginIterate
 
