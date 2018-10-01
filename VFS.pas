@@ -1408,10 +1408,10 @@ begin
     // Closing VFS search handle
     else begin
       result := ReleaseSearchHandle(integer(hFindFile));
-      Windows.SetLastError(Utils.IfElse(result, Windows.ERROR_SUCCESS, Windows.ERROR_INVALID_HANDLE));
+      Windows.SetLastError(Utils.IfThen(result, Windows.ERROR_SUCCESS, Windows.ERROR_INVALID_HANDLE));
 
       if DebugOpt then begin
-        Log.Write('VFS', 'FindClose', Format('Handle: %d. Result: %s', [integer(hFindFile), Utils.IfElse(result, 'ERROR_SUCCESS', 'ERROR_INVALID_HANDLE')]));
+        Log.Write('VFS', 'FindClose', Format('Handle: %d. Result: %s', [integer(hFindFile), Utils.IfThen(result, 'ERROR_SUCCESS', 'ERROR_INVALID_HANDLE')]));
       end;
     end;
 
@@ -1884,7 +1884,13 @@ begin
   if not VfsHooksInstalled then begin
   (* WHERE ARE VFS LOCKS???????????????? *)
     with TPatchHelper.Init(TPatchMaker.Create) do begin
-      Jump(Ptr($401000), Utils.NO_FLAGS, JL);
+      Jump(JMP, Ptr($401000));
+      JumpPos(JBE_SHORT, 0);
+      JumpLabel(JG_SHORT, 'Test');
+      FillBytes(4, OPCODE_NOP);
+      PutLabel('Test');
+      Ret(3);
+      Nop(8);
       SetLength(s, Size);
       ApplyPatch(pointer(s));
       asm mov eax, s; int 3; end;
@@ -2300,7 +2306,7 @@ begin
 
   // Msg(s);
 
-  //Msg(Utils.IfElse(MatchW('tests24523', 't?s*23'), 'Match', 'Not Match'));
+  //Msg(Utils.IfThen(MatchW('tests24523', 't?s*23'), 'Match', 'Not Match'));
 
   //RedirectFile('D:/heroes 3/h3ERA.exe', 'D:\soft\games\heroes3\era\h3era.exe', OVERWRITE_EXISTING);
 

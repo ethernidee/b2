@@ -19,25 +19,37 @@ const
   CURRENT_POS = -1;
 
   (* Assembler opcodes *)
-  OPCODE_JMP_CONST32     = $E9;
-  OPCODE_JE_CONST32      = $840F;
-  OPCODE_JNE_CONST32     = $850F;
-  OPCODE_JA_CONST32      = $870F;
-  OPCODE_JAE_CONST32     = $830F;
-  OPCODE_JB_CONST32      = $820F;
-  OPCODE_JBE_CONST32     = $860F;
-  OPCODE_JG_CONST32      = $8F0F;
-  OPCODE_JGE_CONST32     = $8D0F;
-  OPCODE_JL_CONST32      = $8C0F;
-  OPCODE_JLE_CONST32     = $8E0F;
-  OPCODE_CALL_CONST32    = $E8;
-  OPCODE_PUSH_CONST32    = $68;
-  OPCODE_MOV_EAX_CONST32 = $B8;
-  OPCODE_JMP_EAX         = $E0FF;
-
-  (* TPatchHelper.Call/Jump flags *)
-  JUMP_ABSOLUTE      = 1; // Jump using absolute address. Otherwise: using relative offset.
-  JUMP_TO_LOCAL_ADDR = 2; // Jump to position inside patch (address is position). Otherwise: to external memory location.
+  OPCODE_NOP              = $90;
+  OPCODE_INT3             = $CC;
+  OPCODE_JMP_CONST32      = $E9;
+  OPCODE_JE_CONST32       = $840F;
+  OPCODE_JNE_CONST32      = $850F;
+  OPCODE_JA_CONST32       = $870F;
+  OPCODE_JAE_CONST32      = $830F;
+  OPCODE_JB_CONST32       = $820F;
+  OPCODE_JBE_CONST32      = $860F;
+  OPCODE_JG_CONST32       = $8F0F;
+  OPCODE_JGE_CONST32      = $8D0F;
+  OPCODE_JL_CONST32       = $8C0F;
+  OPCODE_JLE_CONST32      = $8E0F;
+  OPCODE_JMP_SHORT_CONST8 = $EB;
+  OPCODE_JE_SHORT_CONST8  = $74;
+  OPCODE_JNE_SHORT_CONST8 = $75;
+  OPCODE_JA_SHORT_CONST8  = $77;
+  OPCODE_JAE_SHORT_CONST8 = $73;
+  OPCODE_JB_SHORT_CONST8  = $72;
+  OPCODE_JBE_SHORT_CONST8 = $76;
+  OPCODE_JG_SHORT_CONST8  = $7F;
+  OPCODE_JGE_SHORT_CONST8 = $7D;
+  OPCODE_JL_SHORT_CONST8  = $7C;
+  OPCODE_JLE_SHORT_CONST8 = $7E;
+  OPCODE_CALL_CONST32     = $E8;
+  OPCODE_PUSH_CONST32     = $68;
+  OPCODE_MOV_EAX_CONST32  = $B8;
+  OPCODE_JMP_EAX          = $E0FF;
+  OPCODE_RET              = $C3;
+  OPCODE_RET_CONST16      = $C2;
+  OPCODE_TEST_EAX_EAX     = $C085;
 
 
 type
@@ -49,6 +61,13 @@ type
 
     (* Changes relative Offset field so, that it point to specified absolute address *)
     procedure SetTargetAddr ({n} Addr: pointer);
+  end;
+
+  (* Jump/call OFFSET 8 instruction *)
+  PJumpCall8Rec = ^TJumpCall8Rec;
+  TJumpCall8Rec = packed record
+    Opcode: byte;
+    Offset: shortint;
   end;
 
   TPatchAction     = class;
@@ -72,12 +91,12 @@ type
     (* Returns true if given position is valid position *)
     function IsValidPos (Pos: integer): boolean; inline;
 
-    (* Returns validated position. Value of CURRENT_POS is replaced with current position *)
-    function NormalizePos (Pos: integer): integer;
-
    public
     constructor Create;
     destructor Destroy; override;
+
+    (* Returns validated position. Value of CURRENT_POS is replaced with current position *)
+    function NormalizePos (Pos: integer): integer;
 
     (* Writes NumBytes bytes from buffer. Increases position pointer. Returns self. *)
     function WriteBytes (NumBytes: integer; {n} Buf: pointer): {U} TPatchMaker;
@@ -106,8 +125,8 @@ type
     (* Returns label position by name or -1 for not yet resolved label *)
     function GetLabelPos (const LabelName: string): integer;
 
-    (* Enqueues action to be executed at specified position during patch application on target buffer *)
-    function ExecActionOnApply ({OU} Action: TPatchAction; Pos: integer = CURRENT_POS): {U} TPatchMaker;
+    (* Enqueues action to be executed at specified position during patch application on target buffer. Actions are executed in order (FIFO). *)
+    function ExecActionOnApply ({O} Action: TPatchAction; Pos: integer = CURRENT_POS): {U} TPatchMaker;
 
     (* Returns not applied path in the form of raw bytes array of capacity, greater or equal to patch size. Internal buffer is cleared afterwards. *)
     function GetPatch: {O} Utils.TArrayOfByte;
@@ -130,37 +149,26 @@ type
 
   (* Custom action, that is executed at definite position in target patch buffer during patch application. It can modify data,
      resolve labels, convert local addresses to real addresses, etc.
-
-     ! WARNING !
-     By default object will be freed after execution. Call SetReleaseAfterExec to change this behavior.
   *)
   TPatchAction = class
-   private
-    fReleaseAfterExec: boolean;
-
    protected
-    (* Real execution routine *)
+    (* Real execution routine. All arguments are already checked and valid. *)
     procedure _Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker); virtual;
 
    public
-    constructor Create;
-
-    (* Evaluates some expression and probably modifies item data. Frees expression object in the end,
-       unless SetReleaseAfterExec was called with FALSE argument earlier *)
+    (* Evaluates some expression and probably modifies item datar *)
     procedure Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker);
-    
-    (* Controls, whether expression object must be freed after execution or not *)
-    procedure SetReleaseAfterExec (NewReleaseAfterExec: boolean);
   end; // .class TPatchAction
 
   (* Patch action, postponed to be executed at specified position during patch application stage *)
   TPostponedAction = class
    protected
-    {OU} fAction: TPatchAction; // Lifecycle is managed by action itself
-         fPos:    integer;
+    {O} fAction: TPatchAction;
+        fPos:    integer;
 
    public
     constructor Create (Action: TPatchAction; Pos: integer);
+    destructor Destroy; override;
 
     procedure Execute (PatchBufAddr: pointer; PatchMaker: TPatchMaker);
   end;
@@ -171,8 +179,20 @@ type
     procedure _Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker); override;
   end;
 
+  (* Adds real address of byte to byte value *)
+  TAddRealAddrByteAction = class (TPatchAction)
+   public
+    procedure _Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker); override;
+  end;
+
   (* Subtracts real address of dword to dword value *)
   TSubRealAddrAction = class (TPatchAction)
+   public
+    procedure _Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker); override;
+  end;
+
+  (* Subtracts real address of byte to byte value *)
+  TSubRealAddrByteAction = class (TPatchAction)
    public
     procedure _Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker); override;
   end;
@@ -188,15 +208,21 @@ type
     procedure _Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker); override;
   end;
 
-  TAddrSubtype = (ADDR_LOCAL, ADDR_RELATIVE);
-  TAddrType    = set of TAddrSubtype;
-  TJumpType    = (JMP, JE, JNE, JA, JAE, JB, JBE, JG, JGE, JL, JLE);
+  (* Adds label position to byte value *)
+  TAddLabelPosByteAction = class (TPatchAction)
+   protected
+    fLabelName: string;
+
+   public
+    constructor Create (const LabelName: string);
+    
+    procedure _Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker); override;
+  end;
+
+  TJumpType = (JMP, JE, JNE, JA, JAE, JB, JBE, JG, JGE, JL, JLE, JMP_SHORT, JE_SHORT, JNE_SHORT, JA_SHORT, JAE_SHORT, JB_SHORT, JBE_SHORT, JG_SHORT, JGE_SHORT, JL_SHORT, JLE_SHORT);
 
   (* Powerful wrapper for TPatchMaker instance *)
   TPatchHelper = packed record
-   private
-    procedure JxxLabel (JumpType: TJumpType; const LabelName: string);
-
    public
     (* Wrapped patch making engine *)
     {U} PatchMaker: TPatchMaker;
@@ -206,62 +232,127 @@ type
     
     function WriteByte (Value: byte): TPatchHelper;
     function WriteWord (Value: word): TPatchHelper;
-    function WriteInt (Value: integer): TPatchHelper;
+    function WriteInt  (Value: integer): TPatchHelper;
+    
     function WriteBytes (NumBytes: integer; {n} Buf: pointer): TPatchHelper; inline;
     function Write (const Args: array of const): TPatchHelper;
     function Seek (Pos: integer): TPatchHelper; inline;
+
+    (* Seeks to relative position from the current one. Returns self. *)
+    function SeekRel (RelPos: integer): TPatchHelper;
+
     function Alloc (NumBytes: integer): {Un} pointer; inline;
+
+    (* Allocated block of bytes and seeks to block end. See {@Alloc} *)
+    function AllocAndSkip (NumBytes: integer): {Un} pointer;
+
     function GetPosTempAddr (Pos: integer = CURRENT_POS): {Un} pointer; inline;
     function NewLabel: string; inline;
     function PutLabel (const LabelName: string): TPatchHelper; inline;
     function GetLabelPos (const LabelName: string): integer; inline;
-    function ExecActionOnApply ({OU} Action: TPatchAction; Pos: integer = CURRENT_POS): {U} TPatchHelper; inline;
+    function ExecActionOnApply ({O} Action: TPatchAction; Pos: integer = CURRENT_POS): {U} TPatchHelper; inline;
     function GetPatch: {O} Utils.TArrayOfByte; inline;
     function ApplyPatch ({n} TargetAddr: pointer): {n} pointer; inline;
     function Clear: {U} TPatchHelper; inline;
     function Pos: integer; inline;
     function Size: integer; inline;
 
-    (* Writes assembler instruction/s to jump to specified address. If JUMP_ABSOLUTE is set, EAX register is used to store target address.
-       By default relative jump to external (non-patch) location is assumed. If JUMP_TO_RELATIVE_ADDR flag is set, Addr must be position
-       in patch buffer. *)
-    function Jump ({n} Addr: pointer; JumpFlags: integer = 0; JumpType: TJumpType = JMP): TPatchHelper;
-  end;
+    (* Writes assembler instruction to jump to patch label position. Returns self. *)
+    function JumpLabel (JumpType: TJumpType; const LabelName: string): TPatchHelper;
+    
+    (* Writes assembler instruction to jump to patch buffer position. Returns self. *)
+    function JumpPos (JumpType: TJumpType; Pos: integer): TPatchHelper;
+
+    (* Writes assembler instruction/s to jump to specified real address. Returns self. *)
+    function Jump (JumpType: TJumpType; Addr: pointer): TPatchHelper;
+
+    (* Writes assembler instruction to call routine at patch label position. Returns self. *)
+    function CallLabel (const LabelName: string): TPatchHelper;
+    
+    (* Writes assembler instruction to call routine at patch buffer position. Returns self. *)
+    function CallPos (Pos: integer): TPatchHelper;
+
+    (* Writes assembler instruction/s to call routine at specified real address. Returns self. *)
+    function Call (Addr: pointer): TPatchHelper;
+
+    (* Writes ret instruction, cleaning NumArgs dword stack arguments. Returns self. *)
+    function Ret (NumArgs: integer = 0): TPatchHelper;
+    
+    (* Fills block of memory with byte value. Returns self. *)
+    function FillBytes (NumBytes: integer; Value: byte): TPatchHelper;
+
+    (* Writes sequentional nop instructions. Returns self. *)
+    function Nop (NumNops: integer = 1): TPatchHelper;
+
+    (* Pushes const32 to stack. Returns self. *)
+    function PushConst32 (Value: integer): TPatchHelper;
+
+    (* Allocates space and copies CPU instructions from source to patch buffer. Ensures, that all relative
+       addresses will be valid after patch application. If MinNumBytes block is too small to keep the
+       last instruction from source, block size is increased to hold the whole last instruction. Returns self. *)
+    function WriteCode (MinNumBytes: integer; {n} CodeSource: pointer): TPatchHelper;
+  end; // .record TPatchHelper
 
 
 (***)  implementation  (***)
 
 
-function GetJumpOpcode (JumpType: TJumpType; out OpcodeSize: integer): integer;
+function GetJumpOpcode (JumpType: TJumpType; out OpcodeSize: integer; out ArgSize: integer): integer;
 begin
-  result     := $90;
-  OpcodeSize := Utils.IfElse(JumpType = JMP, 1, 2);
+  // Set debug values for unknown jump types
+  result     := OPCODE_INT3;
+  ArgSize    := 0;
+  OpcodeSize := 1;
 
-  case JumpType of
-    JMP: result := OPCODE_JMP_CONST32;
-    JE:  result := OPCODE_JE_CONST32;
-    JNE: result := OPCODE_JNE_CONST32;
-    JA:  result := OPCODE_JA_CONST32;
-    JAE: result := OPCODE_JAE_CONST32;
-    JB:  result := OPCODE_JB_CONST32;
-    JBE: result := OPCODE_JBE_CONST32;
-    JG:  result := OPCODE_JG_CONST32;
-    JGE: result := OPCODE_JGE_CONST32;
-    JL:  result := OPCODE_JL_CONST32;
-    JLE: result := OPCODE_JLE_CONST32;
-  else
-    Assert(false);
-  end; // .switch
+  if JumpType = JMP then begin
+    result     := OPCODE_JMP_CONST32;
+    OpcodeSize := 1;
+    ArgSize    := sizeof(integer);
+  end else begin
+    case JumpType of
+      JE:  result := OPCODE_JE_CONST32;
+      JNE: result := OPCODE_JNE_CONST32;
+      JA:  result := OPCODE_JA_CONST32;
+      JAE: result := OPCODE_JAE_CONST32;
+      JB:  result := OPCODE_JB_CONST32;
+      JBE: result := OPCODE_JBE_CONST32;
+      JG:  result := OPCODE_JG_CONST32;
+      JGE: result := OPCODE_JGE_CONST32;
+      JL:  result := OPCODE_JL_CONST32;
+      JLE: result := OPCODE_JLE_CONST32;
+    end; // .switch
+
+    if result <> OPCODE_INT3 then begin
+      OpcodeSize := 2;
+      ArgSize    := sizeof(integer);
+    end else begin
+      case JumpType of
+        JMP_SHORT: result := OPCODE_JMP_SHORT_CONST8;
+        JE_SHORT:  result := OPCODE_JE_SHORT_CONST8;
+        JNE_SHORT: result := OPCODE_JNE_SHORT_CONST8;
+        JA_SHORT:  result := OPCODE_JA_SHORT_CONST8;
+        JAE_SHORT: result := OPCODE_JAE_SHORT_CONST8;
+        JB_SHORT:  result := OPCODE_JB_SHORT_CONST8;
+        JBE_SHORT: result := OPCODE_JBE_SHORT_CONST8;
+        JG_SHORT:  result := OPCODE_JG_SHORT_CONST8;
+        JGE_SHORT: result := OPCODE_JGE_SHORT_CONST8;
+        JL_SHORT:  result := OPCODE_JL_SHORT_CONST8;
+        JLE_SHORT: result := OPCODE_JLE_SHORT_CONST8;
+      else
+        Assert(false, 'Unknown jump type: ' + SysUtils.IntToStr(ord(JumpType)));
+      end; // .switch
+
+      if result <> OPCODE_INT3 then begin
+        OpcodeSize := 1;
+        ArgSize    := sizeof(byte);
+      end;
+    end; // .else
+  end; // .else
 end; // .function GetJumpOpcode
 
 procedure TJumpCall32Rec.SetTargetAddr ({n} Addr: pointer);
 begin
   Self.Offset := integer(Addr) - integer(@Self) - sizeof(Self);
-end;
-
-constructor TPatchAction.Create;
-begin
-  Self.fReleaseAfterExec := true;
 end;
 
 procedure TPatchAction._Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker);
@@ -274,10 +365,6 @@ begin
   {!} Assert(PatchMaker <> nil);
   {!} Assert(ItemPos >= 0);
   Self._Execute(ItemAddr, ItemPos, PatchMaker);
-
-  if Self.fReleaseAfterExec then begin
-    Self.Free;
-  end;
 end;
 
 constructor TPostponedAction.Create (Action: TPatchAction; Pos: integer);
@@ -286,6 +373,11 @@ begin
   {!} Assert(Pos >= 0);
   Self.fAction := Action;
   Self.fPos    := Pos;
+end;
+
+destructor TPostponedAction.Destroy;
+begin
+  SysUtils.FreeAndNil(Self.fAction);
 end;
 
 procedure TPostponedAction.Execute (PatchBufAddr: pointer; PatchMaker: TPatchMaker);
@@ -300,9 +392,19 @@ begin
   Inc(pinteger(ItemAddr)^, integer(ItemAddr));
 end;
 
+procedure TAddRealAddrByteAction._Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker);
+begin
+  Inc(pbyte(ItemAddr)^, integer(ItemAddr));
+end;
+
 procedure TSubRealAddrAction._Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker);
 begin
   Dec(pinteger(ItemAddr)^, integer(ItemAddr));
+end;
+
+procedure TSubRealAddrByteAction._Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker);
+begin
+  Dec(pbyte(ItemAddr)^, integer(ItemAddr));
 end;
 
 constructor TAddLabelPosAction.Create (const LabelName: string);
@@ -320,9 +422,19 @@ begin
   Inc(pinteger(ItemAddr)^, LabelPos);
 end;
 
-procedure TPatchAction.SetReleaseAfterExec (NewReleaseAfterExec: boolean);
+constructor TAddLabelPosByteAction.Create (const LabelName: string);
 begin
-  Self.fReleaseAfterExec := NewReleaseAfterExec;
+  Self.fLabelName := LabelName;
+end;
+
+procedure TAddLabelPosByteAction._Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker);
+var
+  LabelPos: integer;
+
+begin
+  LabelPos := PatchMaker.GetLabelPos(Self.fLabelName);
+  {!} Assert(LabelPos >= 0, Format('Unresolved label "%s". Cannot apply action for position %d', [Self.fLabelName, ItemPos]));
+  Inc(pbyte(ItemAddr)^, LabelPos);
 end;
 
 constructor TPatchMaker.Create;
@@ -345,7 +457,7 @@ end;
 
 function TPatchMaker.NormalizePos (Pos: integer): integer;
 begin
-  result := Utils.IfElse(Pos = CURRENT_POS, Self.fPos, Pos);
+  result := Utils.IfThen(Pos = CURRENT_POS, Self.fPos, Pos);
   {!} Assert(Self.IsValidPos(result));
 end;
 
@@ -474,7 +586,7 @@ begin
   result := integer(Self.fLabels[LabelName]) - 1;
 end;
 
-function TPatchMaker.ExecActionOnApply ({OU} Action: TPatchAction; Pos: integer = CURRENT_POS): {U} TPatchMaker;
+function TPatchMaker.ExecActionOnApply ({O} Action: TPatchAction; Pos: integer = CURRENT_POS): {U} TPatchMaker;
 begin
   result := Self;
   Self.fPostponedActions.Add(TPostponedAction.Create(Action, Self.NormalizePos(Pos)));
@@ -504,10 +616,8 @@ begin
   {!} Assert(Utils.IsValidBuf(TargetAddr, Self.Size));
   result := Utils.PtrOfs(TargetAddr, Self.Size);
   // * * * * * //
-  if Self.Size > 0 then begin
-    Utils.CopyMem(Self.Size, pointer(Self.fBuf), TargetAddr);
-    Self.ExecPostponedActions(TargetAddr);
-  end; // .if
+  Utils.CopyMem(Self.Size, pointer(Self.fBuf), TargetAddr);
+  Self.ExecPostponedActions(TargetAddr);
 end;
 
 function TPatchMaker.Clear: {U} TPatchMaker;
@@ -558,34 +668,19 @@ begin
   result.PatchMaker := PatchMaker;
 end;
 
-procedure TPatchHelper.JxxLabel (JumpType: TJumpType; const LabelName: string);
-var
-  Opcode:     integer;
-  OpcodeSize: integer;
-
-begin
-  Opcode := GetJumpOpcode(JumpType, OpcodeSize);
-  Self.WriteBytes(OpcodeSize, @Opcode);
-  Self.ExecActionOnApply(TAddLabelPosAction.Create(LabelName));
-  Self.WriteInt(-Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
-end;
-
 function TPatchHelper.WriteByte (Value: byte): TPatchHelper;
 begin
-  pbyte(Self.Alloc(sizeof(byte)))^ := Value;
-  Self.Seek(Self.Pos + sizeof(Value));
+  pbyte(Self.AllocAndSkip(sizeof(byte)))^ := Value;
 end;
 
 function TPatchHelper.WriteWord (Value: word): TPatchHelper;
 begin
-  pword(Self.Alloc(sizeof(word)))^ := Value;
-  Self.Seek(Self.Pos + sizeof(Value));
+  pword(Self.AllocAndSkip(sizeof(word)))^ := Value;
 end;
 
 function TPatchHelper.WriteInt (Value: integer): TPatchHelper;
 begin
-  pinteger(Self.Alloc(sizeof(integer)))^ := Value;
-  Self.Seek(Self.Pos + sizeof(Value));
+  pinteger(Self.AllocAndSkip(sizeof(integer)))^ := Value;
 end;
 
 function TPatchHelper.WriteBytes (NumBytes: integer; {n} Buf: pointer): TPatchHelper;
@@ -606,9 +701,20 @@ begin
   result := Self;
 end;
 
+function TPatchHelper.SeekRel (RelPos: integer): TPatchHelper;
+begin
+  result := Self.Seek(Self.Pos + RelPos);
+end;
+
 function TPatchHelper.Alloc (NumBytes: integer): {Un} pointer;
 begin
   result := Self.PatchMaker.Alloc(NumBytes);
+end;
+
+function TPatchHelper.AllocAndSkip (NumBytes: integer): {Un} pointer;
+begin
+  result := Self.Alloc(NumBytes);
+  Self.Seek(Self.Pos + NumBytes);
 end;
 
 function TPatchHelper.GetPosTempAddr (Pos: integer = CURRENT_POS): {Un} pointer;
@@ -632,7 +738,7 @@ begin
   result := Self.PatchMaker.GetLabelPos(LabelName);
 end;
 
-function TPatchHelper.ExecActionOnApply ({OU} Action: TPatchAction; Pos: integer = CURRENT_POS): {U} TPatchHelper;
+function TPatchHelper.ExecActionOnApply ({O} Action: TPatchAction; Pos: integer = CURRENT_POS): {U} TPatchHelper;
 begin
   Self.PatchMaker.ExecActionOnApply(Action, Pos);
   result := Self;
@@ -664,48 +770,124 @@ begin
   result := Self.PatchMaker.Size;
 end;
 
-function TPatchHelper.Jump ({n} Addr: pointer; JumpFlags: integer = 0; JumpType: TJumpType = JMP): TPatchHelper;
+function TPatchHelper.JumpLabel (JumpType: TJumpType; const LabelName: string): TPatchHelper;
 var
-  JumpBridgeLabel:     string;
-  SkipJumpBridgeLabel: string;
-  Opcode:              integer;
-  OpcodeSize:          integer;
+  Opcode:     integer;
+  OpcodeSize: integer;
+  ArgSize:    integer;
 
 begin
-  // Absolute jump via [MOV EAX, Addr; JMP EAX]
-  if Utils.FlagSet(JUMP_ABSOLUTE, JumpFlags) and not Utils.FlagSet(JUMP_TO_LOCAL_ADDR, JumpFlags) then begin
-    if JumpType <> JMP then begin
-      JumpBridgeLabel     := Self.NewLabel;
-      SkipJumpBridgeLabel := Self.NewLabel;
+  Opcode := GetJumpOpcode(JumpType, OpcodeSize, ArgSize);
+  Self.WriteBytes(OpcodeSize, @Opcode);
 
-      Self.JxxLabel(JumpType, JumpBridgeLabel);
-      Self.JxxLabel(JMP, SkipJumpBridgeLabel);
-      Self.PutLabel(JumpBridgeLabel);
-    end;
-    
-    // MOV EAX, Addr
-    Self.WriteByte(OPCODE_MOV_EAX_CONST32);
-    Self.WriteInt(integer(Addr));
-    
-    // JMP EAX
-    Self.WriteWord(OPCODE_JMP_EAX);
+  if ArgSize > 1 then begin
+    Self.ExecActionOnApply(TAddLabelPosAction.Create(LabelName));
+    result := Self.WriteInt(-Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
+  end else begin
+    Self.ExecActionOnApply(TAddLabelPosByteAction.Create(LabelName));
+    result := Self.WriteByte(-Self.Pos - sizeof(PJumpCall8Rec(nil)^.Offset));
+  end;
+end; // .function TPatchHelper.JumpLabel
 
-    if JumpType <> JMP then begin
-      // :SkipJumpBridgeLabel
-      Self.PutLabel(SkipJumpBridgeLabel);
-    end;
-  end
-  // Relative jump
-  else begin
-    Opcode := GetJumpOpcode(JumpType, OpcodeSize);
-    Self.WriteBytes(OpcodeSize, @Opcode);
+function TPatchHelper.JumpPos (JumpType: TJumpType; Pos: integer): TPatchHelper;
+var
+  Opcode:     integer;
+  OpcodeSize: integer;
+  ArgSize:    integer;
+  Offset:     integer;
 
-    if not Utils.FlagSet(JUMP_TO_LOCAL_ADDR, JumpFlags) then begin
-      Self.ExecActionOnApply(TSubRealAddrAction.Create);
-    end;
+begin
+  Opcode := GetJumpOpcode(JumpType, OpcodeSize, ArgSize);
+  Self.WriteBytes(OpcodeSize, @Opcode);
 
-    Self.WriteInt(integer(Addr) - sizeof(PJumpCall32Rec(nil)^.Offset));
-  end; // .else
+  if ArgSize > 1 then begin
+    result := Self.WriteInt(Pos - Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
+  end else begin
+    Offset := Pos - Self.Pos - sizeof(PJumpCall8Rec(nil)^.Offset);
+    {!} Assert(Math.InRange(Offset, low(smallint), high(smallint)), Format('Cannot write short jump, offset is too high: %d', [Offset]));
+    result := Self.WriteByte(Offset);
+  end;
+end; // .function TPatchHelper.JumpPos
+
+function TPatchHelper.Jump (JumpType: TJumpType; Addr: pointer): TPatchHelper;
+var
+  Opcode:     integer;
+  OpcodeSize: integer;
+  ArgSize:    integer;
+
+begin
+  {!} Assert(Addr <> nil);
+  Opcode := GetJumpOpcode(JumpType, OpcodeSize, ArgSize);
+  Self.WriteBytes(OpcodeSize, @Opcode);
+
+  if ArgSize > 1 then begin
+    Self.ExecActionOnApply(TSubRealAddrAction.Create);
+    result := Self.WriteInt(integer(Addr) - sizeof(PJumpCall32Rec(nil)^.Offset));
+  end else begin
+    Self.ExecActionOnApply(TSubRealAddrByteAction.Create);
+    result := Self.WriteByte(integer(Addr) - sizeof(PJumpCall8Rec(nil)^.Offset));
+  end;
 end; // .function TPatchHelper.Jump
+
+function TPatchHelper.CallLabel (const LabelName: string): TPatchHelper;
+begin
+  Self.WriteByte(OPCODE_CALL_CONST32);
+  Self.ExecActionOnApply(TAddLabelPosAction.Create(LabelName));
+  result := Self.WriteInt(-Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
+end;
+
+function TPatchHelper.CallPos (Pos: integer): TPatchHelper;
+begin
+  Self.WriteByte(OPCODE_CALL_CONST32);
+  result := Self.WriteInt(Pos - Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
+end;
+
+function TPatchHelper.Call (Addr: pointer): TPatchHelper;
+begin
+  {!} Assert(Addr <> nil);
+  Self.WriteByte(OPCODE_CALL_CONST32);
+  Self.ExecActionOnApply(TSubRealAddrAction.Create);
+  result := Self.WriteInt(integer(Addr) - sizeof(PJumpCall32Rec(nil)^.Offset));
+end;
+
+function TPatchHelper.Ret (NumArgs: integer = 0): TPatchHelper;
+begin
+  {!} Assert(NumArgs >= 0);
+  result := Self.WriteByte(Utils.IfThen(NumArgs = 0, OPCODE_RET, OPCODE_RET_CONST16));
+
+  if NumArgs > 0 then begin
+    Self.WriteWord(NumArgs * sizeof(integer));
+  end;
+end;
+
+function TPatchHelper.FillBytes (NumBytes: integer; Value: byte): TPatchHelper;
+begin
+  {!} Assert(NumBytes >= 0);
+  result := Self;
+
+  if NumBytes > 0 then begin
+    System.FillChar(pbyte(Self.AllocAndSkip(NumBytes))^, NumBytes, Value);
+  end;
+end;
+
+function TPatchHelper.Nop (NumNops: integer = 1): TPatchHelper;
+begin
+  result := Self.FillBytes(NumNops, OPCODE_NOP);
+end;
+
+function TPatchHelper.PushConst32 (Value: integer): TPatchHelper;
+begin
+  Self.WriteByte(OPCODE_PUSH_CONST32);
+  result := Self.WriteInt(Value);
+end;
+
+function TPatchHelper.WriteCode (MinNumBytes: integer; {n} CodeSource: pointer): TPatchHelper;
+begin
+  {!} Assert(Utils.IsValidBuf(CodeSource, MinNumBytes));
+
+  if MinNumBytes > 0 then begin
+    
+  end; // .if
+end; // .function TPatchHelper.WriteCode
 
 end.

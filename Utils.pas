@@ -119,8 +119,8 @@ function ObjFromMethod (Method: TObjProcedure): TObject; inline;
 function ClassFromMethod (Method: TObjProcedure): TClass; inline;
 
 (* Ternary operator *)
-function IfElse (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload;
-function IfElse (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload;
+function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload;
+function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload;
 
 
 (***)  implementation  (***)
@@ -246,7 +246,7 @@ begin
   result := TClass(TMethod(Method).Data);
 end;
 
-function IfElse (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
-function IfElse (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
 
 end.
