@@ -165,7 +165,8 @@ type
 destructor TFixedBuf.Destroy;
 begin
   Self.Close;
-end; // .destructor TFixedBuf.Destroy
+  inherited;
+end;
 
 procedure TFixedBuf.Open ({n} Buf: pointer; BufSize: integer; DeviceMode: TDeviceMode);
 begin
@@ -418,7 +419,8 @@ end; // .function TFileLocator.GetNextItem
 destructor TFileLocator.Destroy;
 begin
   Self.FinitSearch;
-end; // .destructor Destroy
+  inherited;
+end;
 
 function TFileLocator.GetItemInfo (const ItemName: string; out ItemInfo: TItemInfo): boolean;
 var
@@ -623,22 +625,22 @@ end;
 constructor TLocator.Create;
 begin
   inherited;
-  Self.fLastOperRes :=  true;
-end; // .constructor TLocator.Create
+  Self.fLastOperRes := true;
+end;
 
 destructor TLocator.Destroy;
 begin
   Self.FindClose;
   inherited;
-end; // .destructor TLocator.Destroy
+end;
 
 procedure TLocator.FindClose;
 begin
   if Self.fSearchStarted then begin
     SysUtils.FindClose(Self.fFoundRec);
     Self.fSearchStarted :=  FALSE;
-  end; // .if
-end; // .procedure TLocator.FindClose
+  end;
+end;
 
 function TLocator.MatchResult: boolean;
   function CanonicMask (const Mask: string): string;

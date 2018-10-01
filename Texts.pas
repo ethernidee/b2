@@ -8,9 +8,9 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 uses SysUtils, Math, Utils, Lists, StrLib, ATexts;
 
 type
-  TTextLinesSettings  = class
+  TTextLinesSettings = class
     LineEndMarker:  char;
-  end; // .class TTextLinesSettings
+  end;
 
   {
     Line end markers are members of lines which they terminate.
@@ -178,7 +178,8 @@ end; // .constructor TTextLines.Create
 destructor TTextLines.Destroy;
 begin
   SysUtils.FreeAndNil(Self.fLines);
-end; // .destructor TTextLines.Destroy
+  inherited;
+end;
 
 procedure TTextLines.Assign (Source: Utils.TCloneable);
 var
@@ -589,7 +590,8 @@ destructor TTextBlocks.Destroy;
 begin
   Self.Clear;
   Dispose(Self.fRoot);
-end; // .destructor TTextBlocks.Destroy
+  inherited;
+end;
 
 procedure TTextBlocks.Assign (Source: Utils.TCloneable);
 var

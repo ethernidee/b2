@@ -1878,13 +1878,16 @@ var
     User32Handle:   integer;
     NtdllHandle:    integer;
 
+    s: string; // FIXME DELETEME
+
 begin
   if not VfsHooksInstalled then begin
   (* WHERE ARE VFS LOCKS???????????????? *)
-    asm int 3; end;
-
     with TPatchHelper.Init(TPatchMaker.Create) do begin
-      Write([777, '123', 3.14]);
+      Jump(Ptr($401000), Utils.NO_FLAGS, JL);
+      SetLength(s, Size);
+      ApplyPatch(pointer(s));
+      asm mov eax, s; int 3; end;
     end;
 
     Kernel32Handle := Windows.GetModuleHandle('kernel32.dll');

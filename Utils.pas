@@ -8,9 +8,6 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 uses Math;
 
 const
-  (* Global extra debugging marker *)
-  DEBUG = TRUE;
-
   (* Relations between containers and their items *)
   OWNS_ITEMS        = TRUE;
   ITEMS_ARE_OBJECTS = TRUE;
@@ -18,6 +15,9 @@ const
   (* Items guards *)
   ALLOW_NIL     = TRUE;
   NO_TYPEGUARD  = nil;
+
+  (* For any bit-flags: no flags at all is 0 *)
+  NO_FLAGS = 0;
 
 
 type

@@ -81,35 +81,36 @@ begin
   fIndentation   := '  ';
   fIndentLevel   := 0;
   fLineEndMarker := #13#10;
-end; // .constructor TFileFormattedOutput.Create
+end;
 
 destructor TFileFormattedOutput.Destroy;
 begin
   Files.WriteFileContents(fOutputBuf.BuildStr, fFilePath);
   FreeAndNil(fOutputBuf);
-end; // .destructor TFileFormattedOutput.Destroy
+  inherited;
+end;
 
 procedure TFileFormattedOutput.SetIndentation (const aIndentation: string);
 begin
   fIndentation := aIndentation;
-end; // .procedure TFileFormattedOutput.SetIndentation
+end;
 
 procedure TFileFormattedOutput.SetLineEndMarker (const aLineEndMarker: string);
 begin
   fLineEndMarker := aLineEndMarker;
-end; // .procedure TFileFormattedOutput.SetLineEndMarker
+end;
 
 procedure TFileFormattedOutput.Indent;
 begin
   Inc(fIndentLevel);
-end; // .procedure TFileFormattedOutput.Indent
+end;
 
 procedure TFileFormattedOutput.Unindent;
 begin
   if fIndentLevel > 0 then begin
     Dec(fIndentLevel);
   end; // .if
-end; // .procedure TFileFormattedOutput.Unindent
+end;
 
 procedure TFileFormattedOutput.SetIndentLevel (Level: integer);
 begin
@@ -133,13 +134,13 @@ end;
 procedure TFileFormattedOutput.Write (const Str: string);
 begin
   fOutputBuf.Append(Str);
-end; // .procedure TFileFormattedOutput.Write
+end;
 
 procedure TFileFormattedOutput.RawLine (const Str: string);
 begin
   fOutputBuf.Append(Str);
   fOutputBuf.Append(fLineEndMarker);
-end; // .procedure TFileFormattedOutput.RawLine
+end;
 
 procedure TFileFormattedOutput.Line (const Str: string);
 var
@@ -157,7 +158,7 @@ end; // .procedure TFileFormattedOutput.Line
 procedure TFileFormattedOutput.EmptyLine;
 begin
   fOutputBuf.Append(fLineEndMarker);
-end; // .procedure TFileFormattedOutput.EmptyLine
+end;
 
 function GetFileList (const MaskedPath: string; SearchSubj: TSearchSubj): {O} TStrList;
 begin
@@ -168,7 +169,7 @@ begin
       result.Add(FoundName);
     end; // .while
   end; // .with 
-end; // .procedure GetFileList
+end;
 
 procedure MergeFileLists (MainList, DependantList: TStrList);
 var
