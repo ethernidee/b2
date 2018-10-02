@@ -20,7 +20,7 @@ Possible VFS item attributes to implement:
 uses
   Windows, WinNative, SysUtils, Math, MMSystem,
   Utils, Crypto, Lists, DataLib, StrLib, StrUtils, Files, FilesEx (* removeme *), Log, TypeWrappers,
-  PatchApi, Core, Ini, WinUtils, Concur, PatchForge, {ApiJack, }DlgMes;
+  PatchApi, Core, Ini, WinUtils, Concur, PatchForge, hde32, {ApiJack, }DlgMes;
 
 (*
   Redirects calls to:
@@ -1879,27 +1879,30 @@ var
     NtdllHandle:    integer;
 
     s: string; // FIXME DELETEME
+    Disasm: TDisasm;
 
 begin
   if not VfsHooksInstalled then begin
   (* WHERE ARE VFS LOCKS???????????????? *)
-    with TPatchHelper.Init(TPatchMaker.Create) do begin
-      Jump(JMP, Ptr($401000));
-      JumpPos(JBE_SHORT, 0);
-      JumpLabel(JG_SHORT, 'Test');
-      FillBytes(4, OPCODE_NOP);
-      PutLabel('Test');
-      Ret(3);
-      Nop(8);
-      SetLength(s, Size);
-      ApplyPatch(pointer(s));
-      asm mov eax, s; int 3; end;
-    end;
+    
 
     Kernel32Handle := Windows.GetModuleHandle('kernel32.dll');
     User32Handle   := Windows.GetModuleHandle('user32.dll');
     NtdllHandle    := Windows.GetModuleHandle('ntdll.dll');
     FindOutRealSystemApiAddrs([Kernel32Handle, User32Handle]);
+
+    //s := #$F0#$36#$3E#$3E#$3E#$2E#$66#$67#$90;
+    //Disasm.Disassemble(pointer(s));
+    //VarDump([Disasm.Len, Disasm.Opcode, Disasm.OpcodeSize, Disasm.PrefixedOpcodeSize]);
+    //VarDump([TFuncCodeSizeDetector.Create().GetCodeSize(Ptr($401000))]);
+
+
+    with TPatchHelper.Init(TPatchMaker.Create) do begin
+      WriteCode(@PatchForge.JumpTypeToNear, TMinCodeSizeDetector.Create(56), FIX_CODE_MAKE_MOVABLE);
+      SetLength(s, Size);
+      ApplyPatch(pointer(s));
+      asm mov eax, s; int 3; end;
+    end;
 
     (* Trying to turn off DEP *)
     SetProcessDEPPolicyAddr := Windows.GetProcAddress(Kernel32Handle, 'SetProcessDEPPolicy');

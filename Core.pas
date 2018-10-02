@@ -559,9 +559,9 @@ var
   BufPos := 0;
   
   while BufPos < CodeSize do begin
-    hde32.hde32_disasm(Utils.PtrOfs(OldCodeAddr, BufPos), Disasm);
+    Disasm.Disassemble(Utils.PtrOfs(OldCodeAddr, BufPos));
     
-    if (Disasm.Len = sizeof(THookRec)) and (Disasm.Opcode in [OPCODE_JUMP, OPCODE_CALL]) then begin
+    if (Disasm.Len = sizeof(THookRec)) and ((Disasm.Opcode = OPCODE_JUMP) or (Disasm.Opcode = OPCODE_CALL)) then begin
       Dec(pinteger(@result[BufPos + 1])^, Delta);
     end; // .if
     
@@ -634,7 +634,7 @@ begin
   result := 0;
 
   while result < sizeof(THookRec) do begin
-    hde32.hde32_disasm(Code, Disasm);
+    Disasm.Disassemble(Code);
     result := result + Disasm.Len;
     Code   := Utils.PtrOfs(Code, Disasm.Len);
   end; // .while

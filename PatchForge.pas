@@ -18,7 +18,13 @@ const
   (* Used in all functions, requiring pos *)
   CURRENT_POS = -1;
 
-  (* Assembler opcodes *)
+  (* Specifies, that fixed moved code must have the same size, as original one *)
+  FIX_CODE_SAME_SIZE = 1;
+  
+  (* Specifies, that fixed moved code must be made position independent (movable), i.e. contain no relative jump/calls *)
+  FIX_CODE_MAKE_MOVABLE = 2;
+
+  (* Assembler opcodes and instructions *)
   OPCODE_NOP              = $90;
   OPCODE_INT3             = $CC;
   OPCODE_JMP_CONST32      = $E9;
@@ -32,6 +38,12 @@ const
   OPCODE_JGE_CONST32      = $8D0F;
   OPCODE_JL_CONST32       = $8C0F;
   OPCODE_JLE_CONST32      = $8E0F;
+  OPCODE_JO_CONST32       = $800F;
+  OPCODE_JNO_CONST32      = $810F;
+  OPCODE_JS_CONST32       = $880F;
+  OPCODE_JNS_CONST32      = $890F;
+  OPCODE_JP_CONST32       = $8A0F;
+  OPCODE_JNP_CONST32      = $8B0F;
   OPCODE_JMP_SHORT_CONST8 = $EB;
   OPCODE_JE_SHORT_CONST8  = $74;
   OPCODE_JNE_SHORT_CONST8 = $75;
@@ -43,17 +55,27 @@ const
   OPCODE_JGE_SHORT_CONST8 = $7D;
   OPCODE_JL_SHORT_CONST8  = $7C;
   OPCODE_JLE_SHORT_CONST8 = $7E;
+  OPCODE_JO_SHORT_CONST8  = $70;
+  OPCODE_JNO_SHORT_CONST8 = $71;
+  OPCODE_JS_SHORT_CONST8  = $78;
+  OPCODE_JNS_SHORT_CONST8 = $79;
+  OPCODE_JP_SHORT_CONST8  = $7A;
+  OPCODE_JNP_SHORT_CONST8 = $7B;
   OPCODE_CALL_CONST32     = $E8;
   OPCODE_PUSH_CONST32     = $68;
   OPCODE_MOV_EAX_CONST32  = $B8;
-  OPCODE_JMP_EAX          = $E0FF;
   OPCODE_RET              = $C3;
   OPCODE_RET_CONST16      = $C2;
-  OPCODE_TEST_EAX_EAX     = $C085;
+  
+  INSTR_JMP_EAX               = $E0FF;
+  INSTR_TEST_EAX_EAX          = $C085;
+  INSTR_MOV_ESP_MIN_4_CONST32 = integer($FCE444C7);
+  INSTR_JUMP_PTR_ESP_MIN_4    = integer($FCE464FF);
+  INSTR_CALL_PTR_ESP_MIN_4    = integer($FCE454FF);
 
 
 type
-  (* Jump/call OFFSET 32 instruction *)
+  (* Unconditional jump/call OFFSET 32 instruction *)
   PJumpCall32Rec = ^TJumpCall32Rec;
   TJumpCall32Rec = packed record
     Opcode: byte;
@@ -63,7 +85,7 @@ type
     procedure SetTargetAddr ({n} Addr: pointer);
   end;
 
-  (* Jump/call OFFSET 8 instruction *)
+  (* Unconditional jump/call OFFSET 8 instruction *)
   PJumpCall8Rec = ^TJumpCall8Rec;
   TJumpCall8Rec = packed record
     Opcode: byte;
@@ -87,13 +109,12 @@ type
     procedure Grow (NewSize: integer);
     procedure ExecPostponedActions (TargetAddr: pointer);
 
-   protected
-    (* Returns true if given position is valid position *)
-    function IsValidPos (Pos: integer): boolean; inline;
-
    public
     constructor Create;
     destructor Destroy; override;
+
+    (* Returns true if given position is valid position *)
+    function IsValidPos (Pos: integer): boolean;
 
     (* Returns validated position. Value of CURRENT_POS is replaced with current position *)
     function NormalizePos (Pos: integer): integer;
@@ -219,7 +240,50 @@ type
     procedure _Execute (ItemAddr: pointer; ItemPos: integer; PatchMaker: {U} TPatchMaker); override;
   end;
 
-  TJumpType = (JMP, JE, JNE, JA, JAE, JB, JBE, JG, JGE, JL, JLE, JMP_SHORT, JE_SHORT, JNE_SHORT, JA_SHORT, JAE_SHORT, JB_SHORT, JBE_SHORT, JG_SHORT, JGE_SHORT, JL_SHORT, JLE_SHORT);
+  TJumpType = (JMP, JE, JNE, JA, JAE, JB, JBE, JG, JGE, JL, JLE, JO, JNO, JS, JNS, JP, JNP,
+               JMP_SHORT, JE_SHORT, JNE_SHORT, JA_SHORT, JAE_SHORT, JB_SHORT, JBE_SHORT, JG_SHORT, JGE_SHORT, JL_SHORT, JLE_SHORT, JO_SHORT, JNO_SHORT, JS_SHORT, JNS_SHORT, JP_SHORT, JNP_SHORT);
+
+  ICodeSizeDetector = interface
+    ['{6770C008-C686-11E8-A355-529269FB1459}']
+    
+    (* Returns size of code block in bytes. For nil function MUST return 0 *)
+    function GetCodeSize ({n} CodePtr: pbyte): integer;
+  end;
+
+  (* Always returns the same code size value for any non-nil code pointer. *)
+  TFixedCodeSizeDetector = class (TInterfacedObject, ICodeSizeDetector)
+   private
+    fCodeSize: integer;
+
+   public
+    constructor Create (CodeSize: integer);
+
+    function GetCodeSize ({n} CodePtr: pbyte): integer;
+  end;
+
+  (* Analyses code block of specified size. Extends block size to include the last whole instruction,
+     if the instruction crosses block border. *)
+  TMinCodeSizeDetector = class (TInterfacedObject, ICodeSizeDetector)
+   private
+    fMinCodeSize: integer;
+
+   public
+    constructor Create (MinCodeSize: integer);
+
+    function GetCodeSize ({n} CodePtr: pbyte): integer;
+  end;
+
+  (* Analyses function code, searching for RET instruction as end marker. Raises exception if MaxCodeSize bytes
+     were scanned and RET was not found. *)
+  TFuncCodeSizeDetector = class (TInterfacedObject, ICodeSizeDetector)
+   private
+    fMaxCodeSize: integer;
+
+   public
+    constructor Create (MaxCodeSize: integer = 1000000);
+    
+    function GetCodeSize ({n} CodePtr: pbyte): integer;
+  end;
 
   (* Powerful wrapper for TPatchMaker instance *)
   TPatchHelper = packed record
@@ -229,6 +293,9 @@ type
 
     (* Wraps PatchMaker into local helper wrapper and returns the helper *)
     class function Init ({U} PatchMaker: TPatchMaker): TPatchHelper; inline; static;
+
+    function IsValidPos (Pos: integer): boolean; inline;
+    function NormalizePos (Pos: integer): integer; inline;
     
     function WriteByte (Value: byte): TPatchHelper;
     function WriteWord (Value: word): TPatchHelper;
@@ -264,7 +331,10 @@ type
     function JumpPos (JumpType: TJumpType; Pos: integer): TPatchHelper;
 
     (* Writes assembler instruction/s to jump to specified real address. Returns self. *)
-    function Jump (JumpType: TJumpType; Addr: pointer): TPatchHelper;
+    function Jump (JumpType: TJumpType; {n} Addr: pointer): TPatchHelper;
+
+    (* Writes assembler instruction/s to jump to specified real address. The code will be location independent (movable). Returns self. *)
+    function JumpAbs (JumpType: TJumpType; {n} Addr: pointer): TPatchHelper;
 
     (* Writes assembler instruction to call routine at patch label position. Returns self. *)
     function CallLabel (const LabelName: string): TPatchHelper;
@@ -273,7 +343,10 @@ type
     function CallPos (Pos: integer): TPatchHelper;
 
     (* Writes assembler instruction/s to call routine at specified real address. Returns self. *)
-    function Call (Addr: pointer): TPatchHelper;
+    function Call ({n} Addr: pointer): TPatchHelper;
+
+    (* Writes assembler instruction/s to call routine at specified real address. The code will be location independent (movable). Returns self. *)
+    function CallAbs ({n} Addr: pointer): TPatchHelper;
 
     (* Writes ret instruction, cleaning NumArgs dword stack arguments. Returns self. *)
     function Ret (NumArgs: integer = 0): TPatchHelper;
@@ -289,66 +362,195 @@ type
 
     (* Allocates space and copies CPU instructions from source to patch buffer. Ensures, that all relative
        addresses will be valid after patch application. If MinNumBytes block is too small to keep the
-       last instruction from source, block size is increased to hold the whole last instruction. Returns self. *)
-    function WriteCode (MinNumBytes: integer; {n} CodeSource: pointer): TPatchHelper;
+       last instruction from source, block size is increased to hold the whole last instruction. Returns self.
+       Pass OrigCodeAddr if code is not in its original location. *)
+    function WriteCode ({n} CodeAddr: pointer; CodeSizeDetector: ICodeSizeDetector; FixCodeFlags: integer = 0; OrigCodeAddr: pointer = nil): TPatchHelper;
   end; // .record TPatchHelper
+
+
+const
+  (* Flags for TJumpTypeAssembly.Flags *)
+  JUMP_TYPE_FLAG_NEAR  = 1;
+  JUMP_TYPE_FLAG_SHORT = 2;
+
+type
+  (* Info, used to create near/short jump instructions, based on jump type *)
+  TJumpTypeAssembly = record
+    Opcode:     integer;
+    OpcodeSize: integer;
+    ArgSize:    integer;
+    Flags:      integer;
+  end;
+
+
+  (* Returns true if given opcode is short JX[X] opcode *)
+  function IsShortJumpConst8Opcode (Opcode: integer): boolean;
+  
+  (* Returns true if given opcode is near JX[X] opcode *)
+  function IsNearJumpConst32Opcode (Opcode: integer): boolean;
+
+  (* Tries to determine jump type from opcode. Returns false on failure. *)
+  function GetJumpType (Opcode: integer; {OUT} var Res: TJumpType): boolean;
+
+  (* Returns jump of the same type, but opposite condition. Example: JAE => JB. Unconditional jumps are returned as is. *)
+  function GetNegativeJumpType (JumpType: TJumpType): TJumpType;
+  
+  (* Returns info record, necessary to assemble jump instruction, based on jump type *)
+  function GetJumpAssembly (JumpType: TJumpType): TJumpTypeAssembly;
+  
+  (* Returns near version of jump for short jump and vice versa. Returns other jump types as is. *)
+  function ConvertBetweenShortNearJump (JumpType: TJumpType): TJumpType;
+  
+  (* Converts jump type to near type, if possible *)
+  function JumpTypeToNear (JumpType: TJumpType): TJumpType;
+  
+  (* Converts jump type to short type, if possible *)
+  function JumpTypeToShort (JumpType: TJumpType): TJumpType;
+
+  (* Increases block size so, that its last instruction could be copied as a whole, not partially. Returns new block size *)
+  function GetCodeSize ({n} Code: pointer; MinCodeSize: integer = 1): integer;
+
+
+const
+  NEAR_JUMP_TYPES  = [JMP, JE, JNE, JA, JAE, JB, JBE, JG, JGE, JL, JLE, JO, JNO, JS, JNS, JP, JNP];
+  SHORT_JUMP_TYPES = [JMP_SHORT, JE_SHORT, JNE_SHORT, JA_SHORT, JAE_SHORT, JB_SHORT, JBE_SHORT, JG_SHORT, JGE_SHORT, JL_SHORT, JLE_SHORT, JO_SHORT, JNO_SHORT, JS_SHORT, JNS_SHORT, JP_SHORT, JNP_SHORT];
 
 
 (***)  implementation  (***)
 
 
-function GetJumpOpcode (JumpType: TJumpType; out OpcodeSize: integer; out ArgSize: integer): integer;
+const
+  JumpTypeAssemblyMap: array [low(TJumpType)..high(TJumpType)] of TJumpTypeAssembly = (
+    (Opcode: OPCODE_JMP_CONST32;      OpcodeSize: 1; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JE_CONST32;       OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JNE_CONST32;      OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JA_CONST32;       OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JAE_CONST32;      OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JB_CONST32;       OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JBE_CONST32;      OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JG_CONST32;       OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JGE_CONST32;      OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JL_CONST32;       OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JLE_CONST32;      OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JO_CONST32;       OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JNO_CONST32;      OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JS_CONST32;       OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JNS_CONST32;      OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JP_CONST32;       OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JNP_CONST32;      OpcodeSize: 2; ArgSize: sizeof(integer); Flags: JUMP_TYPE_FLAG_NEAR),
+    (Opcode: OPCODE_JMP_SHORT_CONST8; OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JE_SHORT_CONST8;  OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JNE_SHORT_CONST8; OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JA_SHORT_CONST8;  OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JAE_SHORT_CONST8; OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JB_SHORT_CONST8;  OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JBE_SHORT_CONST8; OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JG_SHORT_CONST8;  OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JGE_SHORT_CONST8; OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JL_SHORT_CONST8;  OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JLE_SHORT_CONST8; OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JO_SHORT_CONST8;  OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JNO_SHORT_CONST8; OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JS_SHORT_CONST8;  OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JNS_SHORT_CONST8; OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JP_SHORT_CONST8;  OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT),
+    (Opcode: OPCODE_JNP_SHORT_CONST8; OpcodeSize: 1; ArgSize: sizeof(shortint); Flags: JUMP_TYPE_FLAG_SHORT)
+  ); // .JumpTypeAssemblyMap
+
+  (* Map for easy conversion between near and short jump types *)
+  BetweenShortNearJumpTypeMap: array [low(TJumpType)..high(TJumpType)] of TJumpType = (
+    JMP_SHORT, JE_SHORT, JNE_SHORT, JA_SHORT, JAE_SHORT, JB_SHORT, JBE_SHORT, JG_SHORT, JGE_SHORT, JL_SHORT, JLE_SHORT, JO_SHORT, JNO_SHORT, JS_SHORT, JNS_SHORT, JP_SHORT, JNP_SHORT,
+    JMP, JE, JNE, JA, JAE, JB, JBE, JG, JGE, JL, JLE, JO, JNO, JS, JNS, JP, JNP
+  );
+
+  (* Map of JumpType => NOT JumpType. Example: JA => JBE. Unconditional jumps map to themselves. *)
+  NegativeJumpTypeMap: array [low(TJumpType)..high(TJumpType)] of TJumpType = (
+    JMP, JNE, JE, JBE, JB, JAE, JA, JLE, JL, JGE, JG, JNO, JO, JNS, JS, JNP, JP,
+    JMP_SHORT, JNE_SHORT, JE_SHORT, JBE_SHORT, JB_SHORT, JAE_SHORT, JA_SHORT, JLE_SHORT, JL_SHORT, JGE_SHORT, JG_SHORT, JNO_SHORT, JO_SHORT, JNS_SHORT, JS_SHORT, JNP_SHORT, JP_SHORT
+  );
+
+  (* Key is: Opcode *)
+  ShortJumpDecodeMap: array [$70..$7F] of TJumpType = (
+    JO_SHORT, JNO_SHORT, JB_SHORT, JAE_SHORT, JE_SHORT, JNE_SHORT, JBE_SHORT, JA_SHORT, JS_SHORT, JNS_SHORT, JP_SHORT, JNP_SHORT, JL_SHORT, JGE_SHORT, JLE_SHORT, JG_SHORT
+  );
+
+  (* Key is: Second opcode byte (the first one MUST be $0F) *)
+  NearJumpDecodeMap: array [$80..$8F] of TJumpType = (JO, JNO, JB, JAE, JE, JNE, JBE, JA, JS, JNS, JP, JNP, JL, JGE, JLE, JG);
+
+
+function IsShortJumpConst8Opcode (Opcode: integer): boolean;
 begin
-  // Set debug values for unknown jump types
-  result     := OPCODE_INT3;
-  ArgSize    := 0;
-  OpcodeSize := 1;
+  result := (Opcode = $EB) or Math.InRange(Opcode, $70, $7F);
+end;
 
-  if JumpType = JMP then begin
-    result     := OPCODE_JMP_CONST32;
-    OpcodeSize := 1;
-    ArgSize    := sizeof(integer);
-  end else begin
-    case JumpType of
-      JE:  result := OPCODE_JE_CONST32;
-      JNE: result := OPCODE_JNE_CONST32;
-      JA:  result := OPCODE_JA_CONST32;
-      JAE: result := OPCODE_JAE_CONST32;
-      JB:  result := OPCODE_JB_CONST32;
-      JBE: result := OPCODE_JBE_CONST32;
-      JG:  result := OPCODE_JG_CONST32;
-      JGE: result := OPCODE_JGE_CONST32;
-      JL:  result := OPCODE_JL_CONST32;
-      JLE: result := OPCODE_JLE_CONST32;
-    end; // .switch
+function IsNearJumpConst32Opcode (Opcode: integer): boolean;
+begin
+  result := (Opcode = $E9) or (((Opcode and $FF) = $0F) and Math.InRange(Opcode shr 8, $80, $8F));
+end;
 
-    if result <> OPCODE_INT3 then begin
-      OpcodeSize := 2;
-      ArgSize    := sizeof(integer);
-    end else begin
-      case JumpType of
-        JMP_SHORT: result := OPCODE_JMP_SHORT_CONST8;
-        JE_SHORT:  result := OPCODE_JE_SHORT_CONST8;
-        JNE_SHORT: result := OPCODE_JNE_SHORT_CONST8;
-        JA_SHORT:  result := OPCODE_JA_SHORT_CONST8;
-        JAE_SHORT: result := OPCODE_JAE_SHORT_CONST8;
-        JB_SHORT:  result := OPCODE_JB_SHORT_CONST8;
-        JBE_SHORT: result := OPCODE_JBE_SHORT_CONST8;
-        JG_SHORT:  result := OPCODE_JG_SHORT_CONST8;
-        JGE_SHORT: result := OPCODE_JGE_SHORT_CONST8;
-        JL_SHORT:  result := OPCODE_JL_SHORT_CONST8;
-        JLE_SHORT: result := OPCODE_JLE_SHORT_CONST8;
-      else
-        Assert(false, 'Unknown jump type: ' + SysUtils.IntToStr(ord(JumpType)));
-      end; // .switch
+function GetJumpType (Opcode: integer; {OUT} var Res: TJumpType): boolean;
+begin
+  result := false;
 
-      if result <> OPCODE_INT3 then begin
-        OpcodeSize := 1;
-        ArgSize    := sizeof(byte);
-      end;
-    end; // .else
-  end; // .else
-end; // .function GetJumpOpcode
+  if Math.InRange(Opcode, low(ShortJumpDecodeMap), high(ShortJumpDecodeMap)) then begin
+    Res    := ShortJumpDecodeMap[Opcode];
+    result := true;
+  end else if (byte(Opcode) = $0F) and Math.InRange(Opcode shr 8, low(NearJumpDecodeMap), high(NearJumpDecodeMap)) then begin
+    Res    := NearJumpDecodeMap[Opcode shr 8];
+    result := true; 
+  end;
+end; // .function GetJumpType
+
+function GetNegativeJumpType (JumpType: TJumpType): TJumpType;
+begin
+  result := NegativeJumpTypeMap[JumpType];
+end;
+
+function GetJumpAssembly (JumpType: TJumpType): TJumpTypeAssembly;
+begin
+  result := JumpTypeAssemblyMap[JumpType];
+end;
+
+function ConvertBetweenShortNearJump (JumpType: TJumpType): TJumpType;
+begin
+  result := BetweenShortNearJumpTypeMap[JumpType];
+end;
+
+function JumpTypeToNear (JumpType: TJumpType): TJumpType;
+begin
+  result := JumpType;
+
+  if Utils.FlagSet(JUMP_TYPE_FLAG_SHORT, GetJumpAssembly(JumpType).Flags) then begin
+    result := ConvertBetweenShortNearJump(result);
+  end;
+end;
+
+function JumpTypeToShort (JumpType: TJumpType): TJumpType;
+begin
+  result := JumpType;
+
+  if Utils.FlagSet(JUMP_TYPE_FLAG_NEAR, GetJumpAssembly(JumpType).Flags) then begin
+    result := ConvertBetweenShortNearJump(result);
+  end;
+end;
+
+function GetCodeSize ({n} Code: pointer; MinCodeSize: integer = 1): integer;
+var
+  InstrPtr: pbyte;
+  Disasm:   hde32.TDisasm;
+
+begin
+  {!} Assert(Utils.IsValidBuf(Code, MinCodeSize));
+  InstrPtr := Code;
+  // * * * * * //
+  result := 0;
+
+  while result < MinCodeSize do begin
+    Disasm.Disassemble(InstrPtr);
+    result := result + Disasm.Len;
+    Inc(InstrPtr, Disasm.len);
+  end;
+end; // .function GetCodeSize
 
 procedure TJumpCall32Rec.SetTargetAddr ({n} Addr: pointer);
 begin
@@ -449,6 +651,62 @@ begin
   SysUtils.FreeAndNil(Self.fPostponedActions);
   SysUtils.FreeAndNil(Self.fLabels);
 end;
+
+constructor TFixedCodeSizeDetector.Create (CodeSize: integer);
+begin
+  {!} Assert(CodeSize >= 0);
+  Self.fCodeSize := CodeSize;
+end;
+
+function TFixedCodeSizeDetector.GetCodeSize ({n} CodePtr: pbyte): integer;
+begin
+  result := Utils.IfThen(CodePtr <> nil, Self.fCodeSize, 0);
+end;
+
+constructor TMinCodeSizeDetector.Create (MinCodeSize: integer);
+begin
+  {!} Assert(MinCodeSize >= 0);
+  Self.fMinCodeSize := MinCodeSize;
+end;
+
+function TMinCodeSizeDetector.GetCodeSize ({n} CodePtr: pbyte): integer;
+begin
+  result := Utils.IfThen((CodePtr <> nil) and (Self.fMinCodeSize > 0), PatchForge.GetCodeSize(CodePtr, Self.fMinCodeSize), 0);
+end;
+
+constructor TFuncCodeSizeDetector.Create (MaxCodeSize: integer = 1000000);
+begin
+  {!} Assert(MaxCodeSize >= 0);
+  Self.fMaxCodeSize := MaxCodeSize;
+end;
+
+function TFuncCodeSizeDetector.GetCodeSize ({n} CodePtr: pbyte): integer;
+var
+{n} CmdPtr:   pbyte;
+    Disasm:   hde32.TDisasm;
+    RetFound: boolean;
+
+begin
+  CmdPtr := CodePtr;
+  result := 0;
+
+  if (CodePtr <> nil) and (Self.fMaxCodeSize > 0) then begin
+    RetFound := false;
+
+    while (result < Self.fMaxCodeSize) and not RetFound do begin
+      Disasm.Disassemble(CmdPtr);
+
+      if (Disasm.Opcode = OPCODE_RET) or (Disasm.Opcode = OPCODE_RET_CONST16) then begin
+        RetFound := true;
+      end;
+
+      Inc(CmdPtr, Disasm.Len);
+      Inc(result, Disasm.Len);
+    end;
+
+    {!} Assert(RetFound and (result <= Self.fMaxCodeSize), Format('Failed to find end of function at %x. Checked %d bytes', [integer(CodePtr), Self.fMaxCodeSize]));
+  end; // .if
+end; // .function TFuncCodeSizeDetector.GetCodeSize
 
 function TPatchMaker.IsValidPos (Pos: integer): boolean;
 begin
@@ -631,41 +889,19 @@ begin
   Self.fLabels.Clear;
 end;
 
-(* CopyCode: relative offsets are transform to internal and AddRealAddrLater is called for each *)
-
-(* Fixes long calls/jumps with relative offsets for code, that was moved to another location *)
-// procedure FixRelativeOffsetsInMovedCode (CodeAddr, OldCodeAddr: pointer; CodeSize: integer);
-// var
-//   Delta:  integer;
-//   CmdPtr: PAnsiChar;
-//   EndPtr: PAnsiChar;
-//   Disasm: hde32.TDisasm;
-
-// begin
-//   {!} Assert(OldCodeAddr <> nil);
-//   {!} Assert(CodeAddr <> nil);
-//   {!} Assert(CodeSize >= 0);
-//   CmdPtr := CodeAddr;
-//   EndPtr := Utils.PtrOfs(CmdPtr, CodeSize);
-//   // * * * * * //
-//   if CodeSize >= JMP_CALL_CONST32_SIZE then begin
-//     Delta := integer(CodeAddr) - integer(OldCodeAddr);
-
-//     while CmdPtr < EndPtr do begin
-//       hde32.hde32_disasm(CmdPtr, Disasm);
-      
-//       if (Disasm.Len = JMP_CALL_CONST32_SIZE) and (Disasm.Opcode in [OPCODE_JMP_CONST32, OPCODE_CALL_CONST32]) then begin
-//         Dec(PJumpCall32Rec(CmdPtr).Offset, Delta);
-//       end;
-      
-//       Inc(CmdPtr, Disasm.Len);
-//     end; // .while
-//   end; // .if
-// end; // .procedure FixRelativeOffsetsInMovedCode
-
 class function TPatchHelper.Init ({U} PatchMaker: TPatchMaker): TPatchHelper;
 begin
   result.PatchMaker := PatchMaker;
+end;
+
+function TPatchHelper.IsValidPos (Pos: integer): boolean;
+begin
+  result := Self.PatchMaker.IsValidPos(Pos);
+end;
+
+function TPatchHelper.NormalizePos (Pos: integer): integer;
+begin
+  result := Self.PatchMaker.NormalizePos(Pos);
 end;
 
 function TPatchHelper.WriteByte (Value: byte): TPatchHelper;
@@ -772,15 +1008,13 @@ end;
 
 function TPatchHelper.JumpLabel (JumpType: TJumpType; const LabelName: string): TPatchHelper;
 var
-  Opcode:     integer;
-  OpcodeSize: integer;
-  ArgSize:    integer;
+  JumpAssembly: TJumpTypeAssembly;
 
 begin
-  Opcode := GetJumpOpcode(JumpType, OpcodeSize, ArgSize);
-  Self.WriteBytes(OpcodeSize, @Opcode);
+  JumpAssembly := GetJumpAssembly(JumpType);
+  Self.WriteBytes(JumpAssembly.OpcodeSize, @JumpAssembly.Opcode);
 
-  if ArgSize > 1 then begin
+  if JumpAssembly.ArgSize > 1 then begin
     Self.ExecActionOnApply(TAddLabelPosAction.Create(LabelName));
     result := Self.WriteInt(-Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
   end else begin
@@ -791,36 +1025,32 @@ end; // .function TPatchHelper.JumpLabel
 
 function TPatchHelper.JumpPos (JumpType: TJumpType; Pos: integer): TPatchHelper;
 var
-  Opcode:     integer;
-  OpcodeSize: integer;
-  ArgSize:    integer;
-  Offset:     integer;
+  JumpAssembly: TJumpTypeAssembly;
+  Offset:       integer;
 
 begin
-  Opcode := GetJumpOpcode(JumpType, OpcodeSize, ArgSize);
-  Self.WriteBytes(OpcodeSize, @Opcode);
+  Pos          := Self.NormalizePos(Pos);
+  JumpAssembly := GetJumpAssembly(JumpType);
+  Self.WriteBytes(JumpAssembly.OpcodeSize, @JumpAssembly.Opcode);
 
-  if ArgSize > 1 then begin
+  if JumpAssembly.ArgSize > 1 then begin
     result := Self.WriteInt(Pos - Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
   end else begin
     Offset := Pos - Self.Pos - sizeof(PJumpCall8Rec(nil)^.Offset);
-    {!} Assert(Math.InRange(Offset, low(smallint), high(smallint)), Format('Cannot write short jump, offset is too high: %d', [Offset]));
+    {!} Assert(Math.InRange(Offset, low(shortint), high(shortint)), Format('Cannot write short jump, offset is too high: %d', [Offset]));
     result := Self.WriteByte(Offset);
   end;
 end; // .function TPatchHelper.JumpPos
 
-function TPatchHelper.Jump (JumpType: TJumpType; Addr: pointer): TPatchHelper;
+function TPatchHelper.Jump (JumpType: TJumpType; {n} Addr: pointer): TPatchHelper;
 var
-  Opcode:     integer;
-  OpcodeSize: integer;
-  ArgSize:    integer;
+  JumpAssembly: TJumpTypeAssembly;
 
 begin
-  {!} Assert(Addr <> nil);
-  Opcode := GetJumpOpcode(JumpType, OpcodeSize, ArgSize);
-  Self.WriteBytes(OpcodeSize, @Opcode);
+  JumpAssembly := GetJumpAssembly(JumpType);
+  Self.WriteBytes(JumpAssembly.OpcodeSize, @JumpAssembly.Opcode);
 
-  if ArgSize > 1 then begin
+  if JumpAssembly.ArgSize > 1 then begin
     Self.ExecActionOnApply(TSubRealAddrAction.Create);
     result := Self.WriteInt(integer(Addr) - sizeof(PJumpCall32Rec(nil)^.Offset));
   end else begin
@@ -829,25 +1059,57 @@ begin
   end;
 end; // .function TPatchHelper.Jump
 
+function TPatchHelper.JumpAbs (JumpType: TJumpType; {n} Addr: pointer): TPatchHelper;
+var
+  JumpAssembly:    TJumpTypeAssembly;
+  CondFailedLabel: string;
+
+begin
+  result := Self;
+
+  if (JumpType = JMP) or (JumpType = JMP_SHORT) then begin
+    Self.WriteInt(INSTR_MOV_ESP_MIN_4_CONST32);
+    Self.WriteInt(integer(Addr));
+    Self.WriteInt(INSTR_JUMP_PTR_ESP_MIN_4);
+  end else begin
+    JumpAssembly := GetJumpAssembly(GetNegativeJumpType(JumpTypeToShort(JumpType)));
+    Self.WriteBytes(JumpAssembly.OpcodeSize, @JumpAssembly.Opcode);
+    Self.ExecActionOnApply(TAddLabelPosByteAction.Create(CondFailedLabel));
+    Self.WriteByte(-Self.Pos - sizeof(PJumpCall8Rec(nil)^.Offset));
+    Self.JumpAbs(JMP, Addr);
+    Self.PutLabel(CondFailedLabel);
+  end; // .else
+end; // .function TPatchHelper.JumpAbs
+
 function TPatchHelper.CallLabel (const LabelName: string): TPatchHelper;
 begin
+  result := Self;
   Self.WriteByte(OPCODE_CALL_CONST32);
   Self.ExecActionOnApply(TAddLabelPosAction.Create(LabelName));
-  result := Self.WriteInt(-Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
+  Self.WriteInt(-Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
 end;
 
 function TPatchHelper.CallPos (Pos: integer): TPatchHelper;
 begin
+  result := Self;
   Self.WriteByte(OPCODE_CALL_CONST32);
-  result := Self.WriteInt(Pos - Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
+  Self.WriteInt(Self.NormalizePos(Pos) - Self.Pos - sizeof(PJumpCall32Rec(nil)^.Offset));
 end;
 
-function TPatchHelper.Call (Addr: pointer): TPatchHelper;
+function TPatchHelper.Call ({n} Addr: pointer): TPatchHelper;
 begin
-  {!} Assert(Addr <> nil);
+  result := Self;
   Self.WriteByte(OPCODE_CALL_CONST32);
   Self.ExecActionOnApply(TSubRealAddrAction.Create);
-  result := Self.WriteInt(integer(Addr) - sizeof(PJumpCall32Rec(nil)^.Offset));
+  Self.WriteInt(integer(Addr) - sizeof(PJumpCall32Rec(nil)^.Offset));
+end;
+
+function TPatchHelper.CallAbs ({n} Addr: pointer): TPatchHelper;
+begin
+  result := Self;
+  Self.WriteInt(INSTR_MOV_ESP_MIN_4_CONST32);
+  Self.WriteInt(integer(Addr));
+  Self.WriteInt(INSTR_CALL_PTR_ESP_MIN_4);
 end;
 
 function TPatchHelper.Ret (NumArgs: integer = 0): TPatchHelper;
@@ -881,12 +1143,106 @@ begin
   result := Self.WriteInt(Value);
 end;
 
-function TPatchHelper.WriteCode (MinNumBytes: integer; {n} CodeSource: pointer): TPatchHelper;
-begin
-  {!} Assert(Utils.IsValidBuf(CodeSource, MinNumBytes));
+function TPatchHelper.WriteCode ({n} CodeAddr: pointer; CodeSizeDetector: ICodeSizeDetector; FixCodeFlags: integer = 0; OrigCodeAddr: pointer = nil): TPatchHelper;
+var
+{n} CmdPtr:     pbyte;
+{n} EndPtr:     pbyte;
+    OrigCmdPtr: integer;
+    OrigEndPtr: integer;
+    CodeSize:   integer;
+    Disasm:     hde32.TDisasm;
 
-  if MinNumBytes > 0 then begin
-    
+const
+  FOR_JUMP = true;
+  FOR_CALL = false;
+
+  (* Returns true if address points to original block of code. For jump instructions the EOF is considered
+     local, while for calls EOF is considered external procedure location. *)
+  function IsOrigLocalAddr (Addr: integer; ForJump: boolean): boolean;
+  begin
+    result := (Addr >= OrigCmdPtr) and (Addr < OrigEndPtr);
+  end;
+
+  procedure HandleCallConst32 (CmdPtr: pointer; OrigCmdPtr: integer);
+  var
+    CallTargetAddr: integer;
+
+  begin
+    CallTargetAddr := OrigCmdPtr + sizeof(TJumpCall32Rec) + pinteger(integer(CmdPtr) + Disasm.PrefixedOpcodeSize)^;
+
+    if not IsOrigLocalAddr(CallTargetAddr, FOR_CALL) then begin
+      if Utils.FlagSet(FIX_CODE_MAKE_MOVABLE, FixCodeFlags) then begin
+        Self.CallAbs(Ptr(CallTargetAddr));
+      end else begin
+        Self.Call(Ptr(CallTargetAddr));
+      end;
+    end else begin
+      Self.WriteBytes(Disasm.Len, CmdPtr);
+    end;
+  end; // .procedure HandleCallConst32
+
+  procedure HandleJumpConst (CmdPtr: pointer; OrigCmdPtr: integer);
+  var
+    JumpTargetAddr: integer;
+    JumpType:       TJumpType;
+
+  begin
+    if IsShortJumpConst8Opcode(Disasm.Opcode) then begin
+      JumpTargetAddr := OrigCmdPtr + Disasm.PrefixedOpcodeSize + sizeof(PJumpCall8Rec(nil)^.Offset) + pshortint(integer(CmdPtr) + Disasm.PrefixedOpcodeSize)^;
+    end else begin
+      JumpTargetAddr := OrigCmdPtr + Disasm.PrefixedOpcodeSize + sizeof(PJumpCall32Rec(nil)^.Offset) + pinteger(integer(CmdPtr) + Disasm.PrefixedOpcodeSize)^;
+    end;
+
+    if not IsOrigLocalAddr(JumpTargetAddr, FOR_JUMP) then begin
+      if not GetJumpType(Disasm.Opcode, JumpType) then begin
+        Assert(false, Format('Failed to get jump type for opcode: %x', [Disasm.Opcode]));
+      end;
+
+      if Utils.FlagSet(FIX_CODE_MAKE_MOVABLE, FixCodeFlags) then begin
+        Self.JumpAbs(JumpType, Ptr(JumpTargetAddr));
+      end else begin
+        Self.Jump(JumpTypeToNear(JumpType), Ptr(JumpTargetAddr));
+      end;
+    end else begin
+      Self.WriteBytes(Disasm.Len, CmdPtr);
+    end; // .else
+  end; // .procedure HandleJumpConst
+
+begin
+  {!} Assert(CodeSizeDetector <> nil);
+  {!} Assert(not Utils.FlagSet(FIX_CODE_SAME_SIZE, FixCodeFlags) or not Utils.FlagSet(FIX_CODE_MAKE_MOVABLE, FixCodeFlags), 'FIX_CODE_SAME_SIZE and FIX_CODE_MAKE_MOVABLE flags cannot be used at the same time');
+  CmdPtr := nil;
+  EndPtr := nil;
+  result := Self;
+  // * * * * * //
+  CodeSize := CodeSizeDetector.GetCodeSize(CodeAddr);
+
+  if CodeSize > 0 then begin
+    // Code is in its original location
+    if OrigCodeAddr = nil then begin
+      OrigCodeAddr := CodeAddr;
+    end;
+
+    // Prepare pointers to disassemble and analyse code 
+    CmdPtr     := pointer(CodeAddr);
+    EndPtr     := Utils.PtrOfs(CmdPtr, CodeSize);
+    OrigCmdPtr := integer(OrigCodeAddr);
+    OrigEndPtr := OrigCmdPtr + CodeSize;
+
+    while cardinal(CmdPtr) < cardinal(EndPtr) do begin
+      Disasm.Disassemble(CmdPtr);
+
+      if Disasm.Opcode = OPCODE_CALL_CONST32 then begin
+        HandleCallConst32(CmdPtr, OrigCmdPtr);
+      end else if IsNearJumpConst32Opcode(Disasm.Opcode) or (IsShortJumpConst8Opcode(Disasm.Opcode) and not Utils.FlagSet(FIX_CODE_SAME_SIZE, FixCodeFlags)) then begin
+        HandleJumpConst(CmdPtr, OrigCmdPtr);
+      end else begin
+        Self.WriteBytes(Disasm.Len, CmdPtr);
+      end;
+
+      Inc(CmdPtr, Disasm.Len);
+      Inc(OrigCmdPtr, Disasm.Len);
+    end; // .while
   end; // .if
 end; // .function TPatchHelper.WriteCode
 
