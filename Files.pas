@@ -187,7 +187,7 @@ procedure TFixedBuf.Close;
 begin
   if (Self.fMode <> MODE_OFF) and Self.OwnsMem then begin
     FreeMem(Self.fBuf); Self.fBuf :=  nil;
-  end; // .if
+  end;
   Self.fMode  :=  MODE_OFF;
 end; // .procedure TFixedBuf.Close
 
@@ -201,7 +201,7 @@ begin
   // * * * * * //
   if BufSize > 0 then begin
     GetMem(NewBuf, BufSize);
-  end; // .if
+  end;
   Self.Open(NewBuf, BufSize, MODE_READWRITE); NewBuf  :=  nil;
   Self.fOwnsMem := true;
 end; // .procedure TFixedBuf.CreateNew
@@ -237,7 +237,7 @@ begin
   if result then begin
     Self.fPos :=  NewPos;
     Self.fEOF :=  Self.Pos = Self.Size;
-  end; // .if
+  end;
 end; // .function TFixedBuf.Seek
 
 destructor TFile.Destroy;
@@ -265,12 +265,11 @@ begin
   result  :=  WinWrappers.FileOpen(FilePath, OpeningMode, Self.fhFile);
   if not result then begin
     Log.Write('FileSystem', 'OpenFile', 'Cannot open file "' + FilePath + '"');
-  end // .if
-  else begin
+  end else begin
     result  :=  WinWrappers.GetFileSize(Self.hFile, FileSizeL, FileSizeH);
     if not result then begin
       Log.Write('FileSystem', 'GetFileSize', 'Cannot get size of file "' + FilePath + '"');
-    end; // .if
+    end;
   end; // .else
   if result then begin
     result  :=  FileSizeH = 0;
@@ -281,8 +280,7 @@ begin
         'OpenFile',
         'Size of file "' + FilePath +'" exceeds 2 GB = ' + SysUtils.IntToStr(INT64(FileSizeH) * $FFFFFFFF + FileSizeL)
       );
-    end // .if
-    else begin
+    end else begin
       Self.fMode          :=  DeviceMode;
       Self.fSize          :=  FileSizeL;
       Self.fPos           :=  0;
@@ -295,14 +293,14 @@ begin
   // * * * * * //
   if (not result) and (Self.hFile <> WinWrappers.INVALID_HANDLE) then begin
     Windows.CloseHandle(Self.hFile);
-  end; // .if
+  end;
 end; // .function TFile.Open
 
 procedure TFile.Close;
 begin
   if (Self.Mode <> MODE_OFF) and (not Windows.CloseHandle(Self.hFile)) then begin
     Log.Write('FileSystem', 'CloseFile', 'Cannot close file "' + Self.FilePath + '"');
-  end; // .if;
+  end;;
   Self.fMode      :=  MODE_OFF;
   Self.fFilePath  :=  '';
 end; // .procedure TFile.Close
@@ -314,15 +312,14 @@ begin
   
   if not result then begin
     Log.Write('FileSystem', 'CreateFile', 'Cannot create file "' + Self.FilePath + '"');
-  end // .if
-  else begin
-    Self.fMode          :=  MODE_READWRITE;
-    Self.fSize          :=  0;
-    Self.fPos           :=  0;
-    Self.fEOF           :=  true;
-    Self.fFilePath      :=  FilePath;
-    Self.fHasKnownSize  :=  true;
-    Self.fSizeIsConst   :=  FALSE;
+  end else begin
+    Self.fMode         := MODE_READWRITE;
+    Self.fSize         := 0;
+    Self.fPos          := 0;
+    Self.fEOF          := true;
+    Self.fFilePath     := FilePath;
+    Self.fHasKnownSize := true;
+    Self.fSizeIsConst  := FALSE;
   end; // .else
 end; // .function TFile.CreateNew
 
@@ -335,7 +332,7 @@ begin
     result    :=  BytesRead > 0;
     if not result then begin
       Log.Write('FileSystem', 'ReadFile', 'Cannot read file "' + Self.FilePath + '" at offset ' + SysUtils.IntToStr(Self.Pos));
-    end; // .if
+    end;
     Self.fPos :=  Self.Pos + BytesRead;
     Self.fEOF :=  Self.Pos = Self.Size;
   end; // .if
@@ -344,16 +341,19 @@ end; // .function TFile.ReadUpTo
 function TFile.WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
-  result  :=  (Self.Mode = MODE_WRITE) or (Self.Mode = MODE_READWRITE);
+  result := (Self.Mode = MODE_WRITE) or (Self.Mode = MODE_READWRITE);
+  
   if result then begin
-    ByteWritten :=  SysUtils.FileWrite(Self.hFile, Buf^, Count);
-    result      :=  ByteWritten > 0;
+    ByteWritten := SysUtils.FileWrite(Self.hFile, Buf^, Count);
+    result      := ByteWritten > 0;
+    
     if not result then begin
       Log.Write('FileSystem', 'WriteFile', 'Cannot write file "' + Self.FilePath + '" at offset ' + SysUtils.IntToStr(Self.Pos));
-    end; // .if
-    Self.fPos   :=  Self.Pos + ByteWritten;
-    Self.fSize  :=  Self.Size + ByteWritten;
-    Self.fEOF   :=  Self.Pos = Self.Size;
+    end;
+    
+    Self.fPos  := Self.Pos + ByteWritten;
+    Self.fSize := Self.Size + ByteWritten;
+    Self.fEOF  := Self.Pos = Self.Size;
   end; // .if
 end; // .function TFile.WriteUpTo
 
@@ -367,13 +367,16 @@ begin
   if result then begin
     SeekRes :=  SysUtils.FileSeek(Self.hFile, NewPos, 0);
     result  :=  SeekRes <> -1;
+
     if result then begin
       Self.fPos :=  SeekRes;
       result    :=  SeekRes = NewPos;
-    end; // .if
+    end;
+    
     if not result then begin
       Log.Write('FileSystem', 'SeekFile', 'Cannot set file "' + Self.FilePath + '" pointer to ' + SysUtils.IntToStr(NewPos));
-    end; // .if
+    end;
+    
     Self.fEOF :=  Self.Pos = Self.Size;
   end; // .if
 end; // .function TFile.Seek
@@ -383,7 +386,7 @@ begin
   if Self.fOpened then begin
     Windows.FindClose(Self.fSearchHandle);
     Self.fOpened := FALSE;
-  end; // .if
+  end;
 end; // .procedure TFileLocator.FinitSearch
 
 procedure TFileLocator.InitSearch (const Mask: string);
@@ -508,8 +511,7 @@ begin
       FilePath  :=  DirPath + '\' + FileName;
       if (FileInfo.Data.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0 then begin
         result  :=  DeleteDir(FilePath);
-      end // .if
-      else begin
+      end else begin
         result  :=  SysUtils.DeleteFile(FilePath);
       end; // .else
     end; // .if
@@ -531,7 +533,7 @@ begin
   result  :=  MyFile.Open(FilePath, MODE_READ) and MyFile.HasKnownSize;
   if result then begin
     Res :=  MyFile.Size;
-  end; // .if
+  end;
   // * * * * * //
   SysUtils.FreeAndNil(MyFile);
 end; // .function GetFileSize
@@ -657,7 +659,7 @@ function TLocator.MatchResult: boolean;
   
     if (i > 0) and (result[i] <> '.') then begin
       result := result + '.';
-    end; // .if
+    end;
   end; // .function CanonicMask
   
   function CanonicName (const Name: string): string;
@@ -666,7 +668,7 @@ function TLocator.MatchResult: boolean;
   
     if (result <> '') and (result[Length(result)] <> '.') then begin
       result := result + '.';
-    end; // .if
+    end;
   end; // .function CanonicName
 
 begin
@@ -687,7 +689,7 @@ begin
   if FILES_EXTRA_DEBUG then begin
     Log.Write('Files', 'TLocator.MatchResult', 'Match "' + Self.fFoundRec.Name + '" to "' +
                                                Self.fFileMask + '" is ' + IntToStr(ORD(result)));
-  end; // .if
+  end;
 end; // .function TLocator.MatchResult
 
 function TLocator.FindNext: boolean;

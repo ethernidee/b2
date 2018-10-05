@@ -20,7 +20,7 @@ Possible VFS item attributes to implement:
 uses
   Windows, WinNative, SysUtils, Math, MMSystem,
   Utils, Crypto, Lists, DataLib, StrLib, StrUtils, Files, FilesEx (* removeme *), Log, TypeWrappers,
-  PatchApi, Core, Ini, WinUtils, Concur, PatchForge, hde32, {ApiJack, }DlgMes;
+  PatchApi, Core, Ini, WinUtils, Concur, PatchForge, hde32, VfsPatching, {ApiJack, }DlgMes;
 
 (*
   Redirects calls to:
@@ -895,6 +895,15 @@ begin
   Utils.CopyMem(Length(AltFileName) + 1, pchar(AltFileName), @AnsiData.cAlternateFileName);
 end; // .procedure ConvertWin32FindDataToAnsi
 
+procedure WriteLog (const EventSource, Operation, Description: string);
+begin
+  with VfsCritSection do begin
+    Enter;
+    Log.Write(EventSource, Operation, Description);
+    Leave;
+  end;
+end;
+
 function Hook_CreateFileW (Hook: PatchApi.THiHook; lpFileName: PWideChar;
                            dwDesiredAccess, dwShareMode: DWORD;
                            lpSecurityAttributes: PSecurityAttributes;
@@ -915,16 +924,16 @@ begin
     UseRedirection := RedirectedPath <> '';
   end;
 
-  Log.Write('VFS', 'CreateFileW', Format('Searched VFS for %s. Disposition: %x. Access: %x', [NormalizePath(lpFileName), dwCreationDisposition, dwDesiredAccess]));
+  WriteLog('VFS', 'CreateFileW', Format('Searched VFS for %s. Disposition: %x. Access: %x', [NormalizePath(lpFileName), dwCreationDisposition, dwDesiredAccess]));
 
   if DebugOpt then begin
     StrLib.PWideCharToAnsi(lpFileName, OrigPathA);
 
     if UseRedirection then begin
       StrLib.PWideCharToAnsi(PWideChar(RedirectedPath), RedirectedPathA);
-      Log.Write('VFS', 'CreateFileW', 'Redirected "' + OrigPathA + '" => "' + RedirectedPathA + '"');
+      WriteLog('VFS', 'CreateFileW', 'Redirected "' + OrigPathA + '" => "' + RedirectedPathA + '"');
     end else begin
-      Log.Write('VFS', 'CreateFileW', '"' + OrigPathA + '"');
+      WriteLog('VFS', 'CreateFileW', '"' + OrigPathA + '"');
     end;
   end;
 
@@ -973,9 +982,9 @@ begin
 
   if DebugOpt then begin
     if UseRedirection then begin
-      Log.Write('VFS', 'OpenFile', 'Redirected "' + lpFileName + '" => "' + RedirectedPathA + '"');
+      WriteLog('VFS', 'OpenFile', 'Redirected "' + lpFileName + '" => "' + RedirectedPathA + '"');
     end else begin
-      Log.Write('VFS', 'OpenFile', '"' + lpFileName + '"');
+      WriteLog('VFS', 'OpenFile', '"' + lpFileName + '"');
     end;
   end;
 
@@ -1003,9 +1012,9 @@ begin
 
     if UseRedirection then begin
       StrLib.PWideCharToAnsi(PWideChar(RedirectedPath), RedirectedPathA);
-      Log.Write('VFS', 'GetFileAttributesW', 'Redirected "' + OrigPathA + '" => "' + RedirectedPathA + '"');
+      WriteLog('VFS', 'GetFileAttributesW', 'Redirected "' + OrigPathA + '" => "' + RedirectedPathA + '"');
     end else begin
-      Log.Write('VFS', 'GetFileAttributesW', '"' + OrigPathA + '"');
+      WriteLog('VFS', 'GetFileAttributesW', '"' + OrigPathA + '"');
     end;
   end;
 
@@ -1087,9 +1096,9 @@ begin
       StrLib.PWideCharToAnsi(PWideChar(RedirectedPath), RedirectedPathA);
 
       if UseRedirection then begin
-        Log.Write('VFS', 'LoadLibraryW', 'Redirected "' + OrigPathA + '" => "' + RedirectedPathA + '"');
+        WriteLog('VFS', 'LoadLibraryW', 'Redirected "' + OrigPathA + '" => "' + RedirectedPathA + '"');
       end else begin
-        Log.Write('VFS', 'LoadLibraryW', 'Redirected library was not loaded: "' + OrigPathA + '" => "' + RedirectedPathA + '"');
+        WriteLog('VFS', 'LoadLibraryW', 'Redirected library was not loaded: "' + OrigPathA + '" => "' + RedirectedPathA + '"');
       end;
     end;    
   end; // .if
@@ -1097,7 +1106,7 @@ begin
   if not UseRedirection then begin
     if DebugOpt then begin
       StrLib.PWideCharToAnsi(lpLibFileName, OrigPathA);
-      Log.Write('VFS', 'LoadLibraryW', '"' + OrigPathA + '"');
+      WriteLog('VFS', 'LoadLibraryW', '"' + OrigPathA + '"');
     end;
 
     result := NativeLoadLibraryW(lpLibFileName);
@@ -1155,7 +1164,7 @@ begin
       // Disallow empty or '\'-ending paths
       if (FullPath = '') or (FullPath[Length(FullPath)] = '\') then begin
         if DebugOpt then begin
-          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: ERROR_INVALID_PARAMETER');
+          WriteLog('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: ERROR_INVALID_PARAMETER');
         end;
 
         LastError := Windows.ERROR_INVALID_PARAMETER;
@@ -1230,10 +1239,10 @@ begin
 
       if DebugOpt then begin
         if result = Windows.INVALID_HANDLE_VALUE then begin
-          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: INVALID_HANDLE_VALUE. Expanded: ' + FullPath + '. Current Directory: ' + GetCurrentDir());
+          WriteLog('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: INVALID_HANDLE_VALUE. Expanded: ' + FullPath + '. Current Directory: ' + GetCurrentDir());
         end else begin
           StrLib.PWideCharToAnsi(lpFindFileData.cFileName, FirstResultNameA);
-          Log.Write('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: ' + SysUtils.IntToStr(integer(result)) + '. Found: "' + FirstResultNameA + '"');
+          WriteLog('VFS', 'FindFirstFileExW', 'Path: "' + OrigPathA + '". Result: ' + SysUtils.IntToStr(integer(result)) + '. Found: "' + FirstResultNameA + '"');
         end;
       end;
     end; // .else
@@ -1364,7 +1373,7 @@ begin
       if DebugOpt then begin
         if result then begin
           StrLib.PWideCharToAnsi(@FileInfo.cFileName, FileNameA);
-          Log.Write('VFS', 'FindNextFileW', SysUtils.Format('Handle: %x. Result: "%s"', [integer(hFindFile), FileNameA]));
+          WriteLog('VFS', 'FindNextFileW', SysUtils.Format('Handle: %x. Result: "%s"', [integer(hFindFile), FileNameA]));
         end else begin
           case Status of
             Windows.ERROR_INVALID_HANDLE: ErrorName := 'ERROR_INVALID_HANDLE';
@@ -1373,7 +1382,7 @@ begin
             ErrorName := 'UNKNOWN_ERROR';
           end;
           
-          Log.Write('VFS', 'FindNextFileW', SysUtils.Format('Handle: %x. Result: %s', [integer(hFindFile), ErrorName]));
+          WriteLog('VFS', 'FindNextFileW', SysUtils.Format('Handle: %x. Result: %s', [integer(hFindFile), ErrorName]));
         end; // .else
       end; // .if
 
@@ -1411,7 +1420,7 @@ begin
       Windows.SetLastError(Utils.IfThen(result, Windows.ERROR_SUCCESS, Windows.ERROR_INVALID_HANDLE));
 
       if DebugOpt then begin
-        Log.Write('VFS', 'FindClose', Format('Handle: %d. Result: %s', [integer(hFindFile), Utils.IfThen(result, 'ERROR_SUCCESS', 'ERROR_INVALID_HANDLE')]));
+        WriteLog('VFS', 'FindClose', Format('Handle: %d. Result: %s', [integer(hFindFile), Utils.IfThen(result, 'ERROR_SUCCESS', 'ERROR_INVALID_HANDLE')]));
       end;
     end;
 
@@ -1508,76 +1517,66 @@ begin
   end; // .else
 end; // .function GetFileObjectPath
 
-function Hook_NtQueryAttributesFile (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_BASIC_INFORMATION; OrigFunc: WinNative.TNtQueryAttributesFile): NTSTATUS; stdcall;
-// var
-  // ExpandedPath:     WideString;
-  // RedirectedPath:   WideString;
-  // ReplacedObjAttrs: WinNative.TObjectAttributes;
-  // FileInfo:         Windows.TWin32FindDataW;
-  // HadTrailingDelim: boolean;
+function Hook_NtQueryAttributesFile (OrigFunc: WinNative.TNtQueryAttributesFile; ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_BASIC_INFORMATION): NTSTATUS; stdcall;
+var
+  ExpandedPath:     WideString;
+  RedirectedPath:   WideString;
+  ReplacedObjAttrs: WinNative.TObjectAttributes;
+  FileInfo:         Windows.TWin32FindDataW;
+  HadTrailingDelim: boolean;
+
+  s: string;
 
 begin
-  with VfsCritSection do begin
-    Enter;
-
-    // if DebugOpt then begin
-    //   Log.Write('VFS', 'NtQueryAttributesFile', Format('Dir: %d. Path: "%s"', [ObjectAttributes.RootDirectory, ObjectAttributes.ObjectName.ToWideStr()]));
-    // end;
-
-    result := OrigFunc(ObjectAttributes, FileInformation);
-
-    Leave;
-
-    exit;
-  end; // .with
-
+  DebugOpt := true; // FIXME DELETEME
+  
   // with VfsCritSection do begin
   //   Enter;
 
-  //   if DebugOpt then begin
-  //     Log.Write('VFS', 'NtQueryAttributesFile', Format('Dir: %d. Path: "%s"', [ObjectAttributes.RootDirectory, ObjectAttributes.ObjectName.ToWideStr()]));
-  //   end;
+    if DebugOpt then begin
+      WriteLog('VFS', 'NtQueryAttributesFile', Format('Dir: %d. Path: "%s"', [ObjectAttributes.RootDirectory, ObjectAttributes.ObjectName.ToWideStr()]));
+    end;
 
-  //   ReplacedObjAttrs        := ObjectAttributes^;
-  //   ReplacedObjAttrs.Length := sizeof(ReplacedObjAttrs);
-  //   ExpandedPath            := GetFileObjectPath(ObjectAttributes);
-  //   RedirectedPath          := '';
+    ReplacedObjAttrs        := ObjectAttributes^;
+    ReplacedObjAttrs.Length := sizeof(ReplacedObjAttrs);
+    ExpandedPath            := GetFileObjectPath(ObjectAttributes);
+    RedirectedPath          := '';
 
-  //   if ExpandedPath <> '' then begin
-  //     RedirectedPath := GetVfsItemRealPath(StrLib.ExcludeTrailingDelimW(ExpandedPath, @HadTrailingDelim), @FileInfo);
-  //   end;
+    if ExpandedPath <> '' then begin
+      RedirectedPath := GetVfsItemRealPath(StrLib.ExcludeTrailingDelimW(ExpandedPath, @HadTrailingDelim), @FileInfo);
+    end;
 
-  //   // Return cached VFS file info with fake ChangeTime = LastWriteTime
-  //   if RedirectedPath <> '' then begin
-  //     if not HadTrailingDelim or ((FileInfo.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) = Windows.FILE_ATTRIBUTE_DIRECTORY) then begin
-  //       FileInformation.CreationTime   := WinNative.LARGE_INTEGER(FileInfo.ftCreationTime);
-  //       FileInformation.LastAccessTime := WinNative.LARGE_INTEGER(FileInfo.ftLastAccessTime);
-  //       FileInformation.LastWriteTime  := WinNative.LARGE_INTEGER(FileInfo.ftLastWriteTime);
-  //       FileInformation.ChangeTime     := WinNative.LARGE_INTEGER(FileInfo.ftLastWriteTime);
-  //       FileInformation.FileAttributes := FileInfo.dwFileAttributes;
-  //       result                         := WinNative.STATUS_SUCCESS;
-  //     end else begin
-  //       result := WinNative.STATUS_NO_SUCH_FILE;
-  //     end;
-  //   end
-  //   // Query file with real path
-  //   else begin
-  //     RedirectedPath := ExpandedPath;
+    // Return cached VFS file info with fake ChangeTime = LastWriteTime
+    if RedirectedPath <> '' then begin
+      if not HadTrailingDelim or ((FileInfo.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) = Windows.FILE_ATTRIBUTE_DIRECTORY) then begin
+        FileInformation.CreationTime   := WinNative.LARGE_INTEGER(FileInfo.ftCreationTime);
+        FileInformation.LastAccessTime := WinNative.LARGE_INTEGER(FileInfo.ftLastAccessTime);
+        FileInformation.LastWriteTime  := WinNative.LARGE_INTEGER(FileInfo.ftLastWriteTime);
+        FileInformation.ChangeTime     := WinNative.LARGE_INTEGER(FileInfo.ftLastWriteTime);
+        FileInformation.FileAttributes := FileInfo.dwFileAttributes;
+        result                         := WinNative.STATUS_SUCCESS;
+      end else begin
+        result := WinNative.STATUS_NO_SUCH_FILE;
+      end;
+    end
+    // Query file with real path
+    else begin
+      RedirectedPath := ExpandedPath;
 
-  //     if (RedirectedPath <> '') and (RedirectedPath[1] <> '\') then begin
-  //       RedirectedPath := '\??\' + RedirectedPath;
-  //     end;
+      if (RedirectedPath <> '') and (RedirectedPath[1] <> '\') then begin
+        RedirectedPath := '\??\' + RedirectedPath;
+      end;
 
-  //     ReplacedObjAttrs.RootDirectory := 0;
-  //     ReplacedObjAttrs.Attributes    := ReplacedObjAttrs.Attributes or WinNative.OBJ_CASE_INSENSITIVE;
-  //     ReplacedObjAttrs.ObjectName.AssignNewStr(RedirectedPath);
+      ReplacedObjAttrs.RootDirectory := 0;
+      ReplacedObjAttrs.Attributes    := ReplacedObjAttrs.Attributes or WinNative.OBJ_CASE_INSENSITIVE;
+      ReplacedObjAttrs.ObjectName.AssignExistingStr(RedirectedPath);
       
-  //     result := NativeNtQueryAttributesFile(@ReplacedObjAttrs, FileInformation);
-  //   end; // .else
+      result := OrigFunc(@ReplacedObjAttrs, FileInformation);
+    end; // .else
 
-  //   if DebugOpt then begin
-  //     Log.Write('VFS', 'NtQueryAttributesFile', Format('Result: %d. Attrs: %x. Path: "%s" => "%s"', [result, FileInformation.FileAttributes, string(ExpandedPath), string(RedirectedPath)]));
-  //   end;
+    if DebugOpt then begin
+      WriteLog('VFS', 'NtQueryAttributesFile', Format('Result: %d. Attrs: %x. Path: "%s" => "%s"', [result, FileInformation.FileAttributes, string(ExpandedPath), string(RedirectedPath)]));
+    end;
 
   //   Leave;
   // end; // .with
@@ -1630,7 +1629,7 @@ begin
     Enter;
 
     if DebugOpt then begin
-      Log.Write('VFS', 'NtOpenFile', ObjectAttributes.ObjectName.ToWideStr());
+      WriteLog('VFS', 'NtOpenFile', ObjectAttributes.ObjectName.ToWideStr());
     end;
 
     result := WinNative.NtCreateFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, nil, 0, ShareAccess, WinNative.FILE_OPEN, OpenOptions, nil, 0);
@@ -1655,7 +1654,7 @@ begin
     Enter;
 
     if DebugOpt then begin
-      Log.Write('VFS', 'NtCreateFile', ObjectAttributes.ObjectName.ToWideStr());
+      WriteLog('VFS', 'NtCreateFile', ObjectAttributes.ObjectName.ToWideStr());
     end;
 
     ReplacedObjAttrs        := ObjectAttributes^;
@@ -1692,9 +1691,9 @@ begin
 
     if DebugOpt then begin
       if ExpandedPath <> StripNtAbsPathPrefix(RedirectedPath) then begin
-        Log.Write('VFS', 'NtCreateFile', Format('Access: $%x. Handle: %d. Status: %d. Redirected "%s" => "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath), StrLib.WideToAnsiSubstitute(StripNtAbsPathPrefix(RedirectedPath))]));
+        WriteLog('VFS', 'NtCreateFile', Format('Access: $%x. Handle: %d. Status: %d. Redirected "%s" => "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath), StrLib.WideToAnsiSubstitute(StripNtAbsPathPrefix(RedirectedPath))]));
       end else begin
-        Log.Write('VFS', 'NtCreateFile', Format('Access: $%x. Handle: %d. Status: %d. Path: "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath)]));
+        WriteLog('VFS', 'NtCreateFile', Format('Access: $%x. Handle: %d. Status: %d. Path: "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath)]));
       end;
     end;
 
@@ -1781,7 +1780,7 @@ begin
   // // Disallow empty or '\'-ending paths
   // if (FullPath = '') then begin
   //   if DebugOpt then begin
-  //     Log.Write('VFS', 'NtOpenFile', 'Path: "' + OrigPathA + '". Result: ERROR_INVALID_PARAMETER');
+  //     WriteLog('VFS', 'NtOpenFile', 'Path: "' + OrigPathA + '". Result: ERROR_INVALID_PARAMETER');
   //   end;
 
   //   Windows.SetLastError(Windows.ERROR_INVALID_PARAMETER);
@@ -1825,7 +1824,7 @@ begin
   FilePath := pszSound;
 
   if DebugOpt then begin
-    Log.Write('VFS', 'PlaySoundA', 'Original: ' + FilePath);
+    WriteLog('VFS', 'PlaySoundA', 'Original: ' + FilePath);
   end; // .if
 
   // if sound is not found in current directory, we should preserve its original
@@ -1840,7 +1839,7 @@ begin
   end; // .if
 
   if DebugOpt then begin
-    Log.Write('VFS', 'PlaySoundA', 'Redirected: ' + FinalFilePath);
+    WriteLog('VFS', 'PlaySoundA', 'Redirected: ' + FinalFilePath);
   end; // .if
 
   result := BOOL(PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc,
@@ -1873,7 +1872,8 @@ end;
 
 procedure InstallVfsHooks;
 var
-{U} SetProcessDEPPolicyAddr: pointer;
+{n} SetProcessDEPPolicyAddr: pointer;
+    hDll:           Windows.THandle;
     Kernel32Handle: integer;
     User32Handle:   integer;
     NtdllHandle:    integer;
@@ -1884,7 +1884,13 @@ var
 begin
   if not VfsHooksInstalled then begin
   (* WHERE ARE VFS LOCKS???????????????? *)
-    
+    // Ensure, that Memory manager is thread safe
+    System.IsMultiThread := true;
+
+    // Ensure, that library with VFS hooks installed is never unloaded
+    if System.IsLibrary then begin
+      WinNative.GetModuleHandleExW(WinNative.GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS or WinNative.GET_MODULE_HANDLE_EX_FLAG_PIN, @VFS.GetRealAddress, hDll);
+    end;
 
     Kernel32Handle := Windows.GetModuleHandle('kernel32.dll');
     User32Handle   := Windows.GetModuleHandle('user32.dll');
@@ -1897,25 +1903,25 @@ begin
     //VarDump([TFuncCodeSizeDetector.Create().GetCodeSize(Ptr($401000))]);
 
 
-    with TPatchHelper.Init(TPatchMaker.Create) do begin
-      WriteCode(@PatchForge.JumpTypeToNear, TMinCodeSizeDetector.Create(56), FIX_CODE_MAKE_MOVABLE);
-      SetLength(s, Size);
-      ApplyPatch(pointer(s));
-      asm mov eax, s; int 3; end;
-    end;
+    // with TPatchHelper.Init(TPatchMaker.Create) do begin
+    //   WriteCode(@PatchForge.JumpTypeToNear, TMinCodeSizeDetector.Create(56), FIX_CODE_MAKE_MOVABLE);
+    //   SetLength(s, Size);
+    //   ApplyPatch(pointer(s));
+    //   asm mov eax, s; int 3; end;
+    // end;
 
     (* Trying to turn off DEP *)
     SetProcessDEPPolicyAddr := Windows.GetProcAddress(Kernel32Handle, 'SetProcessDEPPolicy');
 
     if SetProcessDEPPolicyAddr <> nil then begin
       if PatchApi.Call(PatchApi.STDCALL_, SetProcessDEPPolicyAddr, [0]) <> 0 then begin
-        Log.Write('VFS', 'SetProcessDEPPolicy', 'DEP was turned off');
+        WriteLog('VFS', 'SetProcessDEPPolicy', 'DEP was turned off');
       end else begin
-        Log.Write('VFS', 'SetProcessDEPPolicy', 'Failed to turn DEP off');
+        WriteLog('VFS', 'SetProcessDEPPolicy', 'Failed to turn DEP off');
       end; // .else
     end; // .if
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFileAttributesW hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing GetFileAttributesW hook');
     // NativeGetFileAttributesW := pointer(Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'GetFileAttributesW'),
@@ -1925,7 +1931,7 @@ begin
     //   @Hook_GetFileAttributesW,
     // ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFileAttributesA hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing GetFileAttributesA hook');
     // Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'GetFileAttributesA'),
@@ -1935,7 +1941,7 @@ begin
     //   @Hook_GetFileAttributesA,
     // );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateFileW hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing CreateFileW hook');
     // NativeCreateFileW := pointer(Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'CreateFileW'),
@@ -1945,7 +1951,7 @@ begin
     //   @Hook_CreateFileW,
     // ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing CreateFileA hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing CreateFileA hook');
     // Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'CreateFileA'),
@@ -1955,7 +1961,7 @@ begin
     //   @Hook_CreateFileA,
     // );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing OpenFile hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing OpenFile hook');
     // NativeOpenFile := pointer(Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'OpenFile'),
@@ -1966,7 +1972,7 @@ begin
     // ).GetDefaultFunc());
     // 
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadLibraryW hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing LoadLibraryW hook');
     // NativeLoadLibraryW := pointer(Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'LoadLibraryW'),
@@ -1976,7 +1982,7 @@ begin
     //   @Hook_LoadLibraryW,
     // ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadLibraryA hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing LoadLibraryA hook');
     // Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'LoadLibraryA'),
@@ -1986,7 +1992,7 @@ begin
     //   @Hook_LoadLibraryA,
     // );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExW hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing FindFirstFileExW hook');
     // NativeFindFirstFileExW := pointer(Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileExW'),
@@ -1996,7 +2002,7 @@ begin
     //   @Hook_FindFirstFileExW,
     // ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExA hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing FindFirstFileExA hook');
     // Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
@@ -2006,7 +2012,7 @@ begin
     //   @Hook_FindFirstFileExA,
     // );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileW hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing FindFirstFileW hook');
     // Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileW'),
@@ -2016,7 +2022,7 @@ begin
     //   @Hook_FindFirstFileW,
     // );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
     // Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
@@ -2026,7 +2032,7 @@ begin
     //   @Hook_FindFirstFileA,
     // );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileW hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing FindNextFileW hook');
     // NativeFindNextFileW := pointer(Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'FindNextFileW'),
@@ -2036,7 +2042,7 @@ begin
     //   @Hook_FindNextFileW,
     // ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileA hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing FindNextFileA hook');
     // Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'FindNextFileA'),
@@ -2046,7 +2052,7 @@ begin
     //   @Hook_FindNextFileA,
     // );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindClose hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing FindClose hook');
     // NativeFindClose := pointer(Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'FindClose'),
@@ -2056,7 +2062,7 @@ begin
     //   @Hook_FindClose,
     // ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryW hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing SetCurrentDirectoryW hook');
     // NativeSetCurrentDirectoryW := pointer(Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'SetCurrentDirectoryW'),
@@ -2066,7 +2072,7 @@ begin
     //   @Hook_SetCurrentDirectoryW,
     // ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryA hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing SetCurrentDirectoryA hook');
     // Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(Kernel32Handle, 'SetCurrentDirectoryA'),
@@ -2076,15 +2082,16 @@ begin
     //   @Hook_SetCurrentDirectoryA,
     // );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtQueryAttributesFile hook');
-    // NativeNtQueryAttributesFile := ApiJack.Splice
-    // (
-    //   GetRealProcAddress(NtdllHandle, 'NtQueryAttributesFile'),
-    //   @Hook_NtQueryAttributesFile,
-    //   ApiJack.AUTO_SIZE
-    // ).OrigFunc;
+    if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing NtQueryAttributesFile hook');
+    NativeNtQueryAttributesFile := VfsPatching.SpliceWinApi
+    (
+      GetRealProcAddress(NtdllHandle, 'NtQueryAttributesFile'),
+      @Hook_NtQueryAttributesFile
+    );
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtQueryFullAttributesFile hook');
+    //asm int 3; end;
+
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing NtQueryFullAttributesFile hook');
     // NativeNtQueryFullAttributesFile := pointer(Core.p.WriteHiHook
     // (
     //   GetRealProcAddress(NtdllHandle, 'NtQueryFullAttributesFile'),
@@ -2094,7 +2101,7 @@ begin
     //   @Hook_NtQueryFullAttributesFile,
     // ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtOpenFile hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing NtOpenFile hook');
     // NativeNtOpenFile := pointer(Core.p.WriteHiHook
     // (
     //   GetProcAddress(NtdllHandle, 'NtOpenFile'),
@@ -2104,7 +2111,7 @@ begin
     //   @Hook_NtOpenFile,
     // ).GetDefaultFunc());
 
-    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtCreateFile hook');
+    // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing NtCreateFile hook');
     // NativeNtCreateFile := pointer(Core.p.WriteHiHook
     // (
     //   GetProcAddress(NtdllHandle, 'NtCreateFile'),
@@ -2150,7 +2157,7 @@ begin
     ],
     '~'
   );
-  Log.Write('Core', 'AssertHandler', CrashMes);
+  WriteLog('Core', 'AssertHandler', CrashMes);
   Core.FatalError(CrashMes);
 end; // .procedure AssertHandler
 
@@ -2170,7 +2177,7 @@ begin
     ModList.Add(aModList[i]);
   end;
 
-  Log.Write('VFS', 'InitModList', #13#10 + ModList.ToText(#13#10));
+  WriteLog('VFS', 'InitModList', #13#10 + ModList.ToText(#13#10));
 end;
 
 procedure Init ({U} aModList: Lists.TStringList);
@@ -2221,7 +2228,7 @@ begin
   // halt;
 
 
-  // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
+  // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
   // Core.p.WriteHiHook
   // (
   //   GetRealProcAddress(Kernel32Handle, 'GetPrivateProfileStringA'),
@@ -2231,7 +2238,7 @@ begin
   //   @Hook_GetPrivateProfileStringA,
   // );
 
-  // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing LoadCursorFromFileA hook');
+  // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing LoadCursorFromFileA hook');
   // Core.p.WriteHiHook
   // (
   //   GetRealProcAddress(User32Handle, 'LoadCursorFromFileA'),
@@ -2241,7 +2248,7 @@ begin
   //   @Hook_LoadCursorFromFileA,
   // );
 
-  // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing PlaySoundA hook');
+  // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing PlaySoundA hook');
   // Core.p.WriteHiHook
   // (
   //   GetRealProcAddress(Windows.LoadLibrary('winmm.dll'), 'PlaySoundA'),
@@ -2266,8 +2273,9 @@ function String2Hex(const Buffer: Ansistring): string;
  i: integer;
  s: string;
  tof: WIN32_FILE_ATTRIBUTE_DATA;
+  hDll: Windows.THandle;
 
-begin
+initialization
   VfsCritSection.Init;
   FileSearchCritSection.Init;
   CurrDirCritSection.Init;

@@ -2,6 +2,9 @@
 (*
   Code/data patching utilities and API hooking.
   Unit without third-party dependencies.
+
+  Tags: #FROZEN, #DEPRECATED, #NEEDS_REWRITING
+  TODO: Write PatchMan unit, implementing PatchApi functionality using PatchForge.
 *)
 
 (***)  interface  (***)
@@ -136,42 +139,6 @@ var
   MemPatchingFunc: TMemPatchingFunc;
 
 
-procedure THookRec.PointTo (Addr: pointer);
-begin
-  Self.Offset := integer(Addr) - integer(@Self) - sizeof(Self);
-end;
-
-function TSpliceResult.GetInfo: PSpliceInternalInfo;
-begin
-  result := Utils.PtrOfs(Self.fOrigFunc, -sizeof(TSpliceInternalInfo));
-end;
-
-function TPatchMaker.IsValidPos (Pos: integer): boolean;
-begin
-  result := Math.InRange(Self.fPos, 0, Self.Size);
-end;
-
-procedure TPatchMaker.SetPos (NewPos: integer);
-begin
-  Self.Seek(NewPos);
-end;
-
-procedure TPatchMaker.Grow (NewSize: integer);
-const
-  MIN_FREE_SPACE           = 16;
-  HEUR_MEMORY_MANAGER_LOAD = 8;
-
-begin
-  {!} Assert(NewSize > Length(Self.fBuf));
-
-  SetLength(Self.fBuf, (1 shl Alg.IntLog2(NewSize + MIN_FREE_SPACE + HEUR_MEMORY_MANAGER_LOAD)) - HEUR_MEMORY_MANAGER_LOAD);
-  Self.fSize := NewSize;
-end;
-
-TPatchMakerCmd
-Patcher.Write([PatchLib.AsmPushad, PatchLib.Jump(HookAddr), PatchLib.Offset(TargetData)]);
-Patcher.Write([PatchLib.Jump(Addr)]);
-
 type
   PBridgeCodePart1 = ^TBridgeCodePart1;
   TBridgeCodePart1 = packed record
@@ -198,147 +165,6 @@ type
     Popad:                 byte;
     Ret_2:                 byte;
   end; // .record TBridgeCodePart2
-
-Patcher.Write([
-  (* PUSHAD, PUSH ESP *) StrLib.HexDec('49AFB06013'),
-  PatchLib.Call(HandlerAddr),
-  (* TEST EAX, EAX; JZ CONST8_XXX *) StrLib.HexDec('13FAB8'),
-  PatchLib.GetPos(JmpToDontExecDefCode),
-  PatchLib.Byte(0),
-  (* POPAD; ADD ESP, 4 *) StrLib.HexDec('E17791'),
-  PatchLib.Jump(Utils.PtrOfs(OrigCode, OrigCodeSize)),
-  PatchLib.GetPos(LabelDontExecDefCode),
-  PatchLib.Ret
-]);
-
-Patcher.WriteAt(JmpToDontExecDefCode, [LabelDontExecDefCode - JmpToDontExecDefCode - 1]);
-
-использовать большие прыжки и автоматически заполняемые метки и адреса
-
-Patcher.Write([
-  (* PUSHAD, PUSH ESP *) StrLib.HexDec('49AFB06013'),
-  PatchLib.Call(HandlerAddr),
-  (* TEST EAX, EAX; JZ CONST8_XXX *) StrLib.HexDec('13FAB8'),
-  PatchLib.Jump(),
-  PatchLib.Byte(0),
-  (* POPAD; ADD ESP, 4 *) StrLib.HexDec('E17791'),
-  PatchLib.Jump(Utils.PtrOfs(OrigCode, OrigCodeSize)),
-  PatchLib.GetPos(LabelDontExecDefCode),
-  PatchLib.Ret
-]);
-
-прыжок лучше на nop-ы, так безопаснее, то есть сразу за THookRec
-эм, внутренние адреса?
-
-procedure TPatchMaker.HandleCmd (Cmd: TClass; ArgPtr: System.PVarRec; var i: integer; NumArgs: integer);
-begin
-  {!} Assert(false, 'Unknown TPatchMaker command: ' + Cmd.ClassName);
-end;
-
-constructor TPatchMaker.Create;
-begin
-  Self.fRealMemOffsets := DataLib.NewList(not Utils.OWNS_ITEMS);
-end;
-
-destructor TPatchMaker.Destroy;
-begin
-  SysUtils.FreeAndNil(Self.fRealMemOffsets);
-end;
-
-function TPatchMaker.WriteBytes (NumBytes: integer; {n} Buf: pointer): {U} TPatchMaker;
-begin
-  Utils.CopyMem(NumBytes, Buf, Self.Alloc(NumBytes));
-  Inc(Self.fPos, NumBytes);
-  result := Self;
-end;
-
-function TPatchMaker.Write (const Args: array of const): {U} TPatchMaker;
-var
-  FloatValue: single;
-  NumArgs:    integer;
-  i:          integer;
-
-begin
-  NumArgs := Length(Args);
-  i       := 0;
-
-  while i < NumArgs do begin
-    with Args[i] do begin
-      case vType of
-        vtBoolean:    Self.WriteBytes(sizeof(vBoolean),                @vBoolean);
-        vtInteger:    Self.WriteBytes(sizeof(vInteger),                @vInteger);
-        vtChar:       Self.WriteBytes(sizeof(vChar),                   @vChar);
-        vtWideChar:   Self.WriteBytes(sizeof(vWideChar),               @vWideChar);
-        vtExtended:   begin FloatValue := vExtended^; Self.WriteBytes(sizeof(FloatValue), @FloatValue); end;
-        vtString:     Self.WriteBytes(Length(vString^),                @vString^[1]);
-        vtPointer:    Self.WriteBytes(sizeof(vPointer),                @vPointer);
-        vtPChar:      Self.WriteBytes(sizeof(vPChar),                  @vPChar);
-        vtPWideChar:  Self.WriteBytes(sizeof(PWideChar),               @vPWideChar);
-        vtObject:     Self.WriteBytes(sizeof(vObject),                 @vObject);
-        vtClass:      Self.HandleCmd(TClass(vClass), @Args[i], i, NumArgs);
-        vtAnsiString: Self.WriteBytes(Length(string(vAnsiString)),     vAnsiString);
-        vtWideString: Self.WriteBytes(Length(WideString(vWideString)), vWideString);
-        vtInterface:  Self.WriteBytes(sizeof(vInterface),              @vInterface);
-        vtInt64:      Self.WriteBytes(sizeof(vInt64),                  @vInt64);
-      else
-        {!} Assert(false, 'TPatchMaker.Write: unsupported vType: ' + SysUtils.IntToStr(vType));
-      end; // .case
-    end; // .with
-
-    Inc(i);
-  end; // .while
-end; // .function TPatchMaker.Write
-
-function TPatchMaker.Seek (Pos: integer): {U} TPatchMaker;
-begin
-   {!} Assert(Self.IsValidPos(Pos));
-end;
-
-function TPatchMaker.Alloc (NumBytes: integer): {Un} pointer;
-var
-  NewSize: integer;
-
-begin
-  {!} Assert(NumBytes >= 0);
-
-  NewSize := Self.Pos + NumBytes;
-
-  if NewSize > Self.Size then begin
-    if NewSize > Length(Self.fBuf) then begin
-      Self.Grow(NewSize);
-    end else begin
-      Self.fSize := NewSize;
-    end;
-  end;
-
-  result := @Self.fBuf[Self.Pos];
-end; // .function TPatchMaker.Alloc
-
-function TPatchMaker.GetAddrByPos (Pos: integer): {Un} pointer;
-begin
-  {!} Assert(Self.IsValidPos(Pos));
-  result := @Self.fBuf[Pos];
-end;
-
-function TPatchMaker.MarkDwordAsMemOffset (Pos: integer = -1): {U} TPatchMaker;
-begin
-  {!} Assert((Pos = -1) or Self.IsValidPos(Pos));
-  Self.fRealMemOffsets.Add(Ptr(Pos));
-end;
-
-function TPatchMaker.GetPatch: {O} Utils.TArrayOfByte;
-begin
-  result     := Self.fBuf; Self.fBuf := nil;
-  Self.fSize := 0;
-  Self.fPos  := 0;
-end;
-
-function TPatchMaker.ApplyPatch ({n} TargetAddr: pointer): {n} pointer;
-begin
-  TOffsetToMem
-end;
-
-ApiJack.WriteComplexPatch(TargetCode, [#$69#$69#$69#$69#$69, ApiJack.CMD_JUMP_TO, ]);
 
 function GetExecutableMem (Size: integer): {n} pointer;
 begin
@@ -552,7 +378,6 @@ begin
     ppointer(@result)^ := PtrOfs(SpliceInfo, sizeof(SpliceInfo^)); SpliceInfo := nil;
   end;
 
-  asm int 3; end;
   // * * * * * //
   FreeMem(SpliceInfo); SpliceInfo := nil;
 end; // .function Splice

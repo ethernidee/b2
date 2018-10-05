@@ -265,23 +265,23 @@ var
   BytesWritten: integer;
 
 begin
-  result  :=  Self.WriteUpTo(sizeof(Data), @Data, BytesWritten);
-end; // .function TAbstractFile.WriteByte
+  result := Self.WriteUpTo(sizeof(Data), @Data, BytesWritten);
+end;
 
 function TAbstractFile.WriteWord (Data: word): boolean;
 begin
-  result  :=  Self.Write(sizeof(Data), @Data);
-end; // .function TAbstractFile.WriteByte
+  result := Self.Write(sizeof(Data), @Data);
+end;
 
 function TAbstractFile.WriteInt (Data: integer): boolean;
 begin
-  result  :=  Self.Write(sizeof(Data), @Data);
-end; // .function TAbstractFile.WriteInt
+  result := Self.Write(sizeof(Data), @Data);
+end;
 
 function TAbstractFile.WriteStr (Data: string): boolean;
 begin
-  result  :=  Self.Write(Length(Data), pointer(Data));
-end; // .function TAbstractFile.WriteStr
+  result := Self.Write(Length(Data), pointer(Data));
+end;
 
 function TAbstractFile.WriteFrom (Count: integer; Source: TAbstractFile): boolean;
 var
@@ -295,7 +295,7 @@ begin
   {!} Assert(Source <> nil);
   result  :=  FALSE;
   SetLength(StrBuf, Math.Min(Count, Self.MAX_BUF_SIZE));
-  
+
   if Count <= MAX_BUF_SIZE then begin
     result  :=
       Source.Read(Count, pointer(StrBuf)) and
@@ -309,7 +309,7 @@ begin
     while (i <= NumWriteOpers) and result do begin
       if i = NumWriteOpers then begin
         NumBytesToWrite :=  Count - (MAX_BUF_SIZE * (NumWriteOpers - 1));
-      end; // .if
+      end;
       
       result  :=
         Source.Read(NumBytesToWrite, pointer(StrBuf)) and

@@ -24,7 +24,13 @@ const
   STATUS_SUCCESS      = 0;
   STATUS_NO_SUCH_FILE = $C000000F;
 
+  (* For GetFileAttributesXXX *)
   INVALID_FILE_ATTRIBUTES = -1;
+
+  (* For GetModuleHandleXXX *)
+  GET_MODULE_HANDLE_EX_FLAG_PIN                = 1;
+  GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT = 2;
+  GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS       = 4;
 
 type
   NTSTATUS  = Longword;
@@ -688,6 +694,7 @@ type
   function  NtCreateFile (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
                           FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
   function  PathIsRelativeW (lpFileName: PWideChar): boolean; stdcall; external 'Shlwapi.dll';
+  function  GetModuleHandleExW (dwFlags: integer; lpModuleName: PWideChar; var hModule: Windows.THandle): LONGBOOL; stdcall; external 'kernel32.dll';
 
   function  MemAlloc (Size: cardinal): pointer;
   procedure MemFree ({n} Ptr: pointer);
