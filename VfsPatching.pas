@@ -87,6 +87,7 @@ begin
   result       := nil;
   // * * * * * //
 
+  // === BEGIN generating SpliceBridge ===
   // Add pointer to original function bridge as the first argument
   p.WriteTribyte(PatchForge.INSTR_PUSH_PTR_ESP);
   p.WriteInt(PatchForge.INSTR_MOV_ESP_PLUS_4_CONST32);
@@ -105,13 +106,14 @@ begin
   p.WriteCode(OrigFunc, PatchForge.TMinCodeSizeDetector.Create(sizeof(PatchForge.TJumpCall32Rec)));
   OverwrittenCodeSize := p.Pos - OrigCodeBridgeStartPos;
   p.Jump(PatchForge.JMP, Utils.PtrOfs(OrigFunc, OverwrittenCodeSize));
+  // === END generating SpliceBridge ===
 
   // Persist splice bridge
   GetMem(SpliceBridge, p.Size);
-  p.ApplyPatch(SpliceBridge, SpliceBridge);
-  p.Clear();
+  WritePatchAtCode(p.PatchMaker, SpliceBridge);
 
   // Create and apply hook at target function start
+  p.Clear();
   p.Jump(PatchForge.JMP, SpliceBridge);
   WritePatchAtCode(p.PatchMaker, OrigFunc);
   // * * * * * //

@@ -67,6 +67,7 @@ const
   OPCODE_MOV_EAX_CONST32  = $B8;
   OPCODE_RET              = $C3;
   OPCODE_RET_CONST16      = $C2;
+  OPCODE_JMP_PTR_CONST32  = $25FF;
   
   INSTR_JMP_EAX                = $E0FF;
   INSTR_TEST_EAX_EAX           = $C085;

@@ -45,12 +45,15 @@ function TakeScreenshot (hWnd: THandle; HideCursor: boolean; out Res: TRawImage)
 function GetExePath: WideString;
 
 
-implementation
-uses Utils;
+(***)  implementation  (***)
+
+
+uses Utils, Concur;
 
 var
   ExePathW: WideString = '';
   ExeDirW:  WideString = '';
+  StaticCritSection: Concur.TCritSection;
 
 constructor TRawImage.Create ({?} aBuf: PBgraBuf; aOwnsBuf: boolean; aWidth, aHeight: integer);
 begin
@@ -213,18 +216,28 @@ var
   NumCharsCopied: integer;
 
 begin
-  if ExePathW = '' then begin
-    SetLength(ExePathW, MAX_UNICODE_PATH_LEN - 1);
-    NumCharsCopied := Windows.GetModuleFileNameW(Windows.GetModuleHandle(nil), PWideChar(ExePathW), MAX_UNICODE_PATH_LEN);
+  with StaticCritSection do begin
+    Enter;
 
-    if NumCharsCopied > 0 then begin
-      SetLength(ExePathW, NumCharsCopied);
-    end else begin
-      ExePathW := '';
+    if ExePathW = '' then begin
+      SetLength(ExePathW, MAX_UNICODE_PATH_LEN - 1);
+      NumCharsCopied := Windows.GetModuleFileNameW(Windows.GetModuleHandle(nil), PWideChar(ExePathW), MAX_UNICODE_PATH_LEN);
+
+      if NumCharsCopied > 0 then begin
+        SetLength(ExePathW, NumCharsCopied);
+      end else begin
+        ExePathW := '';
+      end;
     end;
-  end; // .if
-  
-  result := ExePathW;
+
+    result := ExePathW;
+
+    Leave;
+  end; // .with
 end; // .function GetExePath
 
+initialization
+  StaticCritSection.Init;
+finalization
+  StaticCritSection.Delete;
 end.

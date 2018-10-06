@@ -1,20 +1,49 @@
 ﻿unit VFS;
-{
-DESCRIPTION:  Virtual File System
-AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+(*
+  DESCRIPTION:  Virtual File System
+  AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 
-TODO: Log all redirected api address, ex. kernel32 => api-ms...
+  Allows to virtually 'unpack' contents of many directories to existing or non-existing paths.
+  Example: map D:\Mods\A and D:\Mods\B to C:\Game.
+  Example: map D:\Archive\2018 to D:\NonExistingReallyDir
+  Real files/subdirs are not overwritten, but the effect is the same as real directory to directory (deep) copying.
 
-!!!!!!!!!!!!! Due to OPEN_EXISTING and TRUNCATE_EXITING VFS does not guarantee, that mod files will not
-be changed(!).
-Drives (root directories) cannot be mapped to (insufficient support).
+  WinApi users WILL BE able to:
+  - open mapped files for reading/writing/truncating.
+  - query mapped file attributes by path/name.
+  - list mapped directories (contents will be combined/overlapped).
+  - change current directory to virtual directory, that does not actually exist on hard drive.
+  - call most system api like LoadLibrary and PlaySound with virtual paths.
 
-DOS Names for Virtual items are not supported for FindFirst/Next item.
+  WinApi users WILL NOT be able to:
+  - open mapped files in OPEN_OR_CREATE mode.
+  - open mapped files/dirs for deletion/renaming.
 
-Possible VFS item attributes to implement:
-- DONT_SHOW_IN_LISTINGS. Virtual file/directory will not be shown in directory listings (only accessible by direct path).
-- IGNORE_REAL_LISTING.   During directory scan, real files will be ignored.
-}
+  Known limitations:
+  - it's not possible to map directories to drive roots (C:, D:, etc).
+  - short DOS names are not generated and listed for virtual items (see FindFirstFile).
+
+  Intercepted WinApi functions:
+  - LoadLibraryW (for debuggers support)
+  - LoadLibraryA (for debuggers support)
+  - FindFirstFileExW
+  - FindFirstFileA
+  - FindFirstFileW
+  - FindFirstFileA
+  - FindNextFileW
+  - FindNextFileA
+  - FindClose
+  - SetCurrentDirectoryW
+  - SetCurrentDirectoryA
+  - NtQueryAttributesFile
+  - NtQueryFullAttributesFile
+  - NtOpenFile
+  - NtCreateFile
+
+  Possible VFS item attributes to implement in the future:
+  - DONT_SHOW_IN_LISTINGS. Virtual file/directory will not be shown in directory listings (only accessible by direct path).
+  - IGNORE_REAL_LISTING.   During directory scan, real files will be ignored.
+*)
 
 (***)  interface  (***)
 uses
@@ -343,23 +372,39 @@ begin
   //(Format('%p', [ TDict( DllRealApiAddrs[Ptr(DllHandles[0])] ) ['CreateFileA'] ]));
 end; // .procedure FindOutRealSystemApiAddrs
 
+(* Returns real code address, bypassing possibly nested simple redirection stubs like JMP [...] or JMP XXX. *)
 function GetRealAddress (CodeOrRedirStub: pointer): {n} pointer;
+const
+ MAX_DEPTH = 100;
+
+var
+  Depth: integer;
+
 begin
   {!} Assert(CodeOrRedirStub <> nil);
+  result := CodeOrRedirStub;
+  Depth  := 0;
 
-  // JMP DWORD [PTR]
-  if pword(CodeOrRedirStub)^ = $FF25 then begin
-    result := ppointer(integer(CodeOrRedirStub) + 2)^;
-  // JMP SHORT REL [INT8 OFS]
-  end else if pbyte(CodeOrRedirStub)^ = $EB then begin
-    result := pointer(integer(CodeOrRedirStub) + 2 + pshortint(integer(CodeOrRedirStub) + 1)^);
-  // JMP REL [INT32 OFS]
-  end else if pbyte(CodeOrRedirStub)^ = $E9 then begin
-    result := pointer(integer(CodeOrRedirStub) + 5 + pinteger(integer(CodeOrRedirStub) + 1)^);
-  // Regular code
-  end else begin
-    result := CodeOrRedirStub;
-  end; // .else
+  while Depth < MAX_DEPTH do begin
+    // JMP DWORD [PTR]
+    if pword(result)^ = PatchForge.OPCODE_JMP_PTR_CONST32 then begin
+      result := ppointer(integer(result) + sizeof(word))^;
+    // JXX SHORT CONST8
+    end else if PatchForge.IsShortJumpConst8Opcode(pbyte(result)^) then begin
+      result := pointer(integer(result) + sizeof(byte) + pshortint(integer(result) + sizeof(byte))^);
+    // JMP NEAR CONST32
+    end else if pbyte(result)^ = PatchForge.OPCODE_JMP_CONST32 then begin
+      result := pointer(integer(result) + sizeof(PatchForge.TJumpCall32Rec) + pinteger(integer(result) + sizeof(byte))^);
+    // JXX (conditional) NEAR CONST32
+    end else if PatchForge.IsNearJumpConst32Opcode(pword(result)^) then begin
+      result := pointer(integer(result) + sizeof(word) + sizeof(integer) + pinteger(integer(result) + sizeof(word))^);
+    // Regular code
+    end else begin
+      break;
+    end; // .else
+
+    Inc(Depth);
+  end; // .while
 end; // .function GetRealAddress
 
 function GetRealProcAddress (DllHandle: integer; const ProcName: string): {n} pointer;
