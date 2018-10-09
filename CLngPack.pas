@@ -77,7 +77,7 @@ begin
     Self.fSearchIndex[Unicode].CaseSensitive  :=  TRUE;
     Self.fSearchIndex[Unicode].Duplicates     :=  Classes.dupError;
     Self.fSearchIndex[Unicode].Sorted         :=  TRUE;
-  end; // .for
+  end;
 end; // .constructor TLngPackReader.Create
 
 destructor TLngPackReader.Destroy;
@@ -87,7 +87,7 @@ var
 begin
   for Unicode:=FALSE to TRUE do begin
     SysUtils.FreeAndNil(Self.fSearchIndex[Unicode]);
-  end; // .for
+  end;
 end; // .destructor TLngPackReader.Destroy
 
 procedure TLngPackReader.Connect (LngPack: PLngPack; StructMemoryBlockSize: integer);
@@ -105,13 +105,13 @@ begin
   Self.fSearchIndexCreated    :=  FALSE;
   for Unicode:=FALSE to TRUE do begin
     Self.fSearchIndex[Unicode].Clear;
-  end; // .for
+  end;
 end; // .procedure TLngPackReader.Connect
 
 procedure TLngPackReader.Disconnect;
 begin
   Self.fConnected :=  FALSE;
-end; // .procedure TLngPackReader.Disconnect
+end;
 
 function TLngPackReader.Validate (out Error: string): boolean;
 var
@@ -129,8 +129,8 @@ var
     result  :=  (NumLngUnits >= 0) and ((NumLngUnits * sizeof(TLngUnit) + sizeof(TLngPack)) <= Self.StructMemoryBlockSize);
     if not result then begin
       Error :=  'Invalid NumLngUnits field: ' + SysUtils.IntToStr(NumLngUnits);
-    end; // .if
-  end; // .function ValidateNumLngUnitsFields
+    end;
+  end;
   
 begin
   {!} Assert(Self.Connected);
@@ -146,7 +146,7 @@ begin
     UnitNames[Unicode].CaseSensitive  :=  TRUE;
     UnitNames[Unicode].Duplicates     :=  Classes.dupError;
     UnitNames[Unicode].Sorted         :=  TRUE;
-  end; // .for
+  end;
   result  :=  result and ValidateNumLngUnitsFields;
   if result then begin
     RealStructSize  :=  sizeof(TLngPack);
@@ -163,12 +163,12 @@ begin
             Error   :=  'Duplicate (UnitName && Unicode) combination in child structure: ' + LngUnitReader.UnitName +
                         '.'#13#10'Unicode: ' + SysUtils.IntToStr(byte(LngUnitReader.Unicode));
             result  :=  FALSE;
-          end; // .try
-        end; // .if
+          end;
+        end;
         if result then begin
           RealStructSize  :=  RealStructSize + LngUnitReader.StructSize;
           Inc(integer(LngUnit), LngUnitReader.StructSize);
-        end; // .if
+        end;
         Inc(i);
       end; // .while
     end; // .if
@@ -177,7 +177,7 @@ begin
   // * * * * * //
   for Unicode:=FALSE to TRUE do begin
     SysUtils.FreeAndNil(UnitNames[Unicode]);
-  end; // .for
+  end;
   SysUtils.FreeAndNil(LngUnitReader);
 end; // .function TLngPackReader.Validate
 
@@ -185,13 +185,13 @@ function TLngPackReader.GetStructSize: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngPack.Header.StructSize;
-end; // .function TLngPackReader.GetStructSize
+end;
 
 function TLngPackReader.GetNumLngUnits: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngPack.ExtHeader.NumLngUnits;
-end; // .function TLngPackReader.GetNumLngUnits
+end;
 
 procedure TLngPackReader.CreateSearchIndex;
 var
@@ -207,9 +207,9 @@ begin
     Self.SeekLngUnit(0);
     while Self.ReadLngUnit(LngUnitReader) do begin
       Self.fSearchIndex[LngUnitReader.Unicode].AddObject(LngUnitReader.UnitName, pointer(LngUnitReader.LngUnit));
-    end; // .while
+    end;
     Self.SeekLngUnit(SavedLngUnitInd);
-  end; // .if
+  end;
   // * * * * * //
   SysUtils.FreeAndNil(LngUnitReader);
 end; // .procedure TLngPackReader.CreateSearchIndex
@@ -227,11 +227,11 @@ begin
   if result then begin
     if Self.fCurrLngUnitInd > SeekLngUnitInd then begin
       Self.fCurrLngUnitInd  :=  0;
-    end; // .if
+    end;
     while Self.fCurrLngUnitInd < SeekLngUnitInd do begin
       Self.ReadLngUnit(LngUnitReader);
-    end; // .while
-  end; // .if
+    end;
+  end;
   // * * * * * //
   SysUtils.FreeAndNil(LngUnitReader);
 end; // .function TLngPackReader.SeekLngUnit
@@ -243,10 +243,10 @@ begin
   if result then begin
     if LngUnitReader = nil then begin
       LngUnitReader :=  CLngUnit.TLngUnitReader.Create;
-    end; // .if
+    end;
     if Self.fCurrLngUnitInd = 0 then begin
       Self.fCurrLngUnit :=  @Self.LngPack.LngUnits;
-    end; // .if
+    end;
     LngUnitReader.Connect(Self.fCurrLngUnit, Self.StructMemoryBlockSize - (integer(Self.fCurrLngUnit) - integer(Self.LngPack)));
     Inc(integer(Self.fCurrLngUnit), LngUnitReader.StructSize);
     Inc(Self.fCurrLngUnitInd);
@@ -271,7 +271,7 @@ begin
     LngUnit       :=  pointer(Self.fSearchIndex[Unicode].Objects[LngUnitInd]);
     LngUnitReader :=  CLngUnit.TLngUnitReader.Create;
     LngUnitReader.Connect(LngUnit, Self.StructMemoryBlockSize - (integer(LngUnit) - integer(Self.LngPack)));
-  end; // .if
+  end;
 end; // .function TLngPackReader.FindLngUnit
 
 end.

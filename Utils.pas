@@ -165,7 +165,7 @@ begin
   
   if NumBytesToCopy > 0 then begin
     CopyMem(Length(Value), pchar(Value), What);
-  end; // .if
+  end;
   
   PCharByte(PtrOfs(What, NumBytesToCopy))^ := #0;
 end; // .procedure SetPcharValue
@@ -218,7 +218,7 @@ begin
   result := (Item <> nil) or (MyGuard.AllowNIL);
   if ItemIsObject and (Item <> nil) and (MyGuard.ItemType <> NO_TYPEGUARD) then begin
     result := result and (TObject(Item) IS MyGuard.ItemType);
-  end; // .if
+  end;
 end; // .function DefItemGuardProc
 
 function EqualMethods (A, B: TMethod): boolean;
@@ -233,7 +233,7 @@ begin
   end else begin
     Obj.Free;
     TObject(Res) := nil;
-  end; // .else
+  end;
 end;
 
 function ObjFromMethod (Method: TObjProcedure): TObject; inline;

@@ -195,7 +195,7 @@ end; // .function CRC32
 function AnsiCRC32 (const Str: string): integer;
 begin
   result  :=  CRC32(pointer(Str), Length(Str));
-end; // .function AnsiCRC32
+end;
 
 function Bb2011Encode (Value: integer): integer;
 begin
@@ -203,7 +203,7 @@ begin
   TInt32(result)[0] :=  ByteRedirTable[TInt32(Value)[3]];
   TInt32(result)[1] :=  ByteRedirTable[TInt32(Value)[2]];
   TInt32(result)[2] :=  ByteRedirTable[TInt32(Value)[1]];
-end; // .function Bb2011Encode
+end;
 
 function Bb2011Decode (Encoded: integer): integer;
 begin
@@ -211,6 +211,6 @@ begin
   TInt32(result)[3] :=  RevByteRedirTable[TInt32(Encoded)[0]];
   TInt32(result)[2] :=  RevByteRedirTable[TInt32(Encoded)[1]];
   TInt32(result)[1] :=  RevByteRedirTable[TInt32(Encoded)[2]];
-end; // .function Bb2011Decode
+end;
 
 end.

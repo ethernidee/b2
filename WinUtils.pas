@@ -70,7 +70,7 @@ destructor TRawImage.Destroy;
 begin
   if fOwnsBuf and (fBuf <> nil) then begin
     FreeMem(fBuf); fBuf := nil;
-  end; // .if
+  end;
 end; // .destructor TRawImage.Destroy
 
 function TakeScreenshot (hWnd: THandle; HideCursor: boolean; out Res: TRawImage): boolean;
@@ -97,7 +97,7 @@ var
   begin
     result := (WindowInfo.rcWindow.Right  >= 0) and (WindowInfo.rcWindow.Left < ScreenWidth) and
               (WindowInfo.rcWindow.Bottom >= 0) and (WindowInfo.rcWindow.Top  < ScreenHeight)
-  end; // .function IsWndVisible
+  end;
 
   procedure GetVisibleRect;
   begin
@@ -105,25 +105,25 @@ var
       VisibleRect.Left := Abs(WindowInfo.rcWindow.Left);
     end else begin
       VisibleRect.Left := 0;
-    end; // .else
+    end;
 
     VisibleRect.Right := WindowInfo.rcWindow.Right - WindowInfo.rcWindow.Left;
 
     if WindowInfo.rcWindow.Right >= ScreenWidth then begin
       VisibleRect.Right := VisibleRect.Right + ScreenWidth - 1 - WindowInfo.rcWindow.Right;
-    end; // .if
+    end;
 
     if WindowInfo.rcWindow.Top < 0 then begin
       VisibleRect.Top := Abs(WindowInfo.rcWindow.Top);
     end else begin
       VisibleRect.Top := 0;
-    end; // .else
+    end;
 
     VisibleRect.Bottom := WindowInfo.rcWindow.Bottom - WindowInfo.rcWindow.Top;
 
     if WindowInfo.rcWindow.Bottom >= ScreenHeight then begin
       VisibleRect.Bottom := VisibleRect.Bottom + ScreenHeight - 1 - WindowInfo.rcWindow.Bottom;
-    end; // .if
+    end;
   end; // .procedure GetVisibleRect
 
   procedure DrawCursor;
@@ -149,7 +149,7 @@ var
                      - integer(IconInfo.yHotspot),
                    CursorInfo.hCursor);
           DestroyIcon(hCursor);
-        end; // .if
+        end;
       end; // .if
     end; // .if
   end; // .procedure DrawCursor
@@ -205,7 +205,7 @@ begin
   // * * * * * //
   if WindowDeviceContext <> 0 then begin
     ReleaseDC(hWnd, WindowDeviceContext);
-  end; // .if
+  end;
 end; // .function TakeScreenshot
 
 function GetExePath: WideString;

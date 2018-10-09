@@ -93,7 +93,7 @@ implementation
 function PackColors(col, back: byte): byte;inline;
 begin
   result:=(back shl 4) or col;
-end; // .function PackColors
+end;
 
 procedure TConsole.SetWindowSize(NewWidth, NewHeight: integer);
 var
@@ -113,13 +113,13 @@ procedure TConsole.SetWidth(NewWidth: integer);
 begin
   fWidth:=NewWidth;
   SetWindowSize(NewWidth, Height);
-end; // .procedure TConsole.SetWidth
+end;
 
 procedure TConsole.SetHeight(NewHeight: integer);
 begin
   fHeight:=NewHeight;
   SetWindowSize(Width, NewHeight);
-end; // .procedure TConsole.SetHeight
+end;
 
 procedure TConsole.SetBufferSize(NewWidth, NewHeight: integer);
 var
@@ -137,13 +137,13 @@ procedure TConsole.SetBufferWidth(NewWidth: integer);
 begin
   fBufWidth:=NewWidth;
   SetBufferSize(NewWidth, BufHeight);
-end; // .procedure TConsole.SetBufferWidth
+end;
 
 procedure TConsole.SetBufferHeight(NewHeight: integer);
 begin
   fBufHeight:=NewHeight;
   SetBufferSize(BufWidth, NewHeight);
-end; // .procedure TConsole.SetBufferHeight
+end;
 
 function TConsole.GetTitle: string;
 var
@@ -156,7 +156,7 @@ begin
     C:=NewTitle[1];
     NewTitle[1]:=C;
     OEMToCharBuff(@NewTitle[1], @NewTitle[1], Length(NewTitle));
-  end; // .if
+  end;
   result:=NewTitle;
 end; // .procedure TConsole.GetTitle
 
@@ -165,26 +165,26 @@ begin
   fTitle:=NewTitle;
   if CodePage=cp1251 then CharToOEMBuff(@NewTitle[1], @NewTitle[1], Length(NewTitle));
   Windows.SetConsoleTitle(@fTitle[1]);
-end; // .procedure TConsole.SetTitle
+end;
 
 procedure TConsole.SetColors(NewColor, NewBack: byte);
 begin
   fColor:=NewColor;
   fBack:=NewBack;
   SetConsoleTextAttribute(hOut, PackColors(NewColor, NewBack));
-end; // .procedure TConsole.SetColors
+end;
 
 procedure TConsole.SetColor(NewColor: byte);
 begin
   fColor:=NewColor;
   SetColors(NewColor, Back);
-end; // .procedure TConsole.SetColor
+end;
 
 procedure TConsole.SetBack(NewBack: byte);
 begin
   fBack:=NewBack;
   SetColors(Color, NewBack);
-end; // .procedure TConsole.SetBack
+end;
 
 procedure TConsole.Clear;
 var
@@ -213,17 +213,17 @@ begin
   pos.x:=x;
   pos.y:=y;
   SetConsoleCursorPosition(hOut, pos);
-end; // .procedure TConsole.GotoXY
+end;
 
 procedure TConsole.GotoX(x: integer);
 begin
   GotoXY(x, CurY);
-end; // .procedure TConsole.GotoX
+end;
 
 procedure TConsole.GotoY(y: integer);
 begin
   GotoXY(CurX, y);
-end; // .procedure TConsole.GotoY
+end;
 
 function TConsole.WhereX: integer;
 var
@@ -232,7 +232,7 @@ var
 begin
   GetConsoleScreenBufferInfo(hOut, info);
   result:=info.dwCursorPosition.x;
-end; // .function TConsole.WhereX
+end;
 
 function TConsole.WhereY: integer;
 var
@@ -241,7 +241,7 @@ var
 begin
   GetConsoleScreenBufferInfo(hOut, info);
   result:=info.dwCursorPosition.y;
-end; // .function TConsole.WhereY
+end;
 
 function GetConsoleWindow: integer; external 'kernel32.dll' NAME 'GetConsoleWindow';
 
@@ -252,7 +252,7 @@ var
 begin
   GetWindowRect(hWnd, r);
   Windows.MoveWindow(hWnd, x, y, r.Right-r.Left+1, r.Bottom-r.Top+1, TRUE);
-end; // .procedure TConsole.SetWindowPos
+end;
 
 procedure TConsole.MoveWindow(dx, dy: integer);
 var
@@ -261,7 +261,7 @@ var
 begin
   GetWindowRect(hWnd, r);
   Windows.MoveWindow(hWnd, r.Left+dx, r.Top+dy, r.Right-r.Left+1, r.Bottom-r.Top+1, TRUE);
-end; // .procedure TConsole.MoveWindow
+end;
 
 procedure TConsole.Center;
 var
@@ -293,7 +293,7 @@ begin
   end // .if 
   else begin
     Write(Txt);
-  end; // .else 
+  end; 
   Color:=col;
 end; // .procedure TConsole.WriteC
 
@@ -306,13 +306,13 @@ begin
   end // .if 
   else begin
     Write(Txt);
-  end; // .else 
+  end; 
 end; // .procedure TConsole.Print
 
 procedure TConsole.SetCodePage(NewCodePage: integer);
 begin
   CodePage:=TCodePage(NewCodePage);
-end; // .procedure SetCodePage
+end;
 
 function TConsole.ReadKey: char;
 var
@@ -323,12 +323,12 @@ begin
     Windows.ReadConsoleInput(hIn, TIR, 1, DWORD(Temp));
   until ((TIR.EventType and 1)=1) and TIR.Event.KeyEvent.bKeyDown;
   result:=TIR.Event.KeyEvent.AsciiChar;
-end; // .function ReadKey
+end;
 
 function TConsole.ReadCode: char;
 begin
   result:=char(byte(TIR.Event.KeyEvent.wVirtualScanCode));
-end; // .function ReadCode
+end;
 
 function TConsole.Read: string;
 var
@@ -351,7 +351,7 @@ begin
   tc.x:=x1;
   tc.y:=y1;
   FillConsoleOutputAttribute(hOut, PackColors(col, back), (y2-y1+1)*(Width)-x1, tc, DWORD(temp));
-end; // .procedure HideArea
+end;
 
 function TConsole.Menu(TitleCol, TitleBack, ItemCol, ItemBack, ChosenCol, ChosenBack, FooterCol, FooterBack: byte;
                       const Title: string; const Footer: string; Items: PMenu): integer;
@@ -378,7 +378,7 @@ begin
   Interval:=Items^.Interval;
   if (Height-CurY-Count-2)<0 then begin
     result:=C_ERROR_TOO_LARGE; exit;
-  end; // .if 
+  end; 
   X:=CurX;
   WriteC(PackColors(TitleCol, TitleBack), Title); GotoXY(X, CurY+1);
   Y:=CurY;
@@ -395,8 +395,9 @@ begin
       end // .if 
       else begin
         WriteC(PackColors(ItemCol, ItemBack), PAnsiString(integer(P)+i*Interval)^); GotoXY(X, Y+i+1);
-      end; // .else 
-    end; // .for - конец цикла отрисовки
+      end; 
+    end;
+
     WriteC(PackColors(FooterCol, FooterBack), Footer);
     // ÷икл чтени€ клавиатуры
     while TRUE do begin
@@ -423,7 +424,7 @@ begin
                   Dec(index);
                   if index<0 then begin
                     index:=Count-1;
-                  end; // .if 
+                  end; 
                   BREAK;
                 end;
               #80:
@@ -431,7 +432,7 @@ begin
                   Inc(index);
                   if index=Count then begin
                     index:=0;
-                  end; // .if 
+                  end; 
                   BREAK;
                 end;
             end; // .case 

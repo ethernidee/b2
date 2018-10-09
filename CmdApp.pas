@@ -42,7 +42,7 @@ var
 function ArgExists (const ArgName: string): boolean;
 begin
   result  :=  Args[ArgName] <> nil;
-end; // .function ArgExists
+end;
 
 function GetArg (const ArgName: string): string;
 var
@@ -53,10 +53,9 @@ begin
   // * * * * * //
   if ArgValue <> nil then begin
     result  :=  ArgValue.Value;
-  end // .if
-  else begin
+  end else begin
     result  :=  '';
-  end; // .else
+  end;
 end; // .function GetArg
 
 procedure SetArg (const ArgName, NewArgValue: string);
@@ -68,10 +67,9 @@ begin
   // * * * * * //
   if ArgValue <> nil then begin
     ArgValue.Value  :=  NewArgValue;
-  end // .if
-  else begin
+  end else begin
     Args[ArgName] :=  TString.Create(NewArgValue);
-  end; // .else
+  end;
 end; // .procedure SetArg
 
 procedure ProcessArgs;
@@ -95,10 +93,9 @@ var
       Scanner.GotoNextChar;
       Scanner.ReadTokenTillDelim(['"'], result);
       Scanner.GotoNextChar;
-    end // .if
-    else begin
+    end else begin
       Scanner.ReadTokenTillDelim(ArgDelimCharset, result);
-    end; // .else
+    end;
   end; // .function ReadToken
 
 begin
@@ -111,7 +108,7 @@ begin
   
   if Scanner.SkipCharset(BLANKS) then begin
     AppPath :=  ReadToken(BLANKS);
-  end; // .if
+  end;
   
   while Scanner.SkipCharset(BLANKS) do begin
     SavedPos  :=  Scanner.Pos;
@@ -123,14 +120,12 @@ begin
       if c = '=' then begin
         Scanner.GotoNextChar;
         ArgValue  :=  ReadToken(BLANKS);
-      end // .if
-      else begin
+      end else begin
         ArgValue  :=  '1';
-      end; // .else
-    end // .if
-    else begin
+      end;
+    end else begin
       ArgValue  :=  '1';
-    end; // .else
+    end;
     
     Args[ArgName] :=  TString.Create(ArgValue);
   end; // .while
@@ -170,7 +165,7 @@ begin
   
   if result and WaitEnd then begin
     Windows.WaitForSingleObject(ProcessInfo.hProcess, Windows.INFINITE);
-  end; // .if
+  end;
 end; // .function RunProcess
 
 begin

@@ -71,7 +71,7 @@ begin
   while TestValue < cardinal(Num) do begin
     Inc(result);
     TestValue := TestValue shl 1;
-  end; // .while
+  end;
 end; // .function IntLog2
 
 function IntCompare (Int1, Int2: integer): integer;
@@ -83,7 +83,7 @@ begin
   end else begin
     result := 0;
   end;
-end; // .function IntCompare
+end;
 
 function CardCompare (Card1, Card2: cardinal): integer;
 begin
@@ -94,7 +94,7 @@ begin
   end else begin
     result := 0;
   end;
-end; // .function CardCompare
+end;
 
 function PtrCompare (Ptr1, Ptr2: pointer): integer;
 begin
@@ -105,7 +105,7 @@ begin
   end else begin
     result := 0;
   end;
-end; // .function PtrCompare
+end;
 
 function Int64To32 (Value: INT64): integer;
 begin
@@ -116,7 +116,7 @@ begin
   end else begin
     result  :=  Value;
   end;
-end; // .function Int64To32
+end;
 
 function IsSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer): boolean;
 var
@@ -229,7 +229,7 @@ var
     TransfValue := Arr[Ind1];
     Arr[Ind1]   := Arr[Ind2];
     Arr[Ind2]   := TransfValue;
-  end; // .procedure ExchangeItems
+  end;
   
 begin
   RangeLen := MaxInd - MinInd + 1;
@@ -245,21 +245,20 @@ begin
     while LeftInd <= RightInd do begin
       while CompareItems(Arr[LeftInd], PivotItem) < 0 do begin
         Inc(LeftInd);
-      end; // .while
+      end;
       
       while CompareItems(Arr[RightInd], PivotItem) > 0 do begin
         Dec(RightInd);
-      end; // .while
+      end;
       
       if LeftInd <= RightInd then begin
         if CompareItems(Arr[LeftInd], Arr[RightInd]) > 0 then begin
           ExchangeItems(LeftInd, RightInd);
-        end // .if
-        else begin
+        end else begin
           Inc(LeftInd);
           Dec(RightInd);
-        end; // .else
-      end; // .if
+        end;
+      end;
     end; // .while
     
     (* MIN__RIGHT|{PIVOT}|LEFT__MAX *)
@@ -267,14 +266,13 @@ begin
     if (RightInd - MinInd) < (MaxInd - LeftInd) then begin
       if RightInd > MinInd then begin
         CustomQuickSort(Arr, MinInd, RightInd, CompareItems);
-      end; // .if
+      end;
       
       MinInd := LeftInd;
-    end // .if
-    else begin
+    end else begin
       if MaxInd > LeftInd then begin
         CustomQuickSort(Arr, LeftInd, MaxInd, CompareItems);
-      end; // .if
+      end;
       
       MaxInd := RightInd;
     end; // .else
@@ -297,7 +295,7 @@ var
     TransfValue := Arr[Ind1];
     Arr[Ind1]   := Arr[Ind2];
     Arr[Ind2]   := TransfValue;
-  end; // .procedure ExchangeItems
+  end;
   
 begin
   RangeLen := MaxInd - MinInd + 1;
@@ -313,21 +311,20 @@ begin
     while LeftInd <= RightInd do begin
       while CompareItems(Arr[LeftInd], PivotItem) < 0 do begin
         Inc(LeftInd);
-      end; // .while
+      end;
       
       while CompareItems(Arr[RightInd], PivotItem) > 0 do begin
         Dec(RightInd);
-      end; // .while
+      end;
       
       if LeftInd <= RightInd then begin
         if CompareItems(Arr[LeftInd], Arr[RightInd]) > 0 then begin
           ExchangeItems(LeftInd, RightInd);
-        end // .if
-        else begin
+        end else begin
           Inc(LeftInd);
           Dec(RightInd);
-        end; // .else
-      end; // .if
+        end;
+      end;
     end; // .while
     
     (* MIN__RIGHT|{PIVOT}|LEFT__MAX *)
@@ -335,14 +332,13 @@ begin
     if (RightInd - MinInd) < (MaxInd - LeftInd) then begin
       if RightInd > MinInd then begin
         CustomQuickSort(Arr, MinInd, RightInd, CompareItems);
-      end; // .if
+      end;
       
       MinInd := LeftInd;
-    end // .if
-    else begin
+    end else begin
       if MaxInd > LeftInd then begin
         CustomQuickSort(Arr, LeftInd, MaxInd, CompareItems);
-      end; // .if
+      end;
       
       MaxInd := RightInd;
     end; // .else
@@ -369,21 +365,20 @@ begin
     while LeftInd <= RightInd do begin
       while Obj.CompareToPivot(LeftInd) < 0 do begin
         Inc(LeftInd);
-      end; // .while
+      end;
       
       while Obj.CompareToPivot(RightInd) > 0 do begin
         Dec(RightInd);
-      end; // .while
+      end;
       
       if LeftInd <= RightInd then begin
         if Obj.CompareItems(LeftInd, RightInd) > 0 then begin
           Obj.SwapItems(LeftInd, RightInd);
-        end // .if
-        else begin
+        end else begin
           Inc(LeftInd);
           Dec(RightInd);
-        end; // .else
-      end; // .if
+        end;
+      end;
     end; // .while
     
     (* MIN__RIGHT|{PIVOT}|LEFT__MAX *)
@@ -391,14 +386,13 @@ begin
     if (RightInd - MinInd) < (MaxInd - LeftInd) then begin
       if RightInd > MinInd then begin
         QuickSortEx(Obj, MinInd, RightInd);
-      end; // .if
+      end;
       
       MinInd :=  LeftInd;
-    end // .if
-    else begin
+    end else begin
       if MaxInd > LeftInd then begin
         QuickSortEx(Obj, LeftInd, MaxInd);
-      end; // .if
+      end;
       
       MaxInd  :=  RightInd;
     end; // .else
@@ -425,7 +419,7 @@ begin
     end else begin
       ResInd := PivotInd;
       result := true;
-    end; // .else
+    end;
   end; // .while
 end; // .function CustomBinarySearch
 
@@ -449,7 +443,7 @@ begin
     end else begin
       ResInd := PivotInd;
       result := true;
-    end; // .else
+    end;
   end; // .while
 end; // .function CustomBinarySearch
 

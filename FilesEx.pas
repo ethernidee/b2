@@ -135,7 +135,7 @@ procedure TFileFormattedOutput.Unindent;
 begin
   if fIndentLevel > 0 then begin
     Dec(fIndentLevel);
-  end; // .if
+  end;
 end;
 
 procedure TFileFormattedOutput.SetIndentLevel (Level: integer);
@@ -203,8 +203,8 @@ begin
   with Files.Locate(MaskedPath, SearchSubj) do begin
     while FindNext do begin
       result.Add(FoundName);
-    end; // .while
-  end; // .with 
+    end;
+  end; 
 end;
 
 procedure MergeFileLists (MainList, DependantList: TStrList);
@@ -219,14 +219,14 @@ begin
   // * * * * * //
   for i := 0 to MainList.Count - 1 do begin
     NamesDict[MainList[i]] := Ptr(1);
-  end; // .for
+  end;
   
   for i := 0 to DependantList.Count - 1 do begin
     if NamesDict[DependantList[i]] = nil then begin
       NamesDict[DependantList[i]] := Ptr(1);
       MainList.Add(DependantList[i]);
-    end; // .if
-  end; // .for
+    end;
+  end;
   // * * * * * //
   SysUtils.FreeAndNil(NamesDict);
 end; // .procedure MergeFileLists

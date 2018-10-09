@@ -70,12 +70,12 @@ begin
   Self.fBinString             :=  BinString;
   Self.fStructMemoryBlockSize :=  StructMemoryBlockSize;
   Self.fUnicode               :=  Unicode;
-end; // .procedure TBinStringReader.Connect
+end;
 
 procedure TBinStringReader.Disconnect;
 begin
   Self.fConnected :=  FALSE;
-end; // .procedure TBinStringReader.Disconnect
+end;
 
 function TBinStringReader.Validate (out Error: string): boolean;
   function ValidateMinStructSize: boolean;
@@ -83,8 +83,8 @@ function TBinStringReader.Validate (out Error: string): boolean;
     result  :=  Self.StructMemoryBlockSize >= sizeof(TBinString);
     if not result then begin
       Error :=  'The size of structure is too small: ' + SysUtils.IntToStr(Self.StructMemoryBlockSize) + '/' + SysUtils.IntToStr(sizeof(TBinString));
-    end; // .if
-  end; // .function ValidateMinStructSize
+    end;
+  end;
 
   function ValidateStrSizeField: boolean;
   var
@@ -95,7 +95,7 @@ function TBinStringReader.Validate (out Error: string): boolean;
     result  :=  (StrSize >= 0) and ((sizeof(TBinString) + StrSize) <= Self.StructMemoryBlockSize);
     if not result then begin
       Error :=  'Invalid StrSize field: ' + SysUtils.IntToStr(StrSize);
-    end; // .if
+    end;
   end; // .function ValidateStrSizeField
 
 begin
@@ -110,26 +110,26 @@ function TBinStringReader.GetStrSize: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.BinString.Header.StrSize;
-end; // .function TBinStringReader.GetStrSize
+end;
 
 function TBinStringReader.GetStructSize: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  sizeof(TBinString) + Self.StrSize;
-end; // .function TBinStringReader.GetStructSize
+end;
 
 function TBinStringReader.GetAnsiString: AnsiString;
 begin
   {!} Assert(Self.Connected);
   {!} Assert(not Self.Unicode);
   result  :=  StrLib.BytesToAnsiString(@Self.fBinString.Chars, Self.StrSize);
-end; // .function TBinStringReader.GetAnsiString
+end;
 
 function TBinStringReader.GetWideString: WideString;
 begin
   {!} Assert(Self.Connected);
   {!} Assert(Self.Unicode);
   result  :=  StrLib.BytesToWideString(@Self.fBinString.Chars, Self.StrSize);
-end; // .function TBinStringReader.GetWideString
+end;
   
 end.

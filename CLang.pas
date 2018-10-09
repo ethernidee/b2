@@ -45,11 +45,10 @@ function GetCharSize (Unicode: boolean): integer;
 begin
   if Unicode then begin
     result  :=  2;
-  end // .if
-  else begin
+  end else begin
     result  :=  1;
-  end; // .else
-end; // .function GetCharSize
+  end;
+end;
 
 function IsValidLangName (const LangName: string): boolean;
 const
@@ -67,7 +66,7 @@ begin
   while (i <= LANGNAME_LEN) and result do begin
     result  :=  LangName[i] in ALLOWED;
     Inc(i);
-  end; // .while
+  end;
 end; // .function IsValidLangName
 
 function IsValidClientName (const ClientName: string): boolean;
@@ -76,7 +75,7 @@ const
 
 begin
   result  :=  (Length(ClientName) <= CLIENTNAME_MAXLEN) and SysUtils.IsValidIdent(ClientName, NO_DOTS_ALLOWED);
-end; // .function IsValidClientName
+end;
 
 function ValidateLngStructHeader
 (
@@ -95,16 +94,16 @@ var
     result  :=  StructMemoryBlockSize >= MinStructSize;
     if not result then begin
       Error :=  'The size of structure is too small: ' + SysUtils.IntToStr(StructMemoryBlockSize) + '/' + SysUtils.IntToStr(MinStructSize);
-    end; // .if
-  end; // .function ValidateMinStructSize
+    end;
+  end;
 
   function ValidateSignatureField: boolean;
   begin
     result  :=  Header.Signature = Signature;
     if not result then begin
       Error :=  'Structure signature is invalid: ' + Header.Signature + #13#10'. Expected: ' + Signature;
-    end; // .if
-  end; // .function ValidateSignatureField
+    end;
+  end;
   
   function ValidateStructSizeField: boolean;
   begin
@@ -112,8 +111,8 @@ var
     result      :=  Math.InRange(StructSize, MinStructSize, StructMemoryBlockSize);
     if not result then begin
       Error :=  'Invalid StructSize field: ' + SysUtils.IntToStr(StructSize);
-    end; // .if
-  end; // .function ValidateStructSizeField
+    end;
+  end;
   
   function ValidateBodyCrc32Field: boolean;
   var
@@ -124,7 +123,7 @@ var
     result    :=  Header.BodyCRC32Sum = RealCRC32;
     if not result then begin
       Error :=  'CRC32 check failed. Original: ' + SysUtils.IntToStr(Header.BodyCRC32Sum) + '. Current: ' + SysUtils.IntToStr(RealCRC32);
-    end; // .if
+    end;
   end; // .function ValidateBodyCrc32Field
 
 begin
@@ -147,17 +146,16 @@ begin
   result  :=  FormalSize = RealSize;
   if not result then begin
     Error :=  'Invalid StructSize field: ' + SysUtils.IntToStr(FormalSize) + '. Real size: ' + SysUtils.IntToStr(RealSize);
-  end; // .if
-end; // .function ValidateStructSize
+  end;
+end;
 
 function GetEncodingPrefix (Unicode: boolean): string;
 begin
   if Unicode then begin
     result  :=  'wide';
-  end // .if
-  else begin
+  end else begin
     result  :=  'ansi';
-  end; // .else
-end; // .function GetEncodingPrefix
+  end;
+end;
 
 end.

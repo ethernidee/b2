@@ -61,27 +61,27 @@ var
 procedure MsgEx (const Mes, Title: string; Icon: integer);
 begin
   Windows.MessageBox(hParentWindow, pchar(Mes), pchar(Title), Icon);
-end; // .procedure MsgEx
+end;
 
 procedure MsgTitle (const Mes, Title: string);
 begin
   MsgEx(Mes, Title, NO_ICON);
-end; // .procedure MsgTitle
+end;
 
 procedure Msg (const Mes: string);
 begin
   MsgEx(Mes, DialogsTitle, NO_ICON);
-end; // .procedure Msg
+end;
 
 procedure MsgError(const Err: string);
 begin
   MsgEx(Err, DialogsTitle, ICON_ERROR);
-end; // .procedure MsgError
+end;
 
 procedure OK;
 begin
   Msg('OK');
-end; // .procedure OK
+end;
 
 function AskYesNo (const Question: string): boolean;
 begin
@@ -113,7 +113,7 @@ begin
   ) = Windows.ID_OK
   then begin
     result  :=  YES;
-  end; // .if
+  end;
 end; // .function AskOkCancel
 
 function AskYesNoCancel (const Question: string): integer;
@@ -142,10 +142,9 @@ begin
       begin
         if VarRec.vBoolean then begin
           result  :=  'boolean: TRUE';
-        end // .if
-        else begin
+        end else begin
           result  :=  'boolean: FALSE';
-        end; // .else
+        end;
       end; // .case vtBoolean
     vtInteger:    result  :=  'integer: ' + SysUtils.IntToStr(VarRec.vInteger);
     vtChar:       result  :=  'char: ' + VarRec.vChar;
@@ -178,7 +177,7 @@ begin
   
   for i := 0 to High(Vars) do begin
     ResArr[i] := VarToString(Vars[i]);
-  end; // .for
+  end;
   
   result := StrLib.Join(ResArr, #13#10);
 end; // .function ToString
@@ -225,12 +224,12 @@ begin
   Temp  :=  PVar;
   // * * * * * //
   result  :=  PArrItemToString(Temp, VarType);
-end; // .function PVarToString
+end;
 
 procedure VarDump (const Vars: array of const; const Title: string);
 begin
   MsgTitle(ToString(Vars), Title);
-end; // .procedure VarDump
+end;
 
 procedure ArrDump
 (
@@ -261,10 +260,10 @@ begin
     
     for i := 0 to NumItemsToDisplay - 1 do begin
       StrArr[i] :=  '[' + SysUtils.IntToStr(i) + ']: ' + PArrItemToString(CurrItem, ElemsType);
-    end; // .for
+    end;
     
     MsgTitle(StrLib.Join(StrArr, #13#10), Title);
-  end; // .for
+  end;
 end; // .procedure ArrDump
 
 begin

@@ -361,7 +361,7 @@ begin
           end;
 
           Inc(j);
-        end; // .while
+        end;
 
         Inc(ImportDir);
       end; // .while
@@ -1768,8 +1768,8 @@ begin
         WriteLog('VFS', 'SetProcessDEPPolicy', 'DEP was turned off');
       end else begin
         WriteLog('VFS', 'SetProcessDEPPolicy', 'Failed to turn DEP off');
-      end; // .else
-    end; // .if
+      end;
+    end;
 
     // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing GetFileAttributesW hook');
     // NativeGetFileAttributesW := pointer(Core.p.WriteHiHook

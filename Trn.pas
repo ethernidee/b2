@@ -215,13 +215,13 @@ begin
   while ((i < Length(aLang)) and result) do begin
     result := aLang[i] in ['a'..'z', 'A'..'Z', '0'..'9', '_'];
     Inc(i);
-  end; // .while
+  end;
 end; // .function IsValidLang
 
 function ALangMan.tr (const aKey, aSection: string; aTemplArgs: array of string): string;
 begin
   result := StrLib.BuildStr(tr(aKey, aSection, CURRENT_LANG), aTemplArgs, TEMPLATE_CHAR);
-end; // .function ALangMan.tr
+end;
 
 constructor TLangMan.Create;
 begin
@@ -247,62 +247,62 @@ end; // .destructor TLangMan.Destroy
 function TLangMan.GetLangDir: string;
 begin
   result := fLangDir;
-end; // .function TLangMan.GetLangDir
+end;
 
 procedure TLangMan.SetLangDir (const aLangDir: string);
 begin
   fLangDir := aLangDir;
-end; // .procedure TLangMan.SetLangDir
+end;
 
 function TLangMan.GetLangAutoload: boolean;
 begin
   result := fLangAutoload;
-end; // .function TLangMan.GetLangAutoload
+end;
 
 procedure TLangMan.SetLangAutoload (aLangAutoload: boolean);
 begin
   fLangAutoload := aLangAutoload;
-end; // .procedure TLangMan.SetLangAutoload
+end;
 
 function TLangMan.GetMainLang: string;
 begin
   result := fMainLang;
-end; // .function TLangMan.GetMainLang
+end;
 
 procedure TLangMan.SetMainLang (const aMainLang: string);
 begin
   fMainLang := aMainLang;
-end; // .procedure TLangMan.SetMainLang
+end;
 
 function TLangMan.GetReservLang: string;
 begin
   result := fReservLang;
-end; // .function TLangMan.GetReservLang
+end;
 
 procedure TLangMan.SetReservLang (const aReservLang: string);
 begin
   fReservLang := aReservLang;
-end; // .procedure TLangMan.SetReservLang
+end;
 
 function TLangMan.GetOnMissingTranslation: {n} TMissingTranslHandler;
 begin
   result := fOnMissingTranslation;
-end; // .function TLangMan.GetOnMissingTranslation
+end;
 
 procedure TLangMan.SetOnMissingTranslation ({n} aMissingTranslHandler: TMissingTranslHandler);
 begin
   fOnMissingTranslation := aMissingTranslHandler;
-end; // .procedure TLangMan.SetOnMissingTranslation
+end;
 
 function TLangMan.GetOnParseError: {b} TParseErrorHandler;
 begin
   result := fOnParseError;
-end; // .function TLangMan.GetOnParseError
+end;
 
 procedure TLangMan.SetOnParseError ({n} aOnParseError: TParseErrorHandler);
 begin
   fOnParseError := aOnParseError;
-end; // .procedure TLangMan.SetOnParseError
+end;
 
 procedure TLangMan.ParsingError (const Err: string);
 begin
@@ -311,7 +311,7 @@ begin
                                                  'line', IntToStr(fScanner.LineN),
                                                  'pos', IntToStr(fScanner.Pos)]));
   end;
-end; // .procedure TLangMan.ParsingError
+end;
 
 function TLangMan.SkipGarbage: boolean;
 begin
@@ -334,8 +334,8 @@ begin
     fScanner.GotoNextChar;
   end else begin
     ParsingError(tr('Trn.char x expected', '2b', ['char', c]));
-  end; // .if
-end; // .function TLangMan.ParseChar
+  end;
+end;
 
 function TLangMan.ParseToken (const Charset: Utils.TCharset; const lngTokenName: string;
                               var Token: string): boolean;
@@ -344,8 +344,8 @@ begin
 
   if not result then begin
     ParsingError(tr('Trn.Token x expected', '2b', ['token', tr(lngTokenName, '2b')]));
-  end; // .if
-end; // .function TLangMan.ParseToken
+  end;
+end;
 
 function TLangMan.ParseSectionHeader (Sections: TDict; out Section: TDict): boolean;
 var
@@ -367,10 +367,10 @@ begin
     if NewSection = nil then begin
       NewSection            := DataLib.NewDict(Utils.OWNS_ITEMS, not DataLib.CASE_SENSITIVE);
       Sections[SectionName] := NewSection;
-    end; // .if
+    end;
     
     Section := NewSection;
-  end; // .if
+  end;
 end; // .function TLangMan.ParseSectionHeader
 
 function TLangMan.ParseString (var Str: string): boolean;
@@ -392,7 +392,7 @@ begin
     do begin
       NeedsPostProcess := true;
       fScanner.GotoRelPos(+2);
-    end; // .while
+    end;
 
     result := not fScanner.Eot;
 
@@ -405,7 +405,7 @@ begin
       if NeedsPostProcess then begin
         Str := SysUtils.StringReplace(Str, STRING_MARKER + STRING_MARKER, STRING_MARKER,
                                       [rfReplaceAll]);
-      end; // .if
+      end;
     end; // .else
   end else if not fScanner.Eot then begin
     fScanner.ReadToken(IDENT_CHARS, Str);
@@ -431,8 +431,8 @@ begin
 
     if Section[ItemKey] = nil then begin
       Section[ItemKey] := TString.Create(ItemValue);
-    end; // .if
-  end; // .if
+    end;
+  end;
 end; // .function TLangMan.ParseItem
 
 function TLangMan.ParseSectionBody (Section: TDict): boolean;
@@ -441,8 +441,8 @@ begin
 
   while result and SkipGarbage and (fScanner.c in IDENT_CHARS) do begin
     result := ParseItem(Section);
-  end; // .while
-end; // .function TLangMan.ParseSectionBody
+  end;
+end;
 
 function TLangMan.ParseSection (Sections: TDict): boolean;
 var
@@ -455,7 +455,7 @@ begin
 
   if result and SkipGarbage and (fScanner.c in IDENT_CHARS) then begin
     result := ParseSectionBody(Section);
-  end; // .if
+  end;
 end; // .function TLangMan.ParseSection
 
 function TLangMan.ParseLangData (const aLang: string): boolean;
@@ -483,19 +483,19 @@ begin
   fScanner.Connect(aLangData, LINE_END);
   fDataSourceForParsing := aDataSource;
   result                := ParseLangData(aLang);
-end; // .function TLangMan.LoadLangData
+end;
 
 procedure TLangMan.UnloadLang (const aLang: string);
 begin
   fLangs.DeleteItem(aLang);
   fLangIsLoaded.DeleteItem(aLang);
-end; // .procedure TLangMan.UnloadLang
+end;
 
 procedure TLangMan.UnloadAllLangs;
 begin
   fLangs.Clear;
   fLangIsLoaded.Clear;
-end; // .procedure TLangMan.UnloadAllLangs
+end;
 
 procedure TLangMan.LoadLang (const aLang: string);
 var
@@ -514,9 +514,9 @@ begin
 
         if Files.ReadFileContents(LangFilePath, LangFileContents) then begin
           LoadLangData(aLang, LangFileContents, LangFilePath);
-        end; // .if
-      end; // .while
-    end; // .with
+        end;
+      end;
+    end;
   end; // .if
 end; // .procedure TLangMan.LoadLang
 
@@ -563,7 +563,7 @@ begin
 
   result := TranslateIntoLang(aKey, aSection, aLang, Res) or
             TranslateIntoLang(aKey, aSection, fReservLang, Res);
-end; // .function TLangMan.Translate
+end;
 
 function TLangMan.tr (const aKey, aSection: string; aLang: string = CURRENT_LANG): string;
 begin
@@ -572,97 +572,97 @@ begin
   if not Translate(aKey, aSection, aLang, result) and Assigned(fOnMissingTranslation) then begin
     fOnMissingTranslation(aKey, aSection, aLang);
   end;
-end; // .function TLangMan.tr
+end;
 
 function GetLangDir: string;
 begin
   Lock.Enter; result := LangMan.LangDir; Lock.Leave;
-end; // .function GetLangDir
+end;
 
 procedure SetLangDir (const aLangDir: string);
 begin
   Lock.Enter; LangMan.LangDir := aLangDir; Lock.Leave;
-end; // .procedure SetLangDir
+end;
 
 function GetLangAutoload: boolean;
 begin
   Lock.Enter; result := LangMan.LangAutoload; Lock.Leave;
-end; // .function GetLangAutoload
+end;
 
 procedure SetLangAutoload (aLangAutoload: boolean);
 begin
   Lock.Enter; LangMan.LangAutoload := aLangAutoload; Lock.Leave;
-end; // .procedure SetLangAutoload
+end;
 
 function GetMainLang: string;
 begin
   Lock.Enter; result := LangMan.MainLang; Lock.Leave;
-end; // .function GetMainLang
+end;
 
 procedure SetMainLang (const aMainLang: string);
 begin
   Lock.Enter; LangMan.MainLang := aMainLang; Lock.Leave;
-end; // .procedure SetMainLang
+end;
 
 function GetReservLang: string;
 begin
   Lock.Enter; result := LangMan.ReservLang; Lock.Leave;
-end; // .function GetReservLang
+end;
 
 procedure SetReservLang (const aReservLang: string);
 begin
   Lock.Enter; LangMan.ReservLang := aReservLang; Lock.Leave;
-end; // .procedure SetReservLang
+end;
 
 function GetOnMissingTranslation: {n} TMissingTranslHandler;
 begin
   Lock.Enter; result := LangMan.OnMissingTranslation; Lock.Leave;
-end; // .function GetOnMissingTranslation
+end;
 
 procedure SetOnMissingTranslation ({n} aMissingTranslHandler: TMissingTranslHandler);
 begin
   Lock.Enter; LangMan.OnMissingTranslation := aMissingTranslHandler; Lock.Leave;
-end; // .procedure SetOnMissingTranslation
+end;
 
 function GetOnParseError: {n} TParseErrorHandler;
 begin
   Lock.Enter; result := LangMan.OnParseError; Lock.Leave;
-end; // .function GetOnParseError
+end;
 
 procedure SetOnParseError ({n} aOnParseError: TParseErrorHandler);
 begin
   Lock.Enter; LangMan.OnParseError := aOnParseError; Lock.Leave;
-end; // .procedure SetOnParseError
+end;
   
 function LoadLangData (const aLang, aLangData, aDataSource: string): boolean;
 begin
   Lock.Enter; result := LangMan.LoadLangData(aLang, aLangData, aDataSource); Lock.Leave;
-end; // .function LoadLangData
+end;
 
 procedure UnloadLang (const aLang: string);
 begin
   Lock.Enter; LangMan.UnloadLang(aLang); Lock.Leave;
-end; // .procedure UnloadLang
+end;
 
 procedure UnloadAllLangs;
 begin
   Lock.Enter; LangMan.UnloadAllLangs; Lock.Leave;
-end; // .procedure UnloadAllLangs
+end;
 
 function Translate (const aKey, aSection: string; aLang: string; var Res: string): boolean;
 begin
   Lock.Enter; result := LangMan.Translate(aKey, aSection, aLang, Res); Lock.Leave;
-end; // .function Translate
+end;
 
 function tr (const aKey, aSection: string; aLang: string = CURRENT_LANG): string;
 begin
   Lock.Enter; result := LangMan.tr(aKey, aSection, aLang); Lock.Leave;
-end; // .function tr
+end;
 
 function  tr (const aKey, aSection: string; aTemplArgs: array of string): string;
 begin
   Lock.Enter; result := LangMan.tr(aKey, aSection, aTemplArgs); Lock.Leave;
-end; // .function tr
+end;
 
 function InstallLangMan ({?} NewLangMan: ALangMan): {?} ALangMan;
 begin
@@ -670,7 +670,7 @@ begin
   result  := LangMan;
   LangMan := NewLangMan;
   Lock.Leave;
-end; // .function FuncName
+end;
 
 begin
   Lock.Init;

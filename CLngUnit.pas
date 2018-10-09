@@ -83,12 +83,12 @@ begin
   Self.fStructMemoryBlockSize :=  StructMemoryBlockSize;
   Self.fCurrLngStrArrInd      :=  0;
   Self.fCurrLngStrArr         :=  nil;
-end; // .procedure TLngUnitReader.Connect
+end;
 
 procedure TLngUnitReader.Disconnect;
 begin
   Self.fConnected :=  FALSE;
-end; // .procedure TLngUnitReader.Disconnect
+end;
 
 function TLngUnitReader.Validate (out Error: string): boolean;
 var
@@ -110,8 +110,8 @@ var
     result          :=  (NumLngStrArrays >= 0) and (MinStructSize <= Self.StructMemoryBlockSize);
     if not result then begin
       Error :=  'Invalid NumLngStrArrays field: ' + SysUtils.IntToStr(NumLngStrArrays);
-    end; // .if
-  end; // .function ValidateNumLngStrArraysField
+    end;
+  end;
   
   function ValidateUnitNameLenField: boolean;
   begin
@@ -120,8 +120,8 @@ var
     result        :=  (UnitNameLen >= 0) and (MinStructSize <= Self.StructMemoryBlockSize);
     if not result then begin
       Error :=  'Invalid UnitNameLen field: ' + SysUtils.IntToStr(UnitNameLen);
-    end; // .if
-  end; // .function ValidateUnitNameLenField
+    end;
+  end;
 
   function ValidateUnitNameField: boolean;
   begin
@@ -129,8 +129,8 @@ var
     result    :=  CLang.IsValidClientName(UnitName);
     if not result then begin
       Error :=  'Invalid UnitName field: ' + UnitName;
-    end; // .if
-  end; // .function ValidateUnitNameField
+    end;
+  end;
 
 begin
   {!} Assert(Self.Connected);
@@ -164,18 +164,18 @@ begin
           except
             Error   :=  'Duplicate LangName field in child structure: ' + LngStrArrReader.LangName;
             result  :=  FALSE;
-          end; // .try
-        end; // .if
+          end;
+        end;
         if result then begin
           result  :=  LngStrArrReader.Unicode = Unicode;
           if not result then begin
             Error :=  'Child structure has different encoding: Unicode = ' + SysUtils.IntToStr(byte(Unicode));
-          end; // .if
-        end; // .if
+          end;
+        end;
         if result then begin
           RealStructSize  :=  RealStructSize + LngStrArrReader.StructSize;
           Inc(integer(LngStrArr), LngStrArrReader.StructSize);
-        end; // .if
+        end;
         Inc(i);
       end; // .while
     end; // .if
@@ -190,25 +190,25 @@ function TLngUnitReader.GetUnitName: string;
 begin
   {!} Assert(Self.Connected);
   result  :=  StrLib.BytesToAnsiString(@Self.LngUnit.ExtHeader.UnitName, Self.LngUnit.ExtHeader.UnitNameLen);
-end; // .function TLngUnitReader.GetUnitName
+end;
 
 function TLngUnitReader.GetStructSize: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngUnit.Header.StructSize;
-end; // .function TLngUnitReader.GetStructSize
+end;
 
 function TLngUnitReader.GetNumLngStrArrays: integer;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngUnit.ExtHeader.NumLngStrArrays;
-end; // .function TLngUnitReader.GetNumLngStrArrays
+end;
 
 function TLngUnitReader.GetUnicode: boolean;
 begin
   {!} Assert(Self.Connected);
   result  :=  Self.LngUnit.ExtHeader.Unicode;
-end; // .function TLngUnitReader.GetUnicode
+end;
 
 function TLngUnitReader.SeekLngStrArr (SeekLngStrArrInd: integer): boolean;
 var
@@ -223,11 +223,11 @@ begin
   if result then begin
     if Self.fCurrLngStrArrInd > SeekLngStrArrInd then begin
       Self.fCurrLngStrArrInd  :=  0;
-    end; // .if
+    end;
     while Self.fCurrLngStrArrInd < SeekLngStrArrInd do begin
       Self.ReadLngStrArr(LngStrArrReader);
-    end; // .while
-  end; // .if
+    end;
+  end;
   // * * * * * //
   SysUtils.FreeAndNil(LngStrArrReader);
 end; // .function TLngUnitReader.SeekLngStrArr
@@ -239,10 +239,10 @@ begin
   if result then begin
     if LngStrArrReader = nil then begin
       LngStrArrReader :=  CLngStrArr.TLngStrArrReader.Create;
-    end; // .if
+    end;
     if Self.fCurrLngStrArrInd = 0 then begin
       Self.fCurrLngStrArr :=  pointer(integer(@Self.LngUnit.ExtHeader.UnitName) + Self.LngUnit.ExtHeader.UnitNameLen);
-    end; // .if
+    end;
     LngStrArrReader.Connect(Self.fCurrLngStrArr, Self.StructMemoryBlockSize - (integer(Self.fCurrLngStrArr) - integer(Self.LngUnit)));
     Inc(integer(Self.fCurrLngStrArr), LngStrArrReader.StructSize);
     Inc(Self.fCurrLngStrArrInd);
@@ -262,12 +262,12 @@ begin
   Self.SeekLngStrArr(0);
   while Self.ReadLngStrArr(LngStrArrReader) and not result do begin
     result  :=  LngStrArrReader.LangName = LangName;
-  end; // .while
+  end;
   Self.SeekLngStrArr(SavedLngStrArrInd);
   // * * * * * //
   if not result then begin
     SysUtils.FreeAndNil(LngStrArrReader);
-  end; // .if
+  end;
 end; // .function TLngUnitReader.FindLngStrArr
 
 end.

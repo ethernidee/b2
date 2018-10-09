@@ -104,7 +104,7 @@ var
 function GetLanguage: string;
 begin
   result  :=  Language;
-end; // .function GetLanguage
+end;
 
 function FindClient (const ClientName: string; out Client: PClient): boolean;
 var
@@ -116,18 +116,18 @@ begin
   result    :=  ClientInd <> -1;
   if result then begin
     Client  :=  pointer(ClientList.Objects[ClientInd]);
-  end; // .if
+  end;
 end; // .function FindClient
 
 function IsClientRegistered (const ClientName: string): boolean;
 begin
   result  :=  ClientList.IndexOf(ClientName) <> -1;
-end; // .function IsClientRegistered
+end;
 
 function GetClientsNum: integer;
 begin
   result  :=  ClientList.Count;
-end; // .function GetClientsNum
+end;
 
 function GetClientList: (* O *) Classes.TStringList;
 var
@@ -140,14 +140,14 @@ begin
   result.Duplicates     :=  Classes.dupError;
   for i:=0 to ClientList.Count - 1 do begin
     result.Add(ClientList[i]);
-  end; // .for
+  end;
 end; // .function GetClientList
 
 function GetClientLang (const ClientName: string): string;
 begin
   {!} Assert(IsClientRegistered(ClientName));
   result  :=  PClient(ClientList.Objects[ClientList.IndexOf(ClientName)]).LangName;
-end; // .function GetClientLang
+end;
 
 procedure RegisterClient
 (
@@ -195,17 +195,17 @@ begin
     ArrOfStr  :=  Client.LngVar^; Client.LngVar^  :=  nil;
     for i:=0 to Client.NumStrings - 1 do begin
       ArrOfStr[i] :=  '';
-    end; // .for
+    end;
     FreeMem(ArrOfStr); ArrOfStr :=  nil;
     Client.LngVar^  :=  Client.DefStrArr;
-  end; // .if
+  end;
 end; // .procedure ResetClientLang
 
 procedure UnloadFilePack;
 begin
   FilePackReader.Disconnect;
   FreeMem(FilePack); FilePack := nil;
-end; // .procedure UnloadFilePack
+end;
 
 function LoadFilePack: boolean;
 var
@@ -227,16 +227,16 @@ begin
         FileObj.ReadAllToBuf(pointer(FilePack), FilePackSize);
       if not result then begin
         Log.Write('LanguageSystem', 'LoadFilePack', 'Cannot load language pack "' + FilePackPath + '"');
-      end; // .if
-    end; // .if
+      end;
+    end;
     if result then begin
       FilePackReader.Connect(FilePack, FilePackSize);
       result  :=  FilePackReader.Validate(Error);
       if not result then begin
         Log.Write('LanguageSystem', 'LoadFilePack', 'Validation of language pack "' + FilePackPath + '" failed.'#13#10'Error: ' + Error);
         UnloadFilePack;
-      end; // .if
-    end; // .if
+      end;
+    end;
   end; // .if
   // * * * * * //
   SysUtils.FreeAndNil(FileObj);
@@ -262,8 +262,8 @@ begin
       Log.Write('LanguageSystem', 'LoadResPack', 'Validation of language pack "' + ResPackName + '" failed.'#13#10'Error: ' + Error);
       ResPackReader.Disconnect;
       ResPack :=  nil;        
-    end; // .if
-  end; // .if
+    end;
+  end;
 end; // .function LoadResPack
 
 procedure SetClientLngStrArr (Client: PClient; LngStrArrReader: CLngStrArr.TLngStrArrReader);
@@ -285,12 +285,11 @@ begin
   while LngStrArrReader.ReadBinString(BinStringReader) do begin
     if Client.Unicode then begin
       ArrOfStr[i] :=  BinStringReader.GetWideString;
-    end // .if
-    else begin
+    end else begin
       ArrOfStr[i] :=  BinStringReader.GetAnsiString;
-    end; // .else
+    end;
     Inc(i);
-  end; // .while
+  end;
   Client.LangName :=  LngStrArrReader.LangName;
   Client.LngVar^  :=  ArrOfStr; ArrOfStr  :=  nil;
 end; // .procedure SetClientLngStrArr
@@ -312,7 +311,7 @@ begin
     LngUnitReader.FindLngStrArr(NewLanguage, LngStrArrReader);
   if result then begin
     SetClientLngStrArr(Client, LngStrArrReader);
-  end; // .if
+  end;
   // * * * * * //
   SysUtils.FreeAndNil(LngStrArrReader);
   SysUtils.FreeAndNil(LngUnitReader);
@@ -335,7 +334,7 @@ begin
     LngUnitReader.FindLngStrArr(NewLanguage, LngStrArrReader);
   if result then begin
     SetClientLngStrArr(Client, LngStrArrReader);
-  end; // .if
+  end;
   // * * * * * //
   SysUtils.FreeAndNil(LngStrArrReader);
   SysUtils.FreeAndNil(LngUnitReader);
@@ -367,21 +366,20 @@ begin
       FileObj.ReadAllToBuf(pointer(LngUnit), FileUnitSize);
     if not result then begin
       Log.Write('LanguageSystem', 'LoadClientLangFromFileUnit', 'Cannot load language unit "' + FileUnitPath + '"');
-    end // .if
-    else begin
+    end else begin
       LngUnitReader :=  CLngUnit.TLngUnitReader.Create;
       LngUnitReader.Connect(LngUnit, FileUnitSize);
       result  :=  LngUnitReader.Validate(Error);
       if not result then begin
         Log.Write('LanguageSystem', 'LoadClientLangFromFileUnit', 'Validation of language unit "' + FileUnitPath + '" failed.'#13#10'Error: ' + Error);
-      end; // .if
-    end; // .else
+      end;
+    end;
     if result then begin
       result  :=  LngUnitReader.FindLngStrArr(NewLanguage, LngStrArrReader);
       if result then begin
         SetClientLngStrArr(Client, LngStrArrReader);
-      end; // .if
-    end; // .if
+      end;
+    end;
   end; // .if
   // * * * * * //
   SysUtils.FreeAndNil(FileObj);
@@ -414,17 +412,15 @@ begin
       FileObj.ReadAllToBuf(pointer(LngStrArr), FileStrArrSize);
     if not result then begin
       Log.Write('LanguageSystem', 'LoadClientLangFromFileStrArr', 'Cannot load language strings array "' + FileStrArrPath + '"');
-    end // .if
-    else begin
+    end else begin
       LngStrArrReader :=  CLngStrArr.TLngStrArrReader.Create;
       LngStrArrReader.Connect(LngStrArr, FileStrArrSize);
       result  :=  LngStrArrReader.Validate(Error);
       if not result then begin
         Log.Write('LanguageSystem', 'LoadClientLangFromFileStrArr', 'Validation of language strings array "' + FileStrArrPath + '" failed.'#13#10'Error: ' + Error);
-      end // .if
-      else begin
+      end else begin
         SetClientLngStrArr(Client, LngStrArrReader);
-      end; // .else
+      end;
     end; // .else
   end; // .if
   // * * * * * //
@@ -440,7 +436,7 @@ begin
   result  :=  NewLanguage = Client.LangName;
   if not result then begin
     ResetClientLang(Client);
-  end; // .if
+  end;
   result  :=
     (NewLanguage = Client.LangName) or
     LoadClientLangFromResPack     (Client, NewLanguage) or
@@ -457,8 +453,8 @@ begin
   Language  :=  '';
   for i:=0 to ClientList.Count - 1 do begin
     ResetClientLang(pointer(ClientList.Objects[i]));
-  end; // .for
-end; // .procedure ResetLanguage
+  end;
+end;
 
 procedure SetLanguage (const NewLanguage: string);
 var
@@ -468,8 +464,8 @@ begin
   {!} Assert(CLang.IsValidLangName(NewLanguage));
   for i:=0 to ClientList.Count - 1 do begin
     SetClientLang(pointer(ClientList.Objects[i]), NewLanguage)
-  end; // .for
-end; // .procedure SetLanguage
+  end;
+end;
 
 begin
   ClientList                :=  Classes.TStringList.Create;

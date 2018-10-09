@@ -44,11 +44,11 @@ var
       Text.GetCurrChar(c);
       if IgnoreCase then begin
         c :=  StrLib.CharToLower(c);
-      end; // .if
+      end;
       result  :=  c = Str[i];
       Text.GotoNextPos;
       Inc(i);
-    end; // .while
+    end;
   end; // .function IsMatch
   
 begin
@@ -58,7 +58,7 @@ begin
   if (Text.Len - Text.Pos + 1) >= StrLen then begin
     if IgnoreCase then begin
       Str :=  SysUtils.AnsiLowerCase(Str);
-    end; // .if
+    end;
     StartPos  :=  Text.Pos;
     StrHash   :=  0;
     HashInd   :=  0;
@@ -66,21 +66,21 @@ begin
       c :=  Str[i];
       if IgnoreCase then begin
         c :=  StrLib.CharToLower(c);
-      end; // .if
+      end;
       Inc(Crypto.TInt32(StrHash)[HashInd], Crypto.ByteRedirTable[ORD(c)]);
       HashInd :=  (HashInd + 1) and 3;
-    end; // .for
+    end;
     MatchHash :=  0;
     HashInd   :=  0;
     for i:=1 to StrLen do begin
       Text.GetCurrChar(c);
       if IgnoreCase then begin
         c :=  StrLib.CharToLower(c);
-      end; // .if
+      end;
       Inc(Crypto.TInt32(MatchHash)[HashInd], Crypto.ByteRedirTable[ORD(c)]);
       HashInd :=  (HashInd + 1) and 3;
       Text.GotoNextPos;
-    end; // .for
+    end;
     result  :=  (MatchHash = StrHash) and IsMatch;
     HashInd :=  (StrLen - 1) and 3;
     while (not result) and (not Text.TextEnd) do begin
@@ -88,14 +88,14 @@ begin
       Text.GetCurrChar(c);
       if IgnoreCase then begin
         c :=  StrLib.CharToLower(c);
-      end; // .if
+      end;
       Dec(Crypto.TInt32(MatchHash)[0], Crypto.ByteRedirTable[ORD(c)]);
       MatchHash :=  ((MatchHash and $FF) shl 24) or (MatchHash shr 8);
       Text.GotoPos(StartPos + StrLen);
       Text.GetCurrChar(c);
       if IgnoreCase then begin
         c :=  StrLib.CharToLower(c);
-      end; // .if
+      end;
       Inc(Crypto.TInt32(MatchHash)[HashInd], Crypto.ByteRedirTable[ORD(c)]);
       Inc(StartPos);
       result  :=  (MatchHash = StrHash) and IsMatch;
@@ -103,7 +103,7 @@ begin
     end; // .while
     if result then begin
       Text.GotoPos(StartPos);
-    end; // .if
+    end;
   end; // .if
 end; // .function FindStr
 
@@ -112,8 +112,8 @@ begin
   {!} Assert(Text <> nil);
   while FindStr(Str, IgnoreCase, Text) do begin
     Text.Replace(Length(Str), ReplWith);
-  end; // .while
-end; // .procedure ReplaceStr
+  end;
+end;
 
 function LoadFromFile (const FilePath: string; {n} Settings: Utils.TCloneable; Text: ATexts.AText): boolean;
 var
@@ -127,7 +127,7 @@ begin
   result  :=  DataFile.Open(FilePath, CFiles.MODE_READ) and DataFile.ReadAllToStr(FileContents);
   if result then begin
     Text.Connect(FileContents, TObject(Settings));
-  end; // .if
+  end;
   SysUtils.FreeAndNil(DataFile);
 end; // .function LoadFromFile
 

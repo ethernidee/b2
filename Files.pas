@@ -189,7 +189,7 @@ begin
     FreeMem(Self.fBuf); Self.fBuf :=  nil;
   end;
   Self.fMode  :=  MODE_OFF;
-end; // .procedure TFixedBuf.Close
+end;
 
 procedure TFixedBuf.CreateNew (BufSize: integer);
 var
@@ -215,7 +215,7 @@ begin
     Utils.CopyMem(BytesRead, Utils.PtrOfs(Self.Buf, Self.Pos), Buf);
     Self.fPos :=  Self.Pos + BytesRead;
     Self.fEOF :=  Self.Pos = Self.Size;
-  end; // .if
+  end;
 end; // .function TFixedBuf.ReadUpTo
 
 function TFixedBuf.WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: integer): boolean;
@@ -227,7 +227,7 @@ begin
     Utils.CopyMem(ByteWritten, Buf, Utils.PtrOfs(Self.Buf, Self.Pos));
     Self.fPos :=  Self.Pos + ByteWritten;
     Self.fEOF :=  Self.Pos = Self.Size;
-  end; // .if
+  end;
 end; // .function TFixedBuf.WriteUpTo
 
 function TFixedBuf.Seek (NewPos: integer): boolean;
@@ -238,7 +238,7 @@ begin
     Self.fPos :=  NewPos;
     Self.fEOF :=  Self.Pos = Self.Size;
   end;
-end; // .function TFixedBuf.Seek
+end;
 
 destructor TFile.Destroy;
 begin
@@ -270,7 +270,7 @@ begin
     if not result then begin
       Log.Write('FileSystem', 'GetFileSize', 'Cannot get size of file "' + FilePath + '"');
     end;
-  end; // .else
+  end;
   if result then begin
     result  :=  FileSizeH = 0;
     if not result then begin
@@ -303,7 +303,7 @@ begin
   end;;
   Self.fMode      :=  MODE_OFF;
   Self.fFilePath  :=  '';
-end; // .procedure TFile.Close
+end;
 
 function TFile.CreateNew (const FilePath: string): boolean;
 begin
@@ -335,7 +335,7 @@ begin
     end;
     Self.fPos :=  Self.Pos + BytesRead;
     Self.fEOF :=  Self.Pos = Self.Size;
-  end; // .if
+  end;
 end; // .function TFile.ReadUpTo
 
 function TFile.WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: integer): boolean;
@@ -387,7 +387,7 @@ begin
     Windows.FindClose(Self.fSearchHandle);
     Self.fOpened := FALSE;
   end;
-end; // .procedure TFileLocator.FinitSearch
+end;
 
 procedure TFileLocator.InitSearch (const Mask: string);
 begin
@@ -395,7 +395,7 @@ begin
   Self.fSearchMask := Mask;
   Self.fOpened     := WinWrappers.FindFirstFile(Self.DirPath + '\' + Mask, Self.fSearchHandle, Self.fFindData);
   Self.fNotEnd     := Self.fOpened;
-end; // .procedure TFileLocator.InitSearch
+end;
 
 function TFileLocator.GetNextItem (out ItemInfo: TItemInfo): string;
 var
@@ -440,8 +440,8 @@ begin
     Locator.InitSearch(ItemPath);
     if Locator.NotEnd then begin
       Locator.GetNextItem(ItemInfo);
-    end; // .if
-  end; // .if
+    end;
+  end;
   SysUtils.FreeAndNil(Locator);
 end; // .function TFileLocator.GetItemInfo
 
@@ -484,7 +484,7 @@ begin
     result := MyFile.Open(FilePath, MODE_WRITE) and MyFile.Seek(MyFile.Size);
   end else begin
     result := MyFile.CreateNew(FilePath);
-  end; // .else
+  end;
 
   result := result and MyFile.WriteStr(FileContents);
   // * * * * * //
@@ -513,8 +513,8 @@ begin
         result  :=  DeleteDir(FilePath);
       end else begin
         result  :=  SysUtils.DeleteFile(FilePath);
-      end; // .else
-    end; // .if
+      end;
+    end;
     SysUtils.FreeAndNil(FileInfo);
   end; // .while
   Locator.FinitSearch;
@@ -559,7 +559,7 @@ begin
         (SysUtils.ExtractFileExt(SysUtils.AnsiLowerCase(SearchRec.Name)) = FileLowCaseExt)
       then begin
         result  :=  Callback(SearchRec);
-      end; // .if
+      end;
     until SysUtils.FindNext(SearchRec) <> 0;
     
     SysUtils.FindClose(SearchRec);
@@ -573,7 +573,7 @@ var
 begin
   Attrs   :=  Windows.GetFileAttributes(pchar(FilePath));
   result  :=  (Attrs <> - 1) and ((Attrs and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0);
-end; // .function DirExists
+end;
 
 function ForcePath (const DirPath: string): boolean;
 var
@@ -655,7 +655,7 @@ function TLocator.MatchResult: boolean;
     
     while ((i > 0) and (result[i] = '*')) do begin
       Dec(i);
-    end; // .while
+    end;
   
     if (i > 0) and (result[i] <> '.') then begin
       result := result + '.';
@@ -669,7 +669,7 @@ function TLocator.MatchResult: boolean;
     if (result <> '') and (result[Length(result)] <> '.') then begin
       result := result + '.';
     end;
-  end; // .function CanonicName
+  end;
 
 begin
   {!} Assert(Self.fSearchStarted and Self.fLastOperRes);
@@ -703,15 +703,15 @@ begin
     
     Self.fSearchStarted :=  Self.fLastOperRes;
     result              :=  Self.fSearchStarted and Self.MatchResult;
-  end; // .if
+  end;
 
   if not result and Self.fSearchStarted then begin
     while not result and (SysUtils.FindNext(Self.fFoundRec) = 0) do begin
       result  :=  Self.MatchResult;
-    end; // .while
+    end;
     
     Self.fLastOperRes :=  result;
-  end; // .if
+  end;
 end; // .function TLocator.FindNext
 
 procedure TLocator.Locate (const MaskedPath: string; SearchSubj: TSearchSubj);
@@ -753,6 +753,6 @@ begin
   // * * * * * //
   Locator.Locate(MaskedPath, SearchSubj);
   result := Locator; Locator := nil;
-end; // .function Locate
+end;
 
 end.

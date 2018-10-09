@@ -80,17 +80,16 @@ end; // .constructor TTextScanner.Create
 function TTextScanner.IsValidPos (CheckPos: integer): boolean;
 begin
   result  :=  Math.InRange(CheckPos, 1, Self.TextBufLen + 1);
-end; // .function TTextScanner.IsValidPos
+end;
 
 function TTextScanner.c: char;
 begin
   if Self.EndOfText then begin
     result := #0;
-  end // .if
-  else begin
+  end else begin
     result := Self.TextBuf[Self.Pos];
-  end; // .else
-end; // .function TTextScanner.c
+  end;
+end;
 
 function TTextScanner.GetCurrChar (out Res: char): boolean;
 begin
@@ -98,39 +97,39 @@ begin
   
   if result then begin
     Res :=  Self.TextBuf[Self.Pos];
-  end; // .if
-end; // .function TTextScanner.GetCurrChar
+  end;
+end;
 
 function TTextScanner.ReadChar (out Res: char): boolean;
 begin
   result  :=  Self.GetCurrChar(Res);
   Self.GotoNextChar;
-end; // .function TTextScanner.ReadChar
+end;
 
 function TTextScanner.GetCharAtPos (TargetPos: integer; out Res: char): boolean;
 begin
   result  :=  Self.IsValidPos(TargetPos) and (TargetPos <= Self.TextBufLen);
   if result then begin
     Res :=  Self.TextBuf[TargetPos];
-  end; // .if
-end; // .function TTextScanner.GetCharAtPos
+  end;
+end;
 
 function TTextScanner.GetCharAtRelPos (RelPos: integer; out Res: char): boolean;
 begin
   result  :=  Self.GetCharAtPos(Self.Pos + RelPos, Res);
-end; // .function TTextScanner.GetCharAtRelPos
+end;
 
 function TTextScanner.CharAtPos (TargetPos: integer): char;
 begin
   if not GetCharAtPos(TargetPos, result) then begin
     result := #0;
-  end; // .if
-end; // .function TTextScanner.CharAtPos.CharAtPos
+  end;
+end;
 
 function TTextScanner.CharAtPosRel (RelPos: integer): char;
 begin
   result := CharAtPos(Self.Pos + RelPos);
-end; // .function TTextScanner.CharAtPosRel
+end;
 
 function TTextScanner.GetSubstrAtPos (TargetPos, SubstrLen: integer): string;
 var
@@ -146,7 +145,7 @@ begin
     SubstrLen := Math.Max(0, SubstrLen + TargetPos - 1);
   end else if StartPos > Self.TextBufLen + 1 then begin
     StartPos := Self.TextBufLen + 1;
-  end; // .elseif
+  end;
 
   EndPos := Math.EnsureRange(TargetPos + SubstrLen, 1, Self.TextBufLen + 1);
   result := Copy(Self.TextBuf, StartPos, EndPos - StartPos);
@@ -155,7 +154,7 @@ end; // .function TTextScanner.GetSubstrAtPos
 function TTextScanner.GetSubstrAtRelPos (RelPos, SubstrLen: integer): string;
 begin
   result  :=  Self.GetSubstrAtPos(Self.Pos + RelPos, SubstrLen);
-end; // .function TTextScanner.GetSubstrAtRelPos
+end;
 
 function TTextScanner.GotoNextChar: boolean;
 begin
@@ -164,12 +163,12 @@ begin
     if Self.TextBuf[Self.Pos] = Self.EndOfLineMarker then begin
       Self.fLineStartPos  :=  Self.Pos;
       Inc(Self.fLineN);
-    end; // .if
+    end;
     Inc(Self.fPos);
     if Self.Pos > Self.TextBufLen then begin
       Self.fEndOfText :=  TRUE;
       result          :=  FALSE;
-    end; // .if
+    end;
   end; // .if
 end; // .function TTextScanner.GotoNextChar
 
@@ -186,9 +185,9 @@ begin
       i :=  Self.Pos - 1;
       while (i >= 1) and (Self.TextBuf[i] <> Self.EndOfLineMarker) do begin
         Dec(i);
-      end; // .while
+      end;
       Self.fLineStartPos  :=  i;
-    end; // .if
+    end;
     Self.fEndOfText :=  FALSE;
   end; // .if
 end; // .function TTextScanner.GotoPrevChar
@@ -205,20 +204,19 @@ begin
     if TargetPos >= Self.Pos then begin
       for i:=1 to NumSteps do begin
         Self.GotoNextChar;
-      end; // .for
-    end // .if
-    else begin
+      end;
+    end else begin
       for i:=1 to NumSteps do begin
         Self.GotoPrevChar;
-      end; // .for
-    end; // .else
+      end;
+    end;
   end; // .if
 end; // .function TTextScanner.GotoPos
 
 function TTextScanner.GotoRelPos (RelPos: integer): boolean;
 begin
   result  :=  Self.GotoPos(Self.Pos + RelPos);
-end; // .function TTextScanner.GotoRelPos
+end;
 
 function TTextScanner.GotoNextLine: boolean;
 var
@@ -228,7 +226,7 @@ begin
   OrigLineN :=  Self.LineN;
   while (Self.LineN = OrigLineN) and Self.GotoNextChar do begin end;
   result  :=  Self.LineN > OrigLineN;
-end; // .function TTextScanner.GotoNextLine
+end;
 
 function TTextScanner.GotoPrevLine: boolean;
 var
@@ -240,24 +238,23 @@ begin
   result  :=  Self.LineN < OrigLineN;
   if result then begin
     Self.GotoPos(Self.LineStartPos + 1);
-  end; // .if
+  end;
 end; // .function TTextScanner.GotoPrevLine
 
 function TTextScanner.GotoLine (TargetLine: integer): boolean;
 begin
   if TargetLine > Self.LineN then begin
     while (Self.LineN <> TargetLine) and Self.GotoNextLine do begin end;
-  end // .if
-  else begin
+  end else begin
     while (Self.LineN <> TargetLine) and Self.GotoPrevLine do begin end;
-  end; // .else
+  end;
   result  :=  Self.LineN = TargetLine;
-end; // .function TTextScanner.GotoLine
+end;
 
 function TTextScanner.GotoRelLine (RelLineN: integer): boolean;
 begin
   result  :=  Self.GotoLine(Self.LineN + RelLineN);
-end; // .function TTextScanner.GotoRelLine
+end;
 
 function TTextScanner.PosToLine (TargetPos: integer; out LineN, LinePos: integer): boolean;
 var
@@ -271,7 +268,7 @@ begin
     LineN   := Self.LineN;
     LinePos := Self.Pos - Self.LineStartPos;
     Self.GotoPos(CurrPos);
-  end; // .if
+  end;
 end; // .function TTextScanner.PosToLine 
 
 function TTextScanner.SkipChars (Ch: char): boolean;
@@ -280,8 +277,8 @@ begin
   if result then begin
     while (Self.TextBuf[Self.Pos] = Ch) and Self.GotoNextChar do begin end;
     result  :=  not Self.EndOfText;
-  end; // .if
-end; // .function TTextScanner.SkipChars
+  end;
+end;
 
 function TTextScanner.SkipCharset (const Charset: TCharSet): boolean;
 begin
@@ -289,8 +286,8 @@ begin
   if result then begin
     while (Self.TextBuf[Self.Pos] in Charset) and Self.GotoNextChar do begin end;
     result  :=  not Self.EndOfText;
-  end; // .if
-end; // .function TTextScanner.SkipCharset
+  end;
+end;
 
 function TTextScanner.FindChar (Ch: char): boolean;
 begin
@@ -298,8 +295,8 @@ begin
   if result then begin
     while (Self.TextBuf[Self.Pos] <> Ch) and Self.GotoNextChar do begin end;
     result  :=  not Self.EndOfText;
-  end; // .if
-end; // .function TTextScanner.FindChar
+  end;
+end;
 
 function TTextScanner.FindCharset (const Charset: TCharSet): boolean;
 begin
@@ -307,8 +304,8 @@ begin
   if result then begin
     while not (Self.TextBuf[Self.Pos] in Charset) and Self.GotoNextChar do begin end;
     result  :=  not Self.EndOfText;
-  end; // .if
-end; // .function TTextScanner.FindCharset
+  end;
+end;
 
 function TTextScanner.ReadToken (const TokenCharset: TCharSet; out Token: string): boolean;
 var
@@ -320,7 +317,7 @@ begin
     StartPos  :=  Self.Pos;
     Self.SkipCharset(TokenCharset);
     Token :=  Copy(Self.TextBuf, StartPos, Self.Pos - StartPos);
-  end; // .if
+  end;
 end; // .function TTextScanner.ReadToken
 
 function TTextScanner.ReadTokenTillDelim (const DelimCharset: TCharSet; out Token: string): boolean;
@@ -333,7 +330,7 @@ begin
     StartPos  :=  Self.Pos;
     Self.FindCharset(DelimCharset);
     Token :=  Copy(Self.TextBuf, StartPos, Self.Pos - StartPos);
-  end; // .if
+  end;
 end; // .function TTextScanner.ReadTokenTillDelim
 
 procedure TTextScanner.Connect (const TextBuf: string; EndOfLineMarker: char);

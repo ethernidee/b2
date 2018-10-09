@@ -223,13 +223,12 @@ begin
     for i:=0 to SrcList.Count - 1 do begin
       if (SrcList.fData[i] = nil) or (not Self.OwnsItems) then begin
         Self.fData[i] :=  SrcList.fData[i];
-      end // .if
-      else begin
+      end else begin
         {!} Assert(Self.ItemsAreObjects);
         {!} Assert(TObject(SrcList.fData[i]) IS Utils.TCloneable);
         Self.fData[i] :=  Utils.TCloneable(SrcList.fData[i]).Clone;
-      end; // .else
-    end; // .for
+      end;
+    end;
   end; // .if
 end; // .procedure TList.Assign
 
@@ -239,11 +238,10 @@ begin
   if Self.OwnsItems then begin
     if Self.ItemsAreObjects then begin
       SysUtils.FreeAndNil(TObject(Self.fData[Ind]));
-    end // .if
-    else begin
+    end else begin
       FreeMem(Self.fData[Ind]); Self.fData[Ind] :=  nil;
-    end; // .else
-  end; // .if
+    end;
+  end;
 end; // .procedure TList.FreeItem
 
 procedure TList.Clear;
@@ -254,8 +252,8 @@ begin
   if Self.OwnsItems then begin
     for i:=0 to Self.Count - 1 do begin
       Self.FreeItem(i);
-    end; // .for
-  end; // .if
+    end;
+  end;
   FreeMem(Self.fData); Self.fData :=  nil;
   Self.fCapacity  :=  0;
   Self.fCount     :=  0;
@@ -264,7 +262,7 @@ end; // .procedure TList.Clear
 function TList.IsValidItem ((* n *) Item: pointer): boolean;
 begin
   result  :=  Self.ItemGuardProc(Item, Self.ItemsAreObjects, Self.fItemGuard);
-end; // .function TList.IsValidItem
+end;
 
 procedure TList.Put (Ind: integer; (* OUn *) Item: pointer);
 begin
@@ -272,19 +270,19 @@ begin
   {!} Assert(Self.IsValidItem(Item));
   Self.FreeItem(Ind);
   Self.fData[Ind] :=  Item;
-end; // .procedure TList.Put
+end;
 
 function TList.Get (Ind: integer): (* n *) pointer;
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   result  :=  Self.fData[Ind];
-end; // .function TList.Get
+end;
 
 procedure TList.SetGrowthRate (NewGrowthRate: integer);
 begin
   {!} Assert(NewGrowthRate >= 100);
   Self.fGrowthRate  :=  NewGrowthRate;
-end; // .procedure TList.SetGrowthRate
+end;
 
 procedure TList.SetCapacity (NewCapacity: integer);
 var
@@ -295,8 +293,8 @@ begin
   if NewCapacity < Self.Count then begin
     for i:=NewCapacity to Self.Count - 1 do begin
       Self.FreeItem(i);
-    end; // .for
-  end; // .if
+    end;
+  end;
   Self.fCapacity  :=  NewCapacity;
   ReallocMem(Self.fData, Self.Capacity * sizeof(pointer));
 end; // .procedure TList.SetCapacity
@@ -310,16 +308,15 @@ begin
   if NewCount < Self.Count then begin
     for i:=NewCount to Self.Count - 1 do begin
       Self.FreeItem(i);
-    end; // .for
-  end // .if
-  else if NewCount > Self.Count then begin
+    end;
+  end else if NewCount > Self.Count then begin
     if NewCount > Self.Capacity then begin
       Self.SetCapacity(NewCount);
-    end; // .if
+    end;
     for i:=Self.Count to NewCount - 1 do begin
       Self.fData[i] :=  nil;
-    end; // .for
-  end; // .ELSEIF
+    end;
+  end; // .elseif
   Self.fCount :=  NewCount;
 end; // .procedure TList.SetCount
 
@@ -329,12 +326,11 @@ begin
   if Self.Count = Self.Capacity then begin
     if Self.Capacity = 0 then begin
       Self.fCapacity  :=  Self.FIRST_ALLOC_COUNT;
-    end // .if
-    else begin
+    end else begin
       Self.fCapacity  :=  Math.Max(Self.Capacity + 1, INT64(Self.Capacity) * Self.GrowthRate div 100);
-    end; // .else
+    end;
     ReallocMem(Self.fData, Self.Capacity * sizeof(pointer));
-  end; // .if
+  end;
   Self.fData[Self.Count]  :=  nil;
   Inc(Self.fCount);
 end; // .function TList.AddEmpty
@@ -344,19 +340,19 @@ begin
   {!} Assert(Self.IsValidItem(Item));
   result              :=  Self.AddEmpty;
   Self.fData[result]  :=  Item;
-end; // .function TList.Add
+end;
 
 function TList.Top: (* n *) pointer;
 begin
   {!} Assert(Self.Count > 0);
   result  :=  Self.fData[Self.Count - 1];
-end; // .function TList.Top
+end;
 
 function TList.Pop: (* OUn *) pointer;
 begin
   result  :=  Self.Top;
   Dec(Self.fCount);
-end; // .function TList.Pop
+end;
 
 procedure TList.Delete (Ind: integer);
 begin
@@ -365,21 +361,20 @@ begin
   Dec(Self.fCount);
   if Ind < Self.Count then begin
     Utils.CopyMem((Self.Count - Ind) * sizeof(pointer), @Self.fData[Ind + 1], @Self.fData[Ind]);
-  end; // .if
-end; // .procedure TList.Delete
+  end;
+end;
 
 procedure TList.Insert ((* OUn *) Item: pointer; Ind: integer);
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count));
   if Ind = Self.Count then begin
     Self.Add(Item);
-  end // .if
-  else begin
+  end else begin
     {!} Assert(Self.IsValidItem(Item));
     Self.AddEmpty;
     Utils.CopyMem((Self.Count - Ind - 1) * sizeof(pointer), @Self.fData[Ind], @Self.fData[Ind + 1]);
     Self.fData[Ind] :=  Item;
-  end; // .else
+  end;
 end; // .procedure TList.Insert
 
 procedure TList.Exchange (SrcInd, DstInd: integer);
@@ -387,7 +382,7 @@ begin
   {!} Assert(Math.InRange(SrcInd, 0, Self.Count - 1));
   {!} Assert(Math.InRange(DstInd, 0, Self.Count - 1));
   Utils.Exchange(integer(Self.fData[SrcInd]), integer(Self.fData[DstInd]));
-end; // .procedure TList.Exchange
+end;
 
 procedure TList.Move (SrcInd, DstInd: integer);
 var
@@ -401,15 +396,13 @@ begin
     Dist  :=  ABS(SrcInd - DstInd);
     if Dist = 1 then begin
       Self.Exchange(SrcInd, DstInd);
-    end // .if
-    else begin
+    end else begin
       SrcItem :=  Self.fData[SrcInd];
       if DstInd > SrcInd then begin
         Utils.CopyMem(Dist * sizeof(pointer), @Self.fData[SrcInd + 1],  @Self.fData[SrcInd]);
-      end // .if
-      else begin
+      end else begin
         Utils.CopyMem(Dist * sizeof(pointer), @Self.fData[DstInd],      @Self.fData[DstInd + 1]);
-      end; // .else
+      end;
       Self.fData[DstInd]  :=  SrcItem;
     end; // .else
   end; // .if
@@ -428,7 +421,7 @@ begin
   if (ShiftBy <> 0) and (Count > 0) then begin
     if ShiftBy > 0 then begin
       StartInd  :=  StartInd + Count - 1;
-    end; // .if
+    end;
     EndInd  :=  StartInd + ShiftBy;
     Step    :=  -SIGN(ShiftBy);
     for i:=1 to Count do begin
@@ -437,8 +430,8 @@ begin
         Utils.Exchange(integer(Self.fData[StartInd]), integer(Self.fData[EndInd]));
         StartInd  :=  StartInd + Step;
         EndInd    :=  EndInd + Step;
-      end; // .if
-    end; // .for
+      end;
+    end;
   end; // .if
 end; // .procedure TList.Shift
 
@@ -448,7 +441,7 @@ begin
   {!} Assert(Self.IsValidItem(nil));
   result          :=  Self.fData[Ind];
   Self.fData[Ind] :=  nil;
-end; // .function TList.Take
+end;
 
 function TList.Replace (Ind: integer; (* OUn *) NewValue: pointer): (* OUn *) pointer;
 begin
@@ -456,7 +449,7 @@ begin
   {!} Assert(Self.IsValidItem(NewValue));
   result          :=  Self.fData[Ind];
   Self.fData[Ind] :=  NewValue;
-end; // .function TList.Replace
+end;
 
 procedure TList.Pack;
 var
@@ -467,17 +460,17 @@ begin
   i :=  0;
   while (i < Self.Count) and (Self.fData[i] <> nil) do begin
     Inc(i);
-  end; // .while
+  end;
   if i < Count then begin
     EndInd    :=  i;
     for i:=i + 1 to Self.Count - 1 do begin
       if Self.fData[i] <> nil then begin
         Self.fData[EndInd]  :=  Self.fData[i];
         Inc(EndInd);
-      end; // .if
-    end; // .for
+      end;
+    end;
     Self.fCount :=  EndInd;
-  end; // .if
+  end;
 end; // .procedure TList.Pack
 
 function TList.Find ((* n *) Item: pointer; out Ind: integer): boolean;
@@ -485,9 +478,9 @@ begin
   Ind :=  0;
   while (Ind < Self.Count) and (Self.fData[Ind] <> Item) do begin
     Inc(Ind);
-  end; // .while
+  end;
   result  :=  Ind < Self.Count;
-end; // .function TList.Find
+end;
 
 function TList.QuickFind ((* n *) Item: pointer; out Ind: integer): boolean;
 var
@@ -641,13 +634,12 @@ begin
     for i:=0 to SrcList.Count - 1 do begin
       if (SrcList.fValues[i] = nil) or (not Self.OwnsItems) then begin
         Self.fValues[i] :=  SrcList.fValues[i];
-      end // .if
-      else begin
+      end else begin
         {!} Assert(Self.ItemsAreObjects);
         {!} Assert(TObject(SrcList.fValues[i]) IS Utils.TCloneable);
         Self.fValues[i] :=  Utils.TCloneable(SrcList.fValues[i]).Clone;
-      end; // .else
-    end; // .for
+      end;
+    end;
   end; // .if
 end; // .procedure TStringList.Assign
 
@@ -657,11 +649,10 @@ begin
   if Self.OwnsItems then begin
     if Self.ItemsAreObjects then begin
       SysUtils.FreeAndNil(TObject(Self.fValues[Ind]));
-    end // .if
-    else begin
+    end else begin
       FreeMem(Self.fValues[Ind]); Self.fValues[Ind] :=  nil;
-    end; // .else
-  end; // .if
+    end;
+  end;
 end; // .procedure TStringList.FreeValue
 
 procedure TStringList.Clear;
@@ -672,8 +663,8 @@ begin
   if Self.OwnsItems then begin
     for i:=0 to Self.Count - 1 do begin
       Self.FreeValue(i);
-    end; // .for
-  end; // .if
+    end;
+  end;
   Self.fKeys  :=  nil;
   FreeMem(Self.fValues); Self.fValues :=  nil;
   Self.fCapacity  :=  0;
@@ -683,7 +674,7 @@ end; // .procedure TStringList.Clear
 function TStringList.IsValidItem ((* n *) Item: pointer): boolean;
 begin
   result  :=  Self.ItemGuardProc(Item, Self.ItemsAreObjects, Self.fItemGuard);
-end; // .function TStringList.IsValidItem
+end;
 
 function TStringList.ValidateKey (const Key: string): boolean;
 var
@@ -693,8 +684,8 @@ begin
   result  :=  not Self.ForbidDuplicates;
   if not result then begin
     result  :=  not Self.Find(Key, KeyInd);
-  end; // .if
-end; // .function TStringList.ValidateKey
+  end;
+end;
 
 procedure TStringList.PutKey (Ind: integer; const Key: string);
 begin
@@ -702,15 +693,15 @@ begin
   {!} Assert(not Self.Sorted);
   if Self.ForbidDuplicates then begin
     {!} Assert((Self.CompareStrings(Self.fKeys[Ind], Key) = 0) or Self.ValidateKey(Key));
-  end; // .if
+  end;
   Self.fKeys[Ind] :=  Key;
-end; // .procedure TStringList.PutKey
+end;
 
 function TStringList.GetKey (Ind: integer): string;
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   result  :=  Self.fKeys[Ind];
-end; // .function TStringList.GetKey
+end;
 
 procedure TStringList.PutValue (Ind: integer; (* OUn *) Item: pointer);
 begin
@@ -719,14 +710,14 @@ begin
     {!} Assert(Self.IsValidItem(Item));
     Self.FreeValue(Ind);
     Self.fValues[Ind] :=  Item;
-  end; // .if
-end; // .procedure TStringList.PutValue
+  end;
+end;
 
 function TStringList.GetValue (Ind: integer): (* n *) pointer;
 begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count - 1));
   result  :=  Self.fValues[Ind];
-end; // .function TStringList.GetValue
+end;
 
 function TStringList.AddEmpty: integer;
 begin
@@ -734,13 +725,12 @@ begin
   if Self.Count = Self.Capacity then begin
     if Self.Capacity = 0 then begin
       Self.fCapacity  :=  Self.FIRST_ALLOC_COUNT;
-    end // .if
-    else begin
+    end else begin
       Self.fCapacity  :=  Math.Max(Self.Capacity + 1, INT64(Self.Capacity) * Self.GrowthRate div 100);
-    end; // .else
+    end;
     ReallocMem(Self.fValues, Self.Capacity * sizeof(pointer));
     SetLength(Self.fKeys, Self.Capacity);
-  end; // .if
+  end;
   Self.fKeys[Self.Count]    :=  '';
   Self.fValues[Self.Count]  :=  nil;
   Inc(Self.fCount);
@@ -750,7 +740,7 @@ procedure TStringList.SetGrowthRate (NewGrowthRate: integer);
 begin
   {!} Assert(NewGrowthRate >= 100);
   Self.fGrowthRate  :=  NewGrowthRate;
-end; // .procedure TStringList.SetGrowthRate
+end;
 
 procedure TStringList.SetCapacity (NewCapacity: integer);
 var
@@ -761,8 +751,8 @@ begin
   if NewCapacity < Self.Count then begin
     for i:=NewCapacity to Self.Count - 1 do begin
       Self.FreeValue(i);
-    end; // .for
-  end; // .if
+    end;
+  end;
   Self.fCapacity  :=  NewCapacity;
   ReallocMem(Self.fValues, Self.Capacity * sizeof(pointer));
   SetLength(Self.fKeys, Self.Capacity);
@@ -777,17 +767,16 @@ begin
   if NewCount < Self.Count then begin
     for i:=NewCount to Self.Count - 1 do begin
       Self.FreeValue(i);
-    end; // .for
-  end // .if
-  else if NewCount > Self.Count then begin
+    end;
+  end else if NewCount > Self.Count then begin
     if NewCount > Self.Capacity then begin
       Self.SetCapacity(NewCount);
-    end; // .if
+    end;
     for i:=Self.Count to NewCount - 1 do begin
       Self.fKeys[i]   :=  '';
       Self.fValues[i] :=  nil;
-    end; // .for
-  end; // .ELSEIF
+    end;
+  end; // .elseif
   Self.fCount :=  NewCount;
 end; // .procedure TStringList.SetCount
 
@@ -802,8 +791,8 @@ begin
     KeyFound  :=  Self.Find(Key, KeyInd);
     if Self.ForbidDuplicates then begin
       {!} Assert(not KeyFound);
-    end; // .if
-  end; // .if
+    end;
+  end;
   result                :=  Self.AddEmpty;
   Self.fKeys[result]    :=  Key;
   Self.fValues[result]  :=  Value;
@@ -812,19 +801,19 @@ begin
     Self.Move(result, KeyInd);
     result        :=  KeyInd;
     Self.fSorted  :=  TRUE;
-  end; // .if
+  end;
 end; // .function TStringList.AddObj
 
 function TStringList.Add (const Key: string): integer;
 begin
   result  :=  Self.AddObj(Key, nil);
-end; // .function TStringList.Add
+end;
 
 function TStringList.Top: string;
 begin
   {!} Assert(Self.Count > 0);
   result  :=  Self.fKeys[Self.Count - 1];
-end; // .function TStringList.Top
+end;
 
 function TStringList.Pop ((* OUn *) out Item: pointer): string;
 begin
@@ -833,7 +822,7 @@ begin
   result  :=  Self.fKeys[Self.Count - 1];
   Item    :=  Self.fValues[Self.Count - 1];
   Dec(Self.fCount);
-end; // .function TStringList.Pop
+end;
 
 procedure TStringList.Delete (Ind: integer);
 begin
@@ -845,7 +834,7 @@ begin
     Utils.CopyMem((Self.Count - Ind) * sizeof(string),  @Self.fKeys[Ind + 1],   @Self.fKeys[Ind]);
     pointer(Self.fKeys[Self.Count]) :=  nil;
     Utils.CopyMem((Self.Count - Ind) * sizeof(pointer), @Self.fValues[Ind + 1], @Self.fValues[Ind]);
-  end; // .if
+  end;
 end; // .procedure TStringList.Delete
 
 procedure TStringList.InsertObj (const Key: string; Value: (* OUn *) pointer; Ind: integer);
@@ -856,8 +845,7 @@ begin
   {!} Assert(Math.InRange(Ind, 0, Self.Count));
   if Ind = Self.Count then begin
     Self.AddObj(Key, Value);
-  end // .if
-  else begin
+  end else begin
     {!} Assert(not Self.Sorted);
     {!} Assert(Self.IsValidItem(Value));
     LastInd :=  Self.AddEmpty;
@@ -872,7 +860,7 @@ end; // .procedure TStringList.InsertObj
 procedure TStringList.Insert ({!} const Key: string; {!} Ind: integer);
 begin
   {!} Self.InsertObj(Key, nil, Ind);
-end; // .procedure TStringList.Insert
+end;
 
 procedure TStringList.Exchange (SrcInd, DstInd: integer);
 begin
@@ -882,8 +870,8 @@ begin
     {!} Assert(not Self.Sorted);
     Utils.Exchange(integer(Self.fKeys[SrcInd]),   integer(Self.fKeys[DstInd]));
     Utils.Exchange(integer(Self.fValues[SrcInd]), integer(Self.fValues[DstInd]));
-  end; // .if
-end; // .procedure TStringList.Exchange
+  end;
+end;
 
 procedure TStringList.Move (SrcInd, DstInd: integer);
 var
@@ -902,15 +890,14 @@ begin
     Dist  :=  SrcInd - DstInd;
     if ABS(Dist) = 1 then begin
       Self.Exchange(SrcInd, DstInd);
-    end // .if
-    else begin
+    end else begin
       SrcKey    :=  pointer(Self.fKeys[SrcInd]);
       SrcValue  :=  Self.fValues[SrcInd];
       Utils.CopyMem(ABS(Dist) * sizeof(string),   @Self.fKeys[DstInd],    @Self.fKeys[DstInd + Math.Sign(Dist)]);
       Utils.CopyMem(ABS(Dist) * sizeof(pointer),  @Self.fValues[DstInd],  @Self.fValues[DstInd + Math.Sign(Dist)]);
       pointer(Self.fKeys[DstInd]) :=  SrcKey;
       Self.fValues[DstInd]        :=  SrcValue;
-    end; // .else
+    end;
   end; // .if
 end; // .procedure TStringList.Move
 
@@ -927,7 +914,7 @@ begin
   if (ShiftBy <> 0) and (Count > 0) then begin
     if ShiftBy > 0 then begin
       StartInd  :=  StartInd + Count - 1;
-    end; // .if
+    end;
     EndInd  :=  StartInd + ShiftBy;
     Step    :=  -SIGN(ShiftBy);
     for i:=1 to Count do begin
@@ -938,8 +925,8 @@ begin
         Utils.Exchange(integer(Self.fValues[StartInd]), integer(Self.fValues[EndInd]));
         StartInd  :=  StartInd + Step;
         EndInd    :=  EndInd + Step;
-      end; // .if
-    end; // .for
+      end;
+    end;
   end; // .if
 end; // .procedure TStringList.Shift
 
@@ -949,7 +936,7 @@ begin
   {!} Assert(Self.IsValidItem(nil));
   result            :=  Self.fValues[Ind];
   Self.fValues[Ind] :=  nil;
-end; // .function TStringList.TakeValue
+end;
 
 function TStringList.ReplaceValue (Ind: integer; (* OUn *) NewValue: pointer): (* OUn *) pointer;
 begin
@@ -957,7 +944,7 @@ begin
   {!} Assert(Self.IsValidItem(NewValue));
   result            :=  Self.fValues[Ind];
   Self.fValues[Ind] :=  NewValue;
-end; // .function TStringList.ReplaceValue
+end;
 
 procedure TStringList.Pack;
 var
@@ -997,7 +984,7 @@ begin
         end else begin
           Self.FreeValue(i);
         end;
-      end; // .for
+      end;
       
       Self.fCount :=  EndInd;
     end; // .if
@@ -1010,8 +997,8 @@ begin
     result := SysUtils.AnsiCompareText(Str1, Str2);
   end else begin
     result := SysUtils.AnsiCompareStr(Str1, Str2);
-  end; // .else
-end; // .function TStringList.CompareStrings
+  end;
+end;
 
 function TStringList.QuickFind (const Key: string; (* i *) out Ind: integer): boolean;
 var
@@ -1028,43 +1015,39 @@ begin
     CmpRes  :=  Self.CompareStrings(Key, Self.fKeys[Ind]);
     if CmpRes < 0 then begin
       RightInd  :=  Ind - 1;
-    end // .if
-    else if CmpRes > 0 then begin
+    end else if CmpRes > 0 then begin
       LeftInd :=  Ind + 1;
-    end // .else
-    else begin
+    end else begin
       result  :=  TRUE;
-    end; // .else
+    end;
   end; // .while
   
   if not result then begin
     Ind :=  LeftInd;
-  end // .if
-  else if not Self.fForbidDuplicates then begin
+  end else if not Self.fForbidDuplicates then begin
     Inc(Ind);
     
     while (Ind < Self.fCount) and (Self.CompareStrings(Key, Self.fKeys[Ind]) = 0) do begin
       Inc(Ind);
-    end; // .while
+    end;
     
     Dec(Ind);
-  end; // .ELSEIF
+  end; // .elseif
 end; // .function TStringList.QuickFind
 
 function TStringList.Find (const Key: string; (* i *) out Ind: integer): boolean;
 begin
   if Self.Sorted then begin
     result  :=  Self.QuickFind(Key, Ind);
-  end // .if
-  else begin
+  end else begin
     Ind :=  0;
     while (Ind < Self.Count) and (Self.CompareStrings(Self.fKeys[Ind], Key) <> 0) do begin
       Inc(Ind);
-    end; // .while
+    end;
     result  :=  Ind < Self.Count;
     if not result then begin
       Dec(Ind);
-    end; // .if
+    end;
   end; // .else
 end; // .function TStringList.Find
 
@@ -1087,21 +1070,21 @@ begin
     while LeftInd <= RightInd do begin
       while CompareStrings(Self.fKeys[LeftInd], PivotItem) < 0 do begin
         Inc(LeftInd);
-      end; // .while
+      end;
       
       while CompareStrings(Self.fKeys[RightInd], PivotItem) > 0 do begin
         Dec(RightInd);
-      end; // .while
+      end;
       
       if LeftInd <= RightInd then begin
         if CompareStrings(Self.fKeys[LeftInd], Self.fKeys[RightInd]) > 0 then begin
           Utils.Exchange(integer(Self.fKeys[LeftInd]),    integer(Self.fKeys[RightInd]));
           Utils.Exchange(integer(Self.fValues[LeftInd]),  integer(Self.fValues[RightInd]));
-        end; // .if
+        end;
         
         Inc(LeftInd);
         Dec(RightInd);
-      end; // .if
+      end;
     end; // .while
     
     (* MIN__RIGHT|{PIVOT}|LEFT__MAX *)
@@ -1109,14 +1092,13 @@ begin
     if (RightInd - MinInd) < (MaxInd - LeftInd) then begin
       if RightInd > MinInd then begin
         Self.QuickSort(MinInd, RightInd);
-      end; // .if
+      end;
       
       MinInd := LeftInd;
-    end // .if
-    else begin
+    end else begin
       if MaxInd > LeftInd then begin
         Self.QuickSort(LeftInd, MaxInd);
-      end; // .if
+      end;
       
       MaxInd := RightInd;
     end; // .else
@@ -1130,8 +1112,8 @@ begin
     
     if Self.fCount > 1 then begin
       Self.QuickSort(0, Self.Count - 1);
-    end; // .if
-  end; // .if
+    end;
+  end;
 end;
 
 procedure TStringList.CustomSort (CompareFunc: TStringListCompareFunc; MinInd, MaxInd: integer);
@@ -1184,19 +1166,19 @@ begin
   if (not Self.CaseInsensitive) and NewCaseInsensitive then begin
     Self.fCaseInsensitive :=  NewCaseInsensitive;
     Self.EnsureNoDuplicates;
-  end; // .if
+  end;
   Self.fCaseInsensitive :=  NewCaseInsensitive;
-end; // .procedure TStringList.SetCaseInsensitive
+end;
 
 procedure TStringList.SetForbidDuplicates (NewForbidDuplicates: boolean);
 begin
   if NewForbidDuplicates <> Self.ForbidDuplicates then begin
     if NewForbidDuplicates then begin
       Self.EnsureNoDuplicates;
-    end; // .if
+    end;
     Self.fForbidDuplicates  :=  NewForbidDuplicates;
-  end; // .if
-end; // .procedure TStringList.SetForbidDuplicates
+  end;
+end;
 
 procedure TStringList.LoadFromText (const Text, EndOfLineMarker: string);
 begin
@@ -1209,10 +1191,10 @@ begin
   if Self.Sorted then begin
     Self.fSorted  :=  false;
     Self.Sort;
-  end; // .if
+  end;
   if Self.ForbidDuplicates then begin
     Self.EnsureNoDuplicates;
-  end; // .if
+  end;
 end; // .procedure TStringList.LoadFromText
 
 function TStringList.ToText (const EndOfLineMarker: string): string;
@@ -1222,12 +1204,11 @@ var
 begin
   if Self.Count = Self.Capacity then begin
     result  :=  StrLib.Join(Self.fKeys, EndOfLineMarker);
-  end // .if
-  else begin
+  end else begin
     ClonedKeys  :=  Self.fKeys;
     SetLength(ClonedKeys, Self.Count);
     result  :=  StrLib.Join(ClonedKeys, EndOfLineMarker);;
-  end; // .else
+  end;
 end; // .function TStringList.ToText
 
 function TStringList.GetItem (const Key: string): (* n *) pointer;
@@ -1237,10 +1218,9 @@ var
 begin
   if Self.Find(Key, Ind) then begin
     result  :=  Self.fValues[Ind];
-  end // .if
-  else begin
+  end else begin
     result  :=  nil;
-  end; // .else
+  end;
 end; // .function TStringList.GetItem
 
 procedure TStringList.PutItem (const Key: string; (* OUn *) Value: pointer);
@@ -1250,10 +1230,9 @@ var
 begin
   if Self.Find(Key, Ind) then begin
     Self.PutValue(Ind, Value);
-  end // .if
-  else begin
+  end else begin
     Self.AddObj(Key, Value);
-  end; // .else
+  end;
 end; // .procedure TStringList.PutItem
 
 function NewList (OwnsItems: boolean; ItemsAreObjects: boolean; ItemType: TClass; AllowNIL: boolean): TList;
@@ -1272,7 +1251,7 @@ end; // .function NewList
 function NewStrictList ({n} TypeGuard: TClass): TList;
 begin
   result  :=  NewList(Utils.OWNS_ITEMS, Utils.ITEMS_ARE_OBJECTS, TypeGuard, Utils.ALLOW_NIL);
-end; // .function NewStrictList
+end;
 
 function NewSimpleList: TList;
 var
@@ -1282,7 +1261,7 @@ begin
   ItemGuard :=  nil;
   // * * * * * //
   result  :=  TList.Create(not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
-end; // .function NewSimpleList
+end;
 
 function NewStrList (OwnsItems: boolean; ItemsAreObjects: boolean; ItemType: TClass; AllowNIL: boolean): TStringList;
 var
@@ -1300,7 +1279,7 @@ end; // .function NewStrList
 function NewStrictStrList ({n} TypeGuard: TClass): TStringList;
 begin
   result  :=  NewStrList(Utils.OWNS_ITEMS, Utils.ITEMS_ARE_OBJECTS, TypeGuard, Utils.ALLOW_NIL);
-end; // .function NewStrictStrList
+end;
 
 function NewSimpleStrList: TStringList;
 var
@@ -1310,6 +1289,6 @@ begin
   ItemGuard :=  nil;
   // * * * * * //
   result  :=  TStringList.Create(not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
-end; // .function NewSimpleStrList
+end;
 
 end.

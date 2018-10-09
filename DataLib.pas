@@ -169,10 +169,9 @@ var
 begin
   if CaseInsensitive then begin
     KeyPreprocessFunc :=  SysUtils.AnsiLowerCase;
-  end // .if
-  else begin
+  end else begin
     KeyPreprocessFunc :=  nil;
-  end; // .else
+  end;
 
   result  :=  AssocArrays.NewAssocArr
   (
@@ -194,7 +193,7 @@ begin
     Utils.NO_TYPEGUARD,
     Utils.ALLOW_NIL
   );
-end; // .function NewObjDict
+end;
 
 function NewList (OwnsItems: boolean): {O} TList;
 begin
@@ -205,7 +204,7 @@ begin
     Utils.NO_TYPEGUARD,
     Utils.ALLOW_NIL
   );
-end; // .function NewList
+end;
 
 function NewStrList (OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 begin
@@ -230,7 +229,7 @@ begin
 
   for i := 0 to High(StrArr) do begin
     result.Add(StrArr[i]);
-  end; // .for
+  end;
 end; // .function NewStrListFromStrArr
 
 function NewHashedList (OwnsItems, CaseInsensitive: boolean): {O} THashedList;
@@ -330,7 +329,7 @@ begin
   Self.fDict      := Dict;
   Self.fIterating := TRUE;
   Dict.BeginIterate;
-end; // .procedure TDictIterator.BeginIterate
+end;
 
 function TDictIterator.IterNext: boolean;
 begin
@@ -340,8 +339,8 @@ begin
   
   if not result then begin
     Self.EndIterate;
-  end; // .if
-end; // .function TDictIterator.IterNext
+  end;
+end;
 
 procedure TDictIterator.EndIterate;
 begin
@@ -349,20 +348,20 @@ begin
     Self.fDict.EndIterate;
     Self.fDict      :=  nil;
     Self.fIterating :=  FALSE;
-  end; // .if
-end; // .procedure TDictIterator.EndIterate
+  end;
+end;
 
 function TDictIterator.GetIterKey: string;
 begin
   {!} Assert(Self.fIterating);
   result  :=  Self.fIterKey;
-end; // .function TDictIterator.GetIterKey
+end;
 
 function TDictIterator.GetIterValue: {Un} TObject;
 begin
   {!} Assert(Self.fIterating);
   result  :=  Self.fIterValue;
-end; // .function TDictIterator.GetIterValue
+end;
 
 function IterateDict ({U} Dict: TDict): IDictIterator;
 var
@@ -383,7 +382,7 @@ begin
   Self.fObjDict   := aObjDict;
   Self.fIterating := TRUE;
   aObjDict.BeginIterate;
-end; // .procedure TObjDictIterator.BeginIterate
+end;
 
 function TObjDictIterator.IterNext: boolean;
 begin
@@ -394,7 +393,7 @@ begin
   
   if not result then begin
     Self.EndIterate;
-  end; // .if
+  end;
 end; // .function TObjDictIterator.IterNext
 
 procedure TObjDictIterator.EndIterate;
@@ -403,20 +402,20 @@ begin
     Self.fObjDict.EndIterate;
     Self.fObjDict   := nil;
     Self.fIterating := FALSE;
-  end; // .if
-end; // .procedure TObjDictIterator.EndIterate
+  end;
+end;
 
 function TObjDictIterator.GetIterKey: {n} pointer;
 begin
   {!} Assert(Self.fIterating);
   result := Self.fIterKey;
-end; // .function TObjDictIterator.GetIterKey
+end;
 
 function TObjDictIterator.GetIterValue: {n} TObject;
 begin
   {!} Assert(Self.fIterating);
   result := Self.fIterValue;
-end; // .function TObjDictIterator.GetIterValue
+end;
 
 function IterateObjDict (aObjDict: TObjDict): IObjDictIterator;
 var
@@ -439,7 +438,7 @@ begin
   {!} Assert(DependentList <> nil);
   for i := 0 to DependentList.Count - 1 do begin
     MainList.Add(DependentList[i]);
-  end; // .for
+  end;
 end; // .procedure JoinLists
 
 function DictToStrList ({n} Dict: TDict; CaseInsensitive: boolean): {O} TStrList {U};
@@ -450,8 +449,8 @@ begin
     while IterNext do begin
       result.AddObj(IterKey, IterValue);
     end;
-  end; // .with
-end; // .function DictToStrList
+  end;
+end;
 
 function GetObjDictKeys ({n} ObjDict: TObjDict): {O} TList {U};
 begin
@@ -461,8 +460,8 @@ begin
     while IterNext do begin
       result.Add(IterKey);
     end;
-  end; // .with
-end; // .function GetObjDictKeys
+  end;
+end;
 
 function FlipDict (Dict: TDict): {O} TObjDict {OF TString};
 begin
@@ -522,7 +521,7 @@ begin
     end else begin
       result[Key] := Ptr(Reader.ReadInt());
     end;
-  end; // .for
+  end;
 end; // .function UnserializeDict
 
 function SerializeObjDict (Dict: TObjDict; KeySerializer: TSerializeProc = nil; ValueSerializer: TSerializeProc = nil): string;

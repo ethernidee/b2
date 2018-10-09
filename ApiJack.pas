@@ -205,7 +205,7 @@ begin
       end;
     except
       result := false;
-    end; // .try
+    end;
   end; // .if
 end; // .function StdWritePatch
 
@@ -263,7 +263,7 @@ begin
       end;
       
       Inc(CmdPtr, Disasm.Len);
-    end; // .while
+    end;
   end; // .if
 end; // .procedure FixRelativeOffsetsInMovedCode
 

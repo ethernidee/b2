@@ -263,10 +263,10 @@ begin
   
   if FreeOldLogger then begin
     SysUtils.FreeAndNil(Logger);
-  end; // .if
+  end;
   
   Logger := NewLogger;
-end; // .procedure InstallLogger
+end;
 
 begin
   Logger := TMemLogger.Create;

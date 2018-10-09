@@ -75,7 +75,7 @@ var
     if StrLen > 0 then begin
       Utils.CopyMem(StrLen, DataPtr, @result[1]);
       DataPtr := Utils.PtrOfs(DataPtr, StrLen);
-    end; // .if
+    end;
   end; // .function ReadStr
 
 begin
@@ -97,7 +97,7 @@ begin
     for i := 0 to NumLabels - 1 do begin
       Self.Labels[i].Offset := ReadInt();
       Self.Labels[i].Name   := ReadStr();
-    end; // .for
+    end;
 
     (* Read Modules section *)
 
@@ -107,7 +107,7 @@ begin
 
     for i := 0 to NumModules - 1 do begin
       Self.Modules[i].Name   := ReadStr();
-    end; // .for
+    end;
 
     (* Read Line Numbers section *)
 
@@ -119,7 +119,7 @@ begin
       Self.LineInfos[i].Offset    := ReadInt();
       Self.LineInfos[i].ModuleInd := ReadInt();
       Self.LineInfos[i].Line      := ReadInt();
-    end; // .for
+    end;
   end; // .if
 end; // .procedure TDebugMap.LoadFromString
 
@@ -149,7 +149,7 @@ begin
         Left  := MiddleInd + 1;
       end else begin
         break;
-      end; // .else
+      end;
     end; // .while
     
     if (Left <= Right) or (Left > MiddleInd) then begin
@@ -159,7 +159,7 @@ begin
       if LabelOffset > 0 then begin
         result := result + ' + ' + SysUtils.IntToStr(LabelOffset);
       end;
-    end; // .if
+    end;
   end; // .if
 
   if Self.LineInfos <> nil then begin
@@ -177,7 +177,7 @@ begin
         Left  := MiddleInd + 1;
       end else begin
         break;
-      end; // .else
+      end;
     end; // .while
     
     if ((Left <= Right) or (Left > MiddleInd)) and (MiddleLineRec.ModuleInd < length(Self.Modules)) then begin

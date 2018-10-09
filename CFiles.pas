@@ -132,7 +132,7 @@ begin
     Self.ReadUpTo(Count - TotalBytesRead, Utils.PtrOfs(Buf, TotalBytesRead), BytesRead)
   do begin
     TotalBytesRead  :=  TotalBytesRead + BytesRead;
-  end; // .while
+  end;
   
   result  :=  TotalBytesRead = Count;
 end; // .function TAbstractFile.Read
@@ -143,12 +143,12 @@ var
 
 begin
   result  :=  Self.ReadUpTo(sizeof(Res), @Res, BytesRead);
-end; // .function TAbstractFile.ReadByte
+end;
 
 function TAbstractFile.ReadInt (out Res: integer): boolean;
 begin
   result  :=  Self.Read(sizeof(Res), @Res);
-end; // .function TAbstractFile.ReadInt
+end;
 
 function TAbstractFile.ReadStr (Count: integer; out Res: string): boolean;
 begin
@@ -157,8 +157,8 @@ begin
   
   if not result then begin
     Res :=  '';
-  end; // .if
-end; // .function TAbstractFile.ReadStr
+  end;
+end;
 
 function TAbstractFile.ReadAllToBuf (out Buf: pointer; out Size: integer): boolean;
 var
@@ -172,8 +172,7 @@ begin
     Size  :=  Self.Size;
     GetMem(Buf, Size);
     result  :=  Self.Read(Size, Buf);
-  end // .if
-  else begin
+  end else begin
     BufSize :=  Self.MIN_BUF_SIZE;
     GetMem(Buf, BufSize);
     TotalBytesRead  :=  0;
@@ -187,19 +186,19 @@ begin
       if TotalBytesRead = BufSize then begin
         BufSize :=  BufSize * 2;
         ReallocMem(Buf, BufSize);
-      end; // .if
+      end;
     end; // .while
     
     result  :=  Self.EOF;
     
     if result and (BufSize > TotalBytesRead) then begin
       ReallocMem(Buf, TotalBytesRead);
-    end; // .if
+    end;
   end; // .else
   // * * * * * //
   if not result then begin
     FreeMem(Buf); Buf :=  nil;
-  end; // .if
+  end;
 end; // .function TAbstractFile.ReadAllToBuf
 
 function TAbstractFile.ReadAllToStr (out Str: string): boolean;
@@ -211,8 +210,7 @@ var
 begin
   if Self.HasKnownSize then begin
     result  :=  Self.ReadStr(Self.Size, Str);
-  end // .if
-  else begin
+  end else begin
     StrLen  :=  Self.MIN_BUF_SIZE;
     SetLength(Str, StrLen);
     TotalBytesRead  :=  0;
@@ -226,19 +224,19 @@ begin
       if TotalBytesRead = StrLen then begin
         StrLen  :=  StrLen * 2;
         SetLength(Str, StrLen);
-      end; // .if
+      end;
     end; // .while
     
     result  :=  Self.EOF;
     
     if result and (StrLen > TotalBytesRead) then begin
       SetLength(Str, TotalBytesRead);
-    end; // .if
+    end;
   end; // .else
   // * * * * * //
   if not result then begin
     Str :=  '';
-  end; // .if
+  end;
 end; // .function TAbstractFile.ReadAllToStr
 
 function TAbstractFile.Write (Count: integer; {n} Buf: pointer): boolean;
@@ -255,7 +253,7 @@ begin
     Self.WriteUpTo(Count - TotalBytesWritten, Utils.PtrOfs(Buf, TotalBytesWritten), BytesWritten)
   do begin
     TotalBytesWritten :=  TotalBytesWritten + BytesWritten;
-  end; // .while
+  end;
   
   result  :=  TotalBytesWritten = Count;
 end; // .function TAbstractFile.Write
@@ -300,8 +298,7 @@ begin
     result  :=
       Source.Read(Count, pointer(StrBuf)) and
       Self.Write(Count, pointer(StrBuf));
-  end // .if
-  else begin
+  end else begin
     NumWriteOpers   :=  Math.Ceil(Count / MAX_BUF_SIZE);
     NumBytesToWrite :=  MAX_BUF_SIZE;
     i               :=  1;
@@ -331,13 +328,12 @@ begin
   
   if Source.HasKnownSize then begin
     result  :=  Self.WriteFrom(Source.Size, Source);
-  end // .if
-  else begin
+  end else begin
     SetLength(StrBuf, Self.MAX_BUF_SIZE);
     
     while result and Source.ReadUpTo(Self.MAX_BUF_SIZE, pointer(StrBuf), BytesRead) do begin
       result  :=  Self.Write(BytesRead, pointer(StrBuf));
-    end; // .while
+    end;
     
     result  :=  result and Source.EOF;
   end; // .else

@@ -195,18 +195,18 @@ begin
   FileName := AnsiLowerCase(ExtractFileName(Path));
   Name     := StrLib.Capitalize(ChangeFileExt(FileName, ''));
   IsExe    := StrUtils.AnsiEndsStr('.exe', FileName);
-end; // .procedure TModuleInfo.EvaluateDerivatives
+end;
 
 function TModuleInfo.OwnsAddr ({n} Addr: pointer): boolean;
 begin
   result := (cardinal(Addr) >= cardinal(BaseAddr)) and (cardinal(Addr) < cardinal(EndAddr));
-end; // .function TModuleInfo.OwnsAddr
+end;
 
 function TModuleInfo.ToStr: string;
 begin
   result := Format('%s ("%s", size: %d, addr: %p, entry: %x)',
                    [Name, Path, Size, BaseAddr, integer(EntryPoint) - integer(BaseAddr)]);
-end; // .function TModuleInfo.ToStr
+end;
 
 constructor TModuleContext.Create;
 begin
@@ -223,7 +223,7 @@ function TModuleContext.CompareModulesByAddr (Ind1, Ind2: integer): integer;
 begin
   result := Alg.PtrCompare(TModuleInfo(fModuleList.Values[Ind1]).BaseAddr,
                            TModuleInfo(fModuleList.Values[Ind2]).BaseAddr);
-end; // .function TModuleContext.CompareModulesByAddr
+end;
 
 procedure SetDebugMapsDir (const Dir: string);
 begin
@@ -242,7 +242,7 @@ begin
     
     for i := 0 to fModuleList.Count - 1 do begin
       fModulesOrderByAddr[i] := i;
-    end; // .for
+    end;
 
     Alg.CustomQuickSort(pointer(fModulesOrderByAddr), 0, fModuleList.Count - 1,
                         CompareModulesByAddr);
@@ -253,13 +253,13 @@ function TModuleContext.GetModuleList: TModuleList;
 begin
   EnsureModuleList;
   result := fModuleList;
-end; // .function TModuleContext.GetModuleList
+end;
 
 function TModuleContext.GetModuleInfo (Ind: integer): TModuleInfo;
 begin
   EnsureModuleList;
   result := TModuleInfo(fModuleList.Values[Ind]);
-end; // .function TModuleContext.GetModuleInfo
+end;
 
 function TModuleContext.CompareModuleToAddr (OrderTableInd, Addr: integer): integer;
 var
@@ -274,24 +274,24 @@ begin
     result := +1;
   end else begin
     result := 0;
-  end; // .else
+  end;
 end; // .function TModuleContext.CompareModuleToAddr
 
 procedure TModuleContext.Lock;
 begin
   fCritSection.Enter;
-end; // .procedure TModuleContext.Lock
+end;
 
 procedure TModuleContext.Unlock;
 begin
   fCritSection.Leave;
-end; // .procedure TModuleContext.Unlock
+end;
 
 procedure TModuleContext.UpdateModuleList;
 begin
   FreeAndNil(fModuleList);
   fModulesOrderByAddr := nil;
-end; // .procedure TModuleContext.UpdateModuleList
+end;
 
 function TModuleContext.FindModuleByAddr ({n} Addr: pointer; out ModuleInd: integer): boolean;
 begin
@@ -301,8 +301,8 @@ begin
                                    integer(Addr), CompareModuleToAddr, ModuleInd);
   if result then begin
     ModuleInd := fModulesOrderByAddr[ModuleInd];
-  end; // .if
-end; // .function TModuleContext.FindModuleByAddr
+  end;
+end;
 
 function TModuleContext.AddrToStr ({n} Addr: pointer; AnalyzeData: bool = DONT_ANALYZE_DATA): string;
 const
@@ -342,7 +342,7 @@ begin
       result := result + IntToHex(integer(Addr), 8);
     end else begin
       result := result + IntToHex(integer(Addr) - integer(ModuleInfo.BaseAddr), 1);
-    end; // .else
+    end;
 
     if DebugMapsDir <> '' then begin
       DebugMap := Maps[ModuleInfo.Name];
@@ -401,7 +401,7 @@ begin
 
         if (length(TargetStrChunk) >= HEUR_MIN_STR_LEN) and (TrustedCharsInChunk * 100 div length(TargetStrChunk) >= HEUR_MIN_STR_TRUSTED_CHARS_PERCENTAGE) then begin
           result := result + ', str: "' + TargetStrChunk + '"';
-        end; // .if
+        end;
       end; // .if
     end; // .if
     
@@ -431,8 +431,8 @@ begin
     if result then begin
       Utils.CopyMem(Count, Src, Dst);
       result := Windows.VirtualProtect(Dst, Count, OldPageProtect, @OldPageProtect);
-    end; // .if
-  end; // .if
+    end;
+  end;
 end; // .function WriteAtCode_Standalone
 
 function Hook (HandlerAddr: pointer; HookType: integer; PatchSize: integer; CodeAddr: pointer): {n} pointer;
@@ -468,17 +468,17 @@ var
     
     if (Disasm.Len = sizeof(THookRec)) and ((Disasm.Opcode = OPCODE_JUMP) or (Disasm.Opcode = OPCODE_CALL)) then begin
       Dec(pinteger(@result[BufPos + 1])^, Delta);
-    end; // .if
+    end;
     
     Inc(BufPos, Disasm.Len);
-  end; // .while
+  end;
  end; // .function PreprocessCode
 
  function FieldOffset (RecAddr, FieldAddr: pointer): integer;
  begin
    {!} Assert(cardinal(FieldAddr) >= cardinal(RecAddr));
    result := cardinal(FieldAddr) - cardinal(RecAddr);
- end; // .function FieldOffset
+ end;
 
 begin
   {!} Assert(HandlerAddr <> nil);
@@ -493,7 +493,7 @@ begin
     HookRec.Opcode := OPCODE_JUMP;
   end else begin
     HookRec.Opcode := OPCODE_CALL;
-  end; // .else
+  end;
   
   if HookType = HOOKTYPE_BRIDGE then begin
     // Allocate memory block for bridge and assign pointers to its parts
@@ -527,7 +527,7 @@ begin
     SetLength(NopBuf, NopCount);
     FillChar(NopBuf[0], NopCount, Chr($90));
     {!} Assert(WriteAtCode(NopCount, pointer(NopBuf), Utils.PtrOfs(CodeAddr, sizeof(THookRec))));
-  end; // .if
+  end;
 end; // .function Hook
 
 function CalcHookSize (Code: pointer): integer;
@@ -542,31 +542,31 @@ begin
     Disasm.Disassemble(Code);
     result := result + Disasm.Len;
     Code   := Utils.PtrOfs(Code, Disasm.Len);
-  end; // .while
+  end;
 end; // .function CalcHookSize
 
 function ApiHook (HandlerAddr: pointer; HookType: integer; CodeAddr: pointer): {n} pointer;
 begin
   result := Hook(HandlerAddr, HookType, CalcHookSize(CodeAddr), CodeAddr);
-end; // .function ApiHook
+end;
 
 function GetStdcallArg (Context: PHookContext; ArgN: integer): pinteger;
 begin
   result := Ptr(Context.ESP + (4 + 4 * ArgN));
-end; // .function GetStdcallArg
+end;
 
 procedure KillThisProcess; assembler;
 asm
   XOR EAX, EAX
   MOV ESP, EAX
   MOV [EAX], EAX
-end; // .procedure KillThisProcess
+end;
 
 procedure GenerateException; assembler;
 asm
   xor eax, eax
   mov [eax], eax
-end; // .procedure GenerateException
+end;
 
 procedure NotifyError (const Err: string);
 begin
@@ -575,58 +575,58 @@ begin
   if AbortOnError then begin
     FatalError(Err);
   end;
-end; // .procedure NotifyError
+end;
 
 procedure FatalError (const Err: string);
 begin
   DlgMes.MsgError(Err);
   GenerateException;
-end; // .procedure FatalError
+end;
 
 procedure Ret0; assembler;
 asm
   // RET
-end; // .procedure Ret0
+end;
 
 procedure Ret4; assembler;
 asm
   ret 4
-end; // .procedure Ret4
+end;
 
 procedure Ret8; assembler;
 asm
   ret 8
-end; // .procedure Ret8
+end;
 
 procedure Ret12; assembler;
 asm
   ret 12
-end; // .procedure Ret12
+end;
 
 procedure Ret16; assembler;
 asm
   ret 16
-end; // .procedure Ret16
+end;
 
 procedure Ret20; assembler;
 asm
   ret 20
-end; // .procedure Ret20
+end;
 
 procedure Ret24; assembler;
 asm
   ret 24
-end; // .procedure Ret24
+end;
 
 procedure Ret28; assembler;
 asm
   ret 28
-end; // .procedure Ret28
+end;
 
 procedure Ret32; assembler;
 asm
   ret 32
-end; // .procedure Ret32
+end;
 
 function Ret (NumArgs: integer): pointer;
 begin
@@ -675,7 +675,7 @@ begin
           BaseAddr   := pointer(ModuleHandles[i]);
           EntryPoint := ModuleInfoRes.EntryPoint;
           Size       := ModuleInfoRes.SizeOfImage;
-        end; // .with
+        end;
 
         ModuleInfo.EvaluateDerivatives;
         result.AddObj(ModuleInfo.Name, ModuleInfo); ModuleInfo := nil;
@@ -705,7 +705,7 @@ begin
 
     if result then begin
       ModuleInd := i;
-    end; // .if
+    end;
   end; // .if
 end; // .function FindModuleByAddr
 

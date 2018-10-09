@@ -217,7 +217,7 @@ end; // .destructor TStrBuilder.Destroy
 procedure TStrBuilder.Append (const Str: string);
 begin
   Self.AppendBuf(Length(Str), pointer(Str));
-end; // .procedure TStrBuilder.Append
+end;
 
 procedure TStrBuilder.AppendBuf (BufSize: integer; {n} Buf: pointer);
 var
@@ -233,14 +233,14 @@ begin
       SetLength(Self.fCurrItem.Data, Math.Max(BufSize, Self.MIN_BLOCK_SIZE));
       Self.fCurrItem.DataSize := 0;
       Self.fCurrItem.NextItem := nil;
-    end; // .if
+    end;
     
     LeftPartSize  := Math.Min(BufSize, Length(Self.fCurrItem.Data) - Self.fCurrItem.DataSize);
     RightPartSize := BufSize - LeftPartSize;
     
     if LeftPartSize > 0 then begin
       Utils.CopyMem(LeftPartSize, Buf, @Self.fCurrItem.Data[Self.fCurrItem.DataSize]);
-    end; // .if
+    end;
     
     Self.fCurrItem.DataSize := Self.fCurrItem.DataSize + LeftPartSize;
     
@@ -251,7 +251,7 @@ begin
       Self.fCurrItem.DataSize := RightPartSize;
       Self.fCurrItem.NextItem := nil;
       Utils.CopyMem(RightPartSize, Utils.PtrOfs(Buf, LeftPartSize), @Self.fCurrItem.Data[0]);
-    end; // .if
+    end;
     
     Self.fSize := Self.fSize + BufSize;
   end; // .if
@@ -260,17 +260,17 @@ end; // .procedure TStrBuilder.AppendBuf
 procedure TStrBuilder.WriteByte (Value: byte);
 begin
   Self.AppendBuf(sizeof(Value), @Value);
-end; // .procedure TStrBuilder.WriteByte
+end;
 
 procedure TStrBuilder.WriteWord (Value: word);
 begin
   Self.AppendBuf(sizeof(Value), @Value);
-end; // .procedure TStrBuilder.WriteWord
+end;
 
 procedure TStrBuilder.WriteInt (Value: integer);
 begin
   Self.AppendBuf(sizeof(Value), @Value);
-end; // .procedure TStrBuilder.WriteInt
+end;
 
 function TStrBuilder.BuildStr: string;
 var
@@ -287,7 +287,7 @@ begin
     Utils.CopyMem(CurrItem.DataSize, @CurrItem.Data[0], Utils.PtrOfs(pointer(result), Pos));
     Pos      := Pos + CurrItem.DataSize;
     CurrItem := CurrItem.NextItem;
-  end; // .while
+  end;
 end; // .function TStrBuilder.BuildStr
 
 function TStrBuilder.BuildBuf: TArrayOfByte;
@@ -305,7 +305,7 @@ begin
     Utils.CopyMem(CurrItem.DataSize, @CurrItem.Data[0], Utils.PtrOfs(pointer(result), Pos));
     Pos      := Pos + CurrItem.DataSize;
     CurrItem := CurrItem.NextItem;
-  end; // .while
+  end;
 end; // .function TStrBuilder.BuildBuf
 
 procedure TStrBuilder.Clear;
@@ -321,7 +321,7 @@ begin
     NextItem := CurrItem.NextItem;
     Dispose(CurrItem);
     CurrItem := NextItem;
-  end; // .while
+  end;
   
   Self.fRootItem := nil;
   Self.fCurrItem := nil;
@@ -425,7 +425,7 @@ end; // .function TByteMapper.ReadStrWithLenField
 function MakeStr: IStrBuilder;
 begin
   result := TStrBuilder.Create;
-end; // .function MakeStr
+end;
 
 function StrAsByteSource (const Str: string): IByteSource;
 begin
@@ -445,7 +445,7 @@ end;
 function InStrBounds (Pos: integer; const Str: string): boolean;
 begin
   result := Math.InRange(Pos, 1, Length(Str));
-end; // .function InStrBounds
+end;
 
 function BytesToAnsiString (PBytes: PBYTE; NumBytes: integer): AnsiString;
 begin
@@ -453,7 +453,7 @@ begin
   {!} Assert(NumBytes >= 0);
   SetLength(result, NumBytes);
   Utils.CopyMem(NumBytes, PBytes, pointer(result));
-end; // .function BytesToAnsiString
+end;
 
 function BytesToWideString (PBytes: PBYTE; NumBytes: integer): WideString;
 begin
@@ -462,7 +462,7 @@ begin
   {!} Assert(Utils.EVEN(NumBytes));
   SetLength(result, NumBytes shr 1);
   Utils.CopyMem(NumBytes, PBytes, pointer(result));
-end; // .function BytesToWideString
+end;
 
 function FindCharEx (Ch: char; const Str: string; StartPos: integer; out CharPos: integer): boolean;
 var
@@ -476,12 +476,12 @@ begin
     i :=  StartPos;
     while (i <= StrLen) and (Str[i] <> Ch) do begin
       Inc(i);
-    end; // .while
+    end;
     result := i <= StrLen;
     if result then begin
       CharPos :=  i;
-    end; // .if
-  end; // .if
+    end;
+  end;
 end; // .function FindCharEx
 
 function ReverseFindCharEx
@@ -503,23 +503,23 @@ begin
     i :=  StartPos;
     while (i >= 1) and (Str[i] <> Ch) do begin
       Dec(i);
-    end; // .while
+    end;
     result := i >= 1;
     if result then begin
       CharPos :=  i;
-    end; // .if
-  end; // .if
+    end;
+  end;
 end; // .function ReverseFindCharEx
 
 function FindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
 begin
   result := FindCharEx(Ch, Str, 1, CharPos);
-end; // .function FindChar
+end;
 
 function ReverseFindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
 begin
   result := ReverseFindCharEx(Ch, Str, Length(Str), CharPos);
-end; // .function ReverseFindChar
+end;
 
 function FindCharExW (Ch: WideChar; const Str: WideString; StartPos: integer; out CharPos: integer): boolean;
 var
@@ -565,18 +565,18 @@ begin
     i :=  StartPos;
     while (i <= StrLen) and not (Str[i] in Charset) do begin
       Inc(i);
-    end; // .while
+    end;
     result := i <= StrLen;
     if result then begin
       CharPos :=  i;
-    end; // .if
-  end; // .if
+    end;
+  end;
 end; // .function FindCharsetEx
 
 function FindCharset (Charset: Utils.TCharSet; const Str: string; out CharPos: integer): boolean;
 begin
   result := FindCharsetEx(Charset, Str, 1, CharPos);
-end; // .function FindCharset
+end;
 
 function FindSubstrEx (const Substr, Str: string; StartPos: integer; out SubstrPos: integer): boolean;
 var
@@ -590,13 +590,13 @@ begin
     result    := true;
   end else begin
     result    := false;
-  end; // .else
+  end;
 end; // .function FindSubstrEx
 
 function FindSubstr (const Substr, Str: string; out SubstrPos: integer): boolean;
 begin
   result := FindSubstrEx(Substr, Str, 1, SubstrPos);
-end; // .function FindSubstr
+end;
 
 function FindStrEx (const Needle, Haystack: string; Pos: integer; out FoundPos: integer): boolean;
 const
@@ -629,7 +629,7 @@ var
     end else begin
       GetMem(FallbackTableBuf, (NeedleLen + 1) * sizeof(integer));
       FallbackTable := FallbackTableBuf;
-    end; // .else
+    end;
 
     // First not matched char always redirect to start, starting analysis from the the second one
     FallbackTable[START_STRING_POS] := START_STRING_POS;
@@ -654,7 +654,7 @@ var
           Inc(i);
           Inc(k);
         until (k > NeedleLen) or (Needle[i] <> Needle[k]);
-      end; // .if
+      end;
     end; // .while
   end; // .procedure GenerateFallbackTable
 
@@ -667,7 +667,7 @@ var
             (HaystackPtr^ <> FirstFourNeedleChars)
       do begin
         Inc(pbyte(HaystackPtr));
-      end; // .while
+      end;
 
       i := START_STRING_POS + sizeof(integer);
 
@@ -675,7 +675,7 @@ var
         Pos := Pos + (integer(HaystackPtr) - integer(@Haystack[Pos])) + sizeof(integer);
       end else begin
         Pos := MAXINT;
-      end; // .else
+      end;
     end; // .if
   end; // .procedure FindFirstNeedleChars
 
@@ -685,7 +685,7 @@ begin
   // * * * * * //
   if Pos < START_STRING_POS then begin
     Pos := START_STRING_POS;
-  end; // .if
+  end;
 
   NeedleLen        := Length(Needle);
   HaystackLen      := Length(Haystack);
@@ -717,7 +717,7 @@ begin
             FindFirstNeedleChars;
           end else begin
             i := FallbackPos;
-          end; // .else
+          end;
         end; // .else
       end; // .while
 
@@ -725,7 +725,7 @@ begin
 
       if result then begin
         FoundPos := Pos - NeedleLen;
-      end; // .if
+      end;
     end; // .else
   end; // .if
   // * * * * * //
@@ -735,7 +735,7 @@ end; // .function FindStrEx
 function FindStr (const Needle, Haystack: string; out FoundPos: integer): boolean;
 begin
   result := FindStrEx(Needle, Haystack, 1, FoundPos);
-end; // .function FindStr
+end;
 
 function ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfStr;
 var
@@ -786,7 +786,7 @@ begin
         
         if InclDelim and (i < NumDelims) then begin
           TokenLen := TokenLen + DelimLen;
-        end; // .if
+        end;
         
         result[i]     := Copy(Str, TokenStartPos, TokenLen);
         TokenStartPos := TokenStartPos + DelimLen + TokenLen - ord(InclDelim);
@@ -800,7 +800,7 @@ end; // .function ExplodeEx
 function Explode (const Str: string; const Delim: string): TArrayOfStr;
 begin
   result := ExplodeEx(Str, Delim, not INCLUDE_DELIM, not LIMIT_TOKENS, 0);
-end; // .function Explode
+end;
 
 function Join (const Arr: TArrayOfStr; const Glue: string): string;
 var
@@ -821,7 +821,7 @@ begin
     ResultSize := 0;
     for i:=0 to ArrLen - 1 do begin
       ResultSize := ResultSize + Length(Arr[i]);
-    end; // .for
+    end;
     ResultSize := ResultSize + NumPairs * GlueLen;
     SetLength(result, ResultSize);
     Mem :=  pointer(result);
@@ -829,15 +829,14 @@ begin
       for i:=0 to NumPairs - 1 do begin
         Utils.CopyMem(Length(Arr[i]), pointer(Arr[i]), Mem);
         Mem :=  Utils.PtrOfs(Mem, Length(Arr[i]));
-      end; // .for
-    end // .if
-    else begin
+      end;
+    end else begin
       for i:=0 to NumPairs - 1 do begin
         Utils.CopyMem(Length(Arr[i]), pointer(Arr[i]), Mem);
         Mem :=  Utils.PtrOfs(Mem, Length(Arr[i]));
         Utils.CopyMem(Length(Glue), pointer(Glue), Mem);
         Mem :=  Utils.PtrOfs(Mem, Length(Glue));
-      end; // .for
+      end;
     end; // .else
     Utils.CopyMem(Length(Arr[NumPairs]), pointer(Arr[NumPairs]), Mem);
   end; // .if
@@ -917,12 +916,11 @@ var
       BufPos^ :=  '#';                            Inc(BufPos);
       BufPos^ :=  CHR(ORD(c) div 10 + ORD('0'));  Inc(BufPos);
       BufPos^ :=  CHR(ORD(c) mod 10 + ORD('0'));  Inc(BufPos);
-    end // .if
-    else begin
+    end else begin
       BufPos^ :=  '"';  Inc(BufPos);
       BufPos^ :=  c;    Inc(BufPos);
       BufPos^ :=  '"';  Inc(BufPos);
-    end; // .else
+    end;
     Inc(BufSize, SPACE_PER_ITEM);
   end; // .procedure WriteItem
 
@@ -937,11 +935,11 @@ begin
         BufPos^ :=  DELIMETER[1]; Inc(BufPos);
         BufPos^ :=  DELIMETER[2]; Inc(BufPos);
         Inc(BufSize, DELIM_LEN);
-      end; // .if
+      end;
       FinitItemInd := StartItemInd + 1;
       while (FinitItemInd < CHARSET_CAPACITY) and (CHR(FinitItemInd) in Charset) do begin
         Inc(FinitItemInd);
-      end; // .while
+      end;
       RangeLen := FinitItemInd - StartItemInd;
       WriteItem(CHR(StartItemInd));
       if RangeLen > 1 then begin
@@ -949,12 +947,11 @@ begin
           BufPos^ :=  '-';
           Inc(BufPos);
           Inc(BufSize);
-        end; // .if
+        end;
         WriteItem(CHR(FinitItemInd - 1));
-      end; // .if
+      end;
       StartItemInd := FinitItemInd;
-    end // .if
-    else begin
+    end else begin
       Inc(StartItemInd);
     end; // .else
   end; // .while
@@ -977,19 +974,19 @@ begin
     while Value >= Arabics[i] do begin
       Value  := Value - Arabics[i];
       result := result + Romans[i];
-    end; // .while
-  end; // .for
+    end;
+  end;
 end; // .function IntToRoman
 
 function CharToLower (c: char): char;
 begin
   result := CHR(integer(Windows.CharLower(Ptr(ORD(c)))));
-end; // .function CharToLower
+end;
 
 function CharToUpper (c: char): char;
 begin
   result := CHR(integer(Windows.CharUpper(Ptr(ORD(c)))));
-end; // .function CharToUpper
+end;
 
 function Capitalize (const Str: string): string;
 begin
@@ -997,22 +994,20 @@ begin
 
   if result <> '' then begin
     result[1] := CharToUpper(result[1]);
-  end; // .if
-end; // .function Capitalize
+  end;
+end;
 
 function HexCharToByte (HexChar: char): byte;
 begin
   HexChar :=  CharToLower(HexChar);
   if HexChar in ['0'..'9'] then begin
     result := ORD(HexChar) - ORD('0');
-  end // .if
-  else if HexChar in ['a'..'f'] then begin
+  end else if HexChar in ['a'..'f'] then begin
     result := ORD(HexChar) - ORD('a') + 10;
-  end // .ELSEIF
-  else begin
+  end else begin
     result := 0;
     {!} Assert(FALSE);
-  end; // .else
+  end;
 end; // .function HexCharToByte
 
 function ByteToHexChar (ByteValue: byte): char;
@@ -1020,11 +1015,10 @@ begin
   {!} Assert(Math.InRange(ByteValue, $00, $0F));
   if ByteValue < 10 then begin
     result := CHR(ByteValue + ORD('0'));
-  end // .if
-  else begin
+  end else begin
     result := CHR(ByteValue - 10 + ORD('A'));
-  end; // .else
-end; // .function ByteToHexChar
+  end;
+end;
 
 function Concat (const Strings: array of string): string;
 var
@@ -1037,7 +1031,7 @@ begin
   ResLen := 0;
   for i:=0 to High(Strings) do begin
     ResLen := ResLen + Length(Strings[i]);
-  end; // .for
+  end;
   
   SetLength(result, ResLen);
   
@@ -1047,8 +1041,8 @@ begin
     if StrLen > 0 then begin
       Utils.CopyMem(StrLen, pointer(Strings[i]), Utils.PtrOfs(pointer(result), Offset));
       Offset := Offset + StrLen;
-    end; // .if
-  end; // .for
+    end;
+  end;
 end; // .function Concat
 
 function TrimEx (const Str: string; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): string;
@@ -1069,7 +1063,7 @@ begin
       while (Left <= Right) and (Str[Left] in TrimCharSet) do begin
         inc(Left);
       end;
-    end; // .if
+    end;
 
     if (RIGHT_SIDE in TrimSides) and (Left <= Right) then begin
       while (Right >= 1) and (Str[Right] in TrimCharSet) do begin
@@ -1092,7 +1086,7 @@ begin
   
   if ReverseFindChar('.', result, DotPos) then begin
     SetLength(result, DotPos - 1);
-  end; // .if
+  end;
 end; // .function ExtractBaseFileName
 
 function SubstrBeforeChar (const Str: string; Ch: char): string;
@@ -1102,10 +1096,9 @@ var
 begin
   if FindChar(Ch, Str, CharPos) then begin
     result := COPY(Str, 1, CharPos - 1);
-  end // .if
-  else begin
+  end else begin
     result := Str;
-  end; // .else
+  end;
 end; // .function SubstrBeforeChar
 
 function Match (const Str, Pattern: string): boolean;
@@ -1240,10 +1233,9 @@ begin
           
           if (p > PatternLen) or (Pattern[p] <> ANY_SYMS_WILDCARD) then begin
             State :=  STATE_EXIT;
-          end // .if
-          else begin
+          end else begin
             STATE :=  STATE_SKIP_WILDCARDS;
-          end; // .else
+          end;
         end; // .case STATE_STRICT_COMPARE
         
       STATE_SKIP_WILDCARDS:
@@ -1251,40 +1243,38 @@ begin
           while (p <= PatternLen) and (Pattern[p] in WILDCARDS) do begin
             if Pattern[p] = ONE_SYM_WILDCARD then begin
               Inc(s);
-            end; // .if
+            end;
             
             Inc(p);
-          end; // .while
+          end;
           
           if p <= PatternLen then begin
             c     := Pattern[p];
             State := STATE_FIRST_LETTER_SEARCH;
-          end // .if
-          else begin
+          end else begin
             if s <= StrLen then begin
               s := StrLen + 1;
-            end; // .if
+            end;
           
             State := STATE_EXIT;
-          end; // .else
+          end;
         end; // .case STATE_SKIP_WILDCARDS
         
       STATE_FIRST_LETTER_SEARCH:
         begin
           while (s <= StrLen) and (Str[s] <> c) do begin
             Inc(s);
-          end; // .while
+          end;
           
           if s > StrLen then begin
             State := STATE_EXIT;
-          end // .if
-          else begin
+          end else begin
             StrBasePos     := s;
             PatternBasePos := p;
             Inc(p);
             Inc(s);
             State          := STATE_MATCH_SUBSTR_TAIL;
-          end; // .else
+          end;
         end; // .case STATE_FIRST_LETTER_SEARCH
         
       STATE_MATCH_SUBSTR_TAIL:
@@ -1293,16 +1283,14 @@ begin
           
           if (p > PatternLen) or (Pattern[p] = ANY_SYMS_WILDCARD) then begin
             State := STATE_STRICT_COMPARE;
-          end // .if
-          else if ((PAttern[p]) = ONE_SYM_WILDCARD) or (s > StrLen) then begin
+          end else if ((PAttern[p]) = ONE_SYM_WILDCARD) or (s > StrLen) then begin
             STATE := STATE_EXIT;
-          end // .ELSEIF
-          else begin
+          end else begin
             Inc(StrBasePos);
             p     := PatternBasePos;
             s     := StrBasePos;
             State := STATE_FIRST_LETTER_SEARCH;
-          end; // .else
+          end;
         end; // .case STATE_MATCH_SUBSTR_TAIL
     end; // .SWITCH State
   end; // .while
@@ -1375,12 +1363,12 @@ begin
     while (Count > 0) and (Str^ <> #0) do begin
       Dec(Count);
       Inc(Str);
-    end; // .while
+    end;
     
     StrLen := Str - Buf;
     SetLength(result, StrLen);
     Utils.CopyMem(StrLen, Buf, pointer(result));
-  end; // .if
+  end;
 end; // .function ExtractFromPchar
 
 function BufToStr ({n} Buf: pointer; BufSize: integer): string;
@@ -1390,8 +1378,8 @@ begin
 
   if BufSize > 0 then begin
     Utils.CopyMem(BufSize, Buf, @result[1]);
-  end; // .if
-end; // .function BufToStr
+  end;
+end;
 
 function IsBinaryStr (const Str: string): boolean;
 var
@@ -1402,7 +1390,7 @@ begin
   
   while (i <= Length(Str)) and not (Str[i] in BINARY_CHARACTERS) do begin
     Inc(i);
-  end; // .while
+  end;
 
   result := i <= Length(Str);
 end; // .function IsBinaryStr

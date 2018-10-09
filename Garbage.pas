@@ -66,7 +66,7 @@ begin
         HookFound := true;
         HookAddr  := Utils.PtrOfs(Addr, BufPos + sizeof(THookRec)
                                                + pinteger(Utils.PtrOfs(Addr, BufPos + 1))^);
-      end; // .else
+      end;
       
       Inc(BufPos, Disasm.Len);
     end; // .while
@@ -102,7 +102,7 @@ var
 begin
   Ch     := Self.c;
   result := (Ch in DIGITS) or ((Ch in SIGNS) and (CharsRel[1] in DIGITS));
-end; // .function TTextScanner.IsInt
+end;
 
 function TTextScanner.IsHexInt: boolean;
 var
@@ -119,17 +119,17 @@ end; // .function TTextScanner.IsHexInt
 function TTextScanner.IsFloat: boolean;
 begin
   result := IsInt or ((Self.c = FLOAT_DELIM) and (CharsRel[1] in DIGITS));
-end; // .function TTextScanner.IsFloat
+end;
 
 function TTextScanner.IsNumber: boolean;
 begin
   result := IsFloat or IsHexInt;
-end; // .function TTextScanner.IsNumber
+end;
 
 function TTextScanner.IsIdent: boolean;
 begin
   result := Self.c in IDENT_HEAD;
-end; // .function TTextScanner.IsIdent
+end;
 
 function TTextScanner.ReadAnyHexInt (out Res: integer): boolean;
 var
@@ -147,7 +147,7 @@ begin
       GotoRelPos( +2 );
     end else if Ch = '$' then begin
       GotoNextChar;
-    end; // .else
+    end;
 
     StartPos := fPos;
     SkipCharset(HEX_DIGITS);
@@ -156,6 +156,6 @@ begin
 
     if result then begin
       Res := ResValue;
-    end; // .if
+    end;
   end; // .if
 end; // .function TTextScanner.ReadAnyHexInt

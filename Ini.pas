@@ -39,12 +39,12 @@ var
 procedure ClearIniCache (const FileName: string);
 begin
   CachedIniFiles.DeleteItem(SysUtils.ExpandFileName(FileName));
-end; // .procedure ClearIniCache
+end;
 
 procedure ClearAllIniCache;
 begin
   CachedIniFiles.Clear;
-end; // .procedure ClearAllIniCache
+end;
 
 function LoadIni (FilePath: string): boolean;
 const
@@ -69,7 +69,7 @@ var
  begin
    TextScanner.FindChar(LINE_END_MARKER);
    TextScanner.GotoNextChar;
- end; // .procedure GotoNextLine  
+ end;
     
 begin
   TextScanner :=  TextScan.TTextScanner.Create;
@@ -89,8 +89,7 @@ begin
       if TextScanner.GetCurrChar(c) then begin
         if c = ';' then begin
           GotoNextLine;
-        end // .if
-        else begin
+        end else begin
           if c = '[' then begin
             TextScanner.GotoNextChar;
             
@@ -107,10 +106,9 @@ begin
               if CurrSection = nil then begin
                 CurrSection           :=  AssocArrays.NewStrictAssocArr(TString);
                 Sections[SectionName] :=  CurrSection;
-              end; // .if
-            end; // .if
-          end // .if
-          else begin
+              end;
+            end;
+          end else begin
             TextScanner.ReadTokenTillDelim(KEY_DELIMS, Key);
             result  :=  TextScanner.GetCurrChar(c) and (c = '=');
             
@@ -120,15 +118,14 @@ begin
               
               if not TextScanner.ReadTokenTillDelim(DEFAULT_DELIMS, Value) then begin
                 Value :=  '';
-              end // .if
-              else begin
+              end else begin
                 Value :=  Trim(Value);
-              end; // .else
+              end;
               
               if CurrSection = nil then begin
                 CurrSection   :=  AssocArrays.NewStrictAssocArr(TString);
                 Sections['']  :=  CurrSection;
-              end; // .if
+              end;
               
               CurrSection[Key]  :=  TString.Create(Value);
             end; // .if
@@ -139,8 +136,7 @@ begin
     
     if result then begin
       CachedIniFiles[FilePath]  :=  Sections; Sections  := nil;
-    end // .if
-    else begin
+    end else begin
       Log.Write
       (
         'Ini',
@@ -189,7 +185,7 @@ begin
     while CachedIni.IterateNext(SectionName, pointer(Section)) do begin
       SectionNames.AddObj(SectionName, Section);
       Section :=  nil;
-    end; // .while
+    end;
     
     CachedIni.EndIterate;
     
@@ -200,7 +196,7 @@ begin
         StrBuilder.Append('[');
         StrBuilder.Append(SectionNames[i]);
         StrBuilder.Append(']'#13#10);
-      end; // .if
+      end;
       
       Section :=  SectionNames.Values[i];
       
@@ -209,7 +205,7 @@ begin
       while Section.IterateNext(Key, pointer(Value)) do begin
         SectionKeys.AddObj(Key, Value);
         Value :=  nil;
-      end; // .while
+      end;
       
       Section.EndIterate;
       
@@ -220,7 +216,7 @@ begin
         StrBuilder.Append('=');
         StrBuilder.Append(TString(SectionKeys.Values[j]).Value);
         StrBuilder.Append(#13#10);
-      end; // .for
+      end;
       
       SectionKeys.Clear;
       SectionKeys.Sorted :=  FALSE;
@@ -258,7 +254,7 @@ begin
   if CachedIni = nil then begin
     LoadIni(FilePath);
     CachedIni :=  CachedIniFiles[FilePath];
-  end; // .if
+  end;
   
   result  :=  CachedIni <> nil;
   
@@ -272,8 +268,8 @@ begin
       
       if result then begin
         Res :=  Value.Value;
-      end; // .if
-    end; // .if
+      end;
+    end;
   end; // .if
 end; // .function ReadStrFromIni
 
@@ -292,7 +288,7 @@ begin
   
   if (CachedIni = nil) and LoadIni(FilePath) then begin
     CachedIni :=  CachedIniFiles[FilePath];
-  end; // .if
+  end;
   
   result  :=
     not StrLib.FindCharset([';', #10, #13, ']'], SectionName, InvalidCharPos) and
@@ -304,14 +300,14 @@ begin
     if CachedIni = nil then begin
       CachedIni                 :=  AssocArrays.NewStrictAssocArr(TAssocArray);
       CachedIniFiles[FilePath]  :=  CachedIni;
-    end; // .if
+    end;
     
     Section :=  CachedIni[SectionName];
     
     if Section = nil then begin
       Section                 :=  AssocArrays.NewStrictAssocArr(TString);
       CachedIni[SectionName]  :=  Section;
-    end; // .if
+    end;
     
     Section[Key]  :=  TString.Create(Value);
   end; // .if

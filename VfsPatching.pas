@@ -46,7 +46,7 @@ begin
       end;
     except
       result := false;
-    end; // .try
+    end;
   end; // .if
 end; // .function WriteAtCode
 

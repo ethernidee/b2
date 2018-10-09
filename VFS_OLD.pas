@@ -183,7 +183,7 @@ begin
           end;
 
           Inc(j);
-        end; // .while
+        end;
 
         Inc(ImportDir);
       end; // .while
@@ -242,7 +242,7 @@ var
 begin
   result := not StrLib.FindChar(':', Path, DesignatorPos) and
             not StrUtils.AnsiStartsStr('\\', Path);
-end; // .function IsRelativePath
+end;
 
 procedure MakeModList;
 var
@@ -262,7 +262,7 @@ begin
 
   if ModListFilePath = '' then begin
     ModListFilePath := DEFAULT_MODLIST_FILEPATH;
-  end; // .if
+  end;
   
   if Files.ReadFileContents(ModListFilePath, ModListText) then begin
     FileList.LoadFromText(ModListText, #13#10);
@@ -280,14 +280,14 @@ begin
 
         if not ModList.Find(ModPath, ModInd) and Files.DirExists(ModPath) then begin
           ModList.Add(ModPath);
-        end; // .if
-      end; // .if
+        end;
+      end;
     end; // .for
   end; // .if
   
   if DebugOpt then begin
     Log.Write('VFS', 'MakeModList', 'mod list:'#13#10 + ModList.ToText(#13#10));
-  end; // .if
+  end;
   // * * * * * //
   SysUtils.FreeAndNil(FileList);
 end; // .procedure MakeModList
@@ -295,7 +295,7 @@ end; // .procedure MakeModList
 function FileExists (const FilePath: string): boolean;
 begin
   result := NativeGetFileAttributes(pchar(FilePath)) <> -1;
-end; // .function FileExists
+end;
 
 function DirExists (const FilePath: string): boolean;
 var
@@ -304,7 +304,7 @@ var
 begin
   Attrs := NativeGetFileAttributes(pchar(FilePath));
   result := (Attrs <> - 1) and ((Attrs and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0);
-end; // .function DirExists
+end;
 
 function FindVFSPath (const RelativePath: string; out RedirectedPath: string): boolean;
 var
@@ -321,14 +321,14 @@ begin
 
   if DebugOpt then begin
     Log.Write('VFS', 'FindVFSPath', 'Original: ' + RelativePath);
-  end; // .if
+  end;
   
   if CachedPaths.GetExistingValue(RelativePath, pointer(RedirectedPathValue)) then begin
     result := RedirectedPathValue.Value <> '';
     
     if result then begin
       RedirectedPath := RedirectedPathValue.Value;
-    end; // .if
+    end;
   end else begin
     NumMods := ModList.Count;
     i := 0;
@@ -338,13 +338,13 @@ begin
       result         := FileExists(RedirectedPath);
 
       Inc(i);
-    end; // .while
+    end;
     
     if result then begin
       CachedPaths[RelativePath] := TString.Create(RedirectedPath);
     end else begin
       CachedPaths[RelativePath] := TString.Create('');
-    end; // .else
+    end;
   end; // .else
 
   if DebugOpt then begin
@@ -352,8 +352,8 @@ begin
       Log.Write('VFS', 'FindVFSPath', 'Redirected: ' + RedirectedPath);
     end else begin
       Log.Write('VFS', 'FindVFSPath', 'result: NOT_FOUND');
-    end; // .else
-  end; // .if
+    end;
+  end;
   
   {!} Windows.LeaveCriticalSection(CachedPathsCritSection);
 end; // .function FindVFSPath
@@ -387,7 +387,7 @@ function GameRelativePath (const FullPath: string): string;
 begin
   // Copy rest of path right after "\" character
   result := System.Copy(FullPath, Length(GamePath) + sizeof('\') + 1);
-end; // .function GameRelativePath
+end;
 
 procedure MyScanDir (const MaskedPath: string; SearchList: TSearchList);
 var
@@ -402,9 +402,9 @@ begin
         New(FoundData);
         FoundData^ := FoundRec.Rec.FindData;
         SearchList.FileList.AddObj(FoundName, FoundData);
-      end; // .if
-    end; // .while
-  end; // .with 
+      end;
+    end;
+  end; 
 end; // .procedure MyScanDir
 
 function MyFindFirstFile (const MaskedPath: string; IsInternalSearch: boolean; out ResHandle: integer): boolean;
@@ -421,15 +421,15 @@ begin
     
     if VFS_EXTRA_DEBUG then begin
       Log.Write('VFS', 'MyFindFirstFile', 'RelativePath: ' + RelativePath);
-    end; // .if
+    end;
   
     for i := 0 to ModList.Count - 1 do begin
       if VFS_EXTRA_DEBUG then begin
         Log.Write('VFS', 'MyFindFirstFile', 'TestPath: ' + ModList[i] + '\' + RelativePath);
-      end; // .if
+      end;
 
       MyScanDir(ModList[i] + '\' + RelativePath, SearchList);
-    end; // .for
+    end;
   end; // .if
   
   MyScanDir(MaskedPath, SearchList);
@@ -440,7 +440,7 @@ begin
     
     while (hSearch < MAX_SEARCH_HANDLE) and (SearchHandles[Ptr(hSearch)] <> nil) do begin
       Inc(hSearch);
-    end; // .while
+    end;
     
     {!} Assert(hSearch < MAX_SEARCH_HANDLE); 
     ResHandle := hSearch;
@@ -463,7 +463,7 @@ begin
   if result then begin
     Inc(SearchList.FileInd);
     ResData := SearchList.FileList.Values[SearchList.FileInd];
-  end; // .if
+  end;
 end; // .function MyFindNextFile
 
 function Hook_GetFullPathNameA (Hook: PatchApi.THiHook; lpFileName: pchar;
@@ -549,7 +549,7 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'CreateFileA', 'Original: ' + FilePath);
-  end; // .if
+  end;
   
   FilePath      :=  SysUtils.ExpandFileName(FilePath);
   CreationFlags :=  dwCreationDisposition;
@@ -564,11 +564,11 @@ begin
     FindVFSPath(GameRelativePath(FilePath), RedirectedFilePath)
   then begin
     FinalFilePath := RedirectedFilePath;
-  end; // .if
+  end;
   
   if DebugOpt then begin
     Log.Write('VFS', 'CreateFileA', 'Redirected: ' + FinalFilePath);
-  end; // .if
+  end;
   
   result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc,
                           [pchar(FinalFilePath), dwDesiredAccess, dwShareMode,
@@ -641,7 +641,7 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'OpenFile', 'Original: ' + FilePath);
-  end; // .if
+  end;
   
   FilePath      := SysUtils.ExpandFileName(FilePath);
   FinalFilePath := FilePath;
@@ -651,11 +651,11 @@ begin
     FindVFSPath(GameRelativePath(FilePath), RedirectedFilePath)
   then begin
     FinalFilePath := RedirectedFilePath;
-  end; // .if
+  end;
   
   if DebugOpt then begin
     Log.Write('VFS', 'OpenFile', 'Redirected: ' + FinalFilePath);
-  end; // .if
+  end;
   
   result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [pchar(FinalFilePath), @lpReOpenBuff, Flags]);
 end; // .function Hook_OpenFile
@@ -671,7 +671,7 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'GetFileAttributesA', 'Original: ' + FilePath);
-  end; // .if
+  end;
   
   FilePath      := SysUtils.ExpandFileName(FilePath);
   FinalFilePath := FilePath;
@@ -680,11 +680,11 @@ begin
      FindVFSPath(GameRelativePath(FilePath), RedirectedFilePath)
   then begin
     FinalFilePath := RedirectedFilePath;
-  end; // .if
+  end;
 
   if DebugOpt then begin
     Log.Write('VFS', 'GetFileAttributesA', 'Redirected: ' + FinalFilePath);
-  end; // .if
+  end;
   
   result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [pchar(FinalFilePath)]);
 end; // .function Hook_GetFileAttributesA
@@ -700,7 +700,7 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'LoadCursorFromFileA', 'Original: ' + FilePath);
-  end; // .if
+  end;
   
   FilePath := SysUtils.ExpandFileName(FilePath);
   FinalFilePath := FilePath;
@@ -709,11 +709,11 @@ begin
      FindVFSPath(GameRelativePath(FilePath), RedirectedFilePath)
   then begin
     FinalFilePath := RedirectedFilePath;
-  end; // .if
+  end;
 
   if DebugOpt then begin
     Log.Write('VFS', 'LoadCursorFromFileA', 'Redirected: ' + FinalFilePath);
-  end; // .if
+  end;
   
   result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [pchar(FinalFilePath)]);
 end; // .function Hook_LoadCursorFromFileA
@@ -729,7 +729,7 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'LoadLibraryA', 'Original: ' + FilePath);
-  end; // .if
+  end;
 
   // if dll is not found in current directory, we should preserve its original
   // unexpanded form in order kernel to search for dll in system directories 
@@ -741,12 +741,12 @@ begin
       FinalFilePath := RedirectedFilePath;
     end else if FileExists(FilePath) then begin
       FinalFilePath := FilePath;
-    end; // .ELSEIF
-  end; // .if
+    end;
+  end;
   
   if DebugOpt then begin
     Log.Write('VFS', 'LoadLibraryA', 'Redirected: ' + FinalFilePath);
-  end; // .if
+  end;
   
   result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [pchar(FinalFilePath)]);
 end; // .function Hook_LoadLibraryA
@@ -762,13 +762,13 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'CreateDirectoryA', 'Original: ' + DirPath);
-  end; // .if
+  end;
 
   ExpandedDirPath := SysUtils.ExpandFileName(DirPath);
   
   if DebugOpt then begin
     Log.Write('VFS', 'CreateDirectoryA', 'Expanded: ' + ExpandedDirPath);
-  end; // .if
+  end;
 
   result := BOOL(PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc,
                                [pchar(ExpandedDirPath), lpSecurityAttributes]));
@@ -784,13 +784,13 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'RemoveDirectoryA', 'Original: ' + DirPath);
-  end; // .if
+  end;
 
   ExpandedDirPath := SysUtils.ExpandFileName(DirPath);
   
   if DebugOpt then begin
     Log.Write('VFS', 'RemoveDirectoryA', 'Expanded: ' + ExpandedDirPath);
-  end; // .if
+  end;
 
   result := BOOL(PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc,[pchar(ExpandedDirPath)]));
 end; // .function Hook_RemoveDirectoryA
@@ -805,13 +805,13 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'DeleteFileA', 'Original: ' + FilePath);
-  end; // .if
+  end;
 
   ExpandedFilePath := SysUtils.ExpandFileName(FilePath);
   
   if DebugOpt then begin
     Log.Write('VFS', 'DeleteFileA', 'Expanded: ' + ExpandedFilePath);
-  end; // .if
+  end;
 
   result := BOOL(PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [pchar(ExpandedFilePath)]));
 end; // .function Hook_DeleteFileA
@@ -927,7 +927,7 @@ begin
   end else begin
     if DebugOpt then begin
       Log.Write('VFS', 'FindNextFileA', 'Handle: ' + SysUtils.IntToStr(hFindFile))
-    end; // .if
+    end;
     
     FoundData := nil;
     result := MyFindNextFile(hFindFile, FoundData);
@@ -939,13 +939,13 @@ begin
       if DebugOpt then begin
         FoundPath := FoundData.cFileName;
         Log.Write('VFS', 'FindNextFileA', 'Result: ' + FoundPath)
-      end; // .if
+      end;
     end else begin
       Windows.SetLastError(Windows.ERROR_NO_MORE_FILES);
       
       if DebugOpt then begin
         Log.Write('VFS', 'FindNextFileA', 'Error: ERROR_NO_MORE_FILES')
-      end; // .if
+      end;
     end; // .else
   end; // .else
   
@@ -1004,7 +1004,7 @@ begin
   end else begin
     if DebugOpt then begin
       Log.Write('VFS', 'FindClose', 'Handle: ' + SysUtils.IntToStr(hFindFile))
-    end; // .if
+    end;
   
     result := SearchHandles[Ptr(hFindFile)] <> nil;
 
@@ -1014,13 +1014,13 @@ begin
       
       if DebugOpt then begin
         Log.Write('VFS', 'FindClose', 'result: ERROR_SUCCESS');
-      end; // .if
+      end;
     end else begin
       Windows.SetLastError(Windows.ERROR_INVALID_HANDLE);
       
       if DebugOpt then begin
         Log.Write('VFS', 'FindClose', 'result: ERROR_INVALID_HANDLE');
-      end; // .if
+      end;
     end; // .else
     
     {!} Windows.LeaveCriticalSection(FileSearchCritSection);
@@ -1041,7 +1041,7 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'GetPrivateProfileStringA', 'Original: ' + FilePath);
-  end; // .if
+  end;
   
   // if ini is not found in current directory, we should preserve its original
   // unexpanded form in order kernel to search for ini in system directories
@@ -1053,12 +1053,12 @@ begin
       FinalFilePath := RedirectedFilePath;
     end else if FileExists(FilePath) then begin
       FinalFilePath := FilePath;
-    end; // .ELSEIF
-  end; // .if
+    end;
+  end;
   
   if DebugOpt then begin
     Log.Write('VFS', 'GetPrivateProfileStringA', 'Redirected: ' + FinalFilePath);
-  end; // .if
+  end;
   
   result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc,
                           [lpAppName, lpKeyName, lpDefault, lpReturnedString, nSize,
@@ -1081,7 +1081,7 @@ begin
   
   if DebugOpt then begin
     Log.Write('VFS', 'PlaySoundA', 'Original: ' + FilePath);
-  end; // .if
+  end;
   
   // if sound is not found in current directory, we should preserve its original
   // unexpanded form in order kernel to search for it in system directories
@@ -1095,12 +1095,12 @@ begin
       FinalFilePath := RedirectedFilePath;
     end else if FileExists(FilePath) then begin
       FinalFilePath := FilePath;
-    end; // .ELSEIF
-  end; // .if
+    end;
+  end;
   
   if DebugOpt then begin
     Log.Write('VFS', 'PlaySoundA', 'Redirected: ' + FinalFilePath);
-  end; // .if
+  end;
   
   result := BOOL(PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc,
                                [pchar(FinalFilePath), hmod, fdwSound]));
@@ -1121,25 +1121,25 @@ begin
   if result <> 0 then begin
     if FixedCurrDir[Length(FixedCurrDir)] = ':' then begin
       FixedCurrDir := FixedCurrDir + '\';
-    end; // .if
+    end;
   
     result := Length(FixedCurrDir) + 1;
     
     if (integer(nBufferLength) - 1) >= Length(FixedCurrDir) then begin
       Utils.CopyMem(Length(FixedCurrDir) + 1, pchar(FixedCurrDir), lpBuffer);
-    end; // .if
+    end;
     
     Windows.SetLastError(Windows.ERROR_SUCCESS);
     
     if DebugOpt then begin
       Log.Write('VFS', 'GetCurrentDirectoryA', 'Result: ' + FixedCurrDir);
-    end; // .if
+    end;
   end else begin
     Windows.SetLastError(Windows.ERROR_NOT_ENOUGH_MEMORY);
     
     if DebugOpt then begin
       Log.Write('VFS', 'GetCurrentDirectoryA', 'Error: ERROR_NOT_ENOUGH_MEMORY');
-    end; // .if
+    end;
   end; // .else
 end; // .function Hook_GetCurrentDirectoryA
 
@@ -1237,8 +1237,8 @@ begin
       Log.Write('VFS', 'Init', 'DEP was turned off');
     end else begin
       Log.Write('VFS', 'Init', 'Failed to turn DEP off');
-    end; // .else
-  end; // .if
+    end;
+  end;
 
   // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing GetFullPathNameA hook');
   // Core.p.WriteHiHook
