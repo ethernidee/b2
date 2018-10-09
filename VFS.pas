@@ -47,8 +47,8 @@
 
 (***)  interface  (***)
 uses
-  Windows, WinNative, SysUtils, Math, MMSystem,
-  Utils, Crypto, Lists, DataLib, StrLib, StrUtils, Files, FilesEx (* removeme *), Log, TypeWrappers,
+  Windows, SysUtils, Math,
+  Utils, WinNative, Lists, DataLib, StrLib, Files, Log, TypeWrappers,
   PatchApi, Core, Ini, WinUtils, Concur, PatchForge, hde32, VfsPatching, {ApiJack, }DlgMes;
 
 (*
@@ -70,8 +70,8 @@ uses
     SetCurrentDirectoryA
 *)
 
-(* IMPORT *)
 type
+  (* Import *)
   TDict    = DataLib.TDict;
   TObjDict = DataLib.TObjDict;
   TString  = TypeWrappers.TString;
@@ -949,147 +949,7 @@ begin
   end;
 end;
 
-function Hook_CreateFileW (Hook: PatchApi.THiHook; lpFileName: PWideChar;
-                           dwDesiredAccess, dwShareMode: DWORD;
-                           lpSecurityAttributes: PSecurityAttributes;
-                           dwCreationDisposition, dwFlagsAndAttributes: DWORD;
-                           hTemplateFile: THandle): THandle; stdcall;
-var
-  UseRedirection:   boolean;
-  RedirectedPath:   WideString;
-  HadTrailingDelim: boolean;
-  OrigPathA:        string;
-  RedirectedPathA:  string;
-
-begin
-  UseRedirection := ((dwCreationDisposition and Windows.OPEN_EXISTING) = Windows.OPEN_EXISTING) or ((dwCreationDisposition and Windows.TRUNCATE_EXISTING) = Windows.TRUNCATE_EXISTING);
-
-  if UseRedirection then begin
-    RedirectedPath := GetVfsItemRealPath(NormalizePath(lpFileName, @HadTrailingDelim));
-    UseRedirection := RedirectedPath <> '';
-  end;
-
-  WriteLog('VFS', 'CreateFileW', Format('Searched VFS for %s. Disposition: %x. Access: %x', [NormalizePath(lpFileName), dwCreationDisposition, dwDesiredAccess]));
-
-  if DebugOpt then begin
-    StrLib.PWideCharToAnsi(lpFileName, OrigPathA);
-
-    if UseRedirection then begin
-      StrLib.PWideCharToAnsi(PWideChar(RedirectedPath), RedirectedPathA);
-      WriteLog('VFS', 'CreateFileW', 'Redirected "' + OrigPathA + '" => "' + RedirectedPathA + '"');
-    end else begin
-      WriteLog('VFS', 'CreateFileW', '"' + OrigPathA + '"');
-    end;
-  end;
-
-  if UseRedirection then begin
-    if HadTrailingDelim then begin
-      RedirectedPath := RedirectedPath + '\';
-    end;
-
-    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [PWideChar(RedirectedPath), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile]);
-  end else begin
-    result := NativeCreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-  end;
-end; // .function Hook_CreateFileW
-
-function Hook_CreateFileA (Hook: PatchApi.THiHook; lpFileName: PAnsiChar;
-                           dwDesiredAccess, dwShareMode: DWORD;
-                           lpSecurityAttributes: PSecurityAttributes;
-                           dwCreationDisposition, dwFlagsAndAttributes: DWORD;
-                           hTemplateFile: THandle): THandle; stdcall;
-begin
-  result := Windows.CreateFileW(PWideChar(WideString(String(lpFileName))), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-end; // .function Hook_CreateFileA
-
-function Hook_OpenFile (Hook: PatchApi.THiHook; const lpFileName: LPCSTR; var lpReOpenBuff: TOFStruct; uStyle: UINT): THandle; stdcall;
-const
-  NOT_SUPPORTED_FLAGS = Windows.OF_CREATE or Windows.OF_DELETE;
-
-var
-  UseRedirection:   boolean;
-  RedirectedPath:   WideString;
-  HadTrailingDelim: boolean;
-  RedirectedPathA:  string;
-
-begin
-  {!!!!!!!!!!!!!!!!!!!!!!!!!! The directory where an application is loaded must be searched FIRST}
-  UseRedirection := (uStyle and NOT_SUPPORTED_FLAGS) = 0;
-
-  if UseRedirection then begin
-    RedirectedPath := GetVfsItemRealPath(NormalizePath(String(lpFileName), @HadTrailingDelim));
-    UseRedirection := (RedirectedPath <> '') and StrLib.PWideCharToAnsi(PWideChar(RedirectedPath), RedirectedPathA, StrLib.FAIL_ON_ERROR);
-
-    if UseRedirection and HadTrailingDelim then begin
-      RedirectedPathA := RedirectedPathA + '\';
-    end;
-  end;
-
-  if DebugOpt then begin
-    if UseRedirection then begin
-      WriteLog('VFS', 'OpenFile', 'Redirected "' + lpFileName + '" => "' + RedirectedPathA + '"');
-    end else begin
-      WriteLog('VFS', 'OpenFile', '"' + lpFileName + '"');
-    end;
-  end;
-
-  if UseRedirection then begin
-    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [pchar(RedirectedPathA), @lpReOpenBuff, uStyle]);
-  end else begin
-    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [lpFileName, @lpReOpenBuff, uStyle]);
-  end;
-end; // .function Hook_OpenFile
-
-function Hook_GetFileAttributesW (Hook: PatchApi.THiHook; lpFileName: PWideChar): DWORD; stdcall;
-var
-  UseRedirection:   boolean;
-  RedirectedPath:   WideString;
-  HadTrailingDelim: boolean;
-  OrigPathA:        string;
-  RedirectedPathA:  string;
-
-begin
-  RedirectedPath := GetVfsItemRealPath(NormalizePath(lpFileName, @HadTrailingDelim));
-  UseRedirection := RedirectedPath <> '';
-
-  if DebugOpt then begin
-    StrLib.PWideCharToAnsi(lpFileName, OrigPathA);
-
-    if UseRedirection then begin
-      StrLib.PWideCharToAnsi(PWideChar(RedirectedPath), RedirectedPathA);
-      WriteLog('VFS', 'GetFileAttributesW', 'Redirected "' + OrigPathA + '" => "' + RedirectedPathA + '"');
-    end else begin
-      WriteLog('VFS', 'GetFileAttributesW', '"' + OrigPathA + '"');
-    end;
-  end;
-
-  if UseRedirection then begin
-    if HadTrailingDelim then begin
-      RedirectedPath := RedirectedPath + '\';
-    end;
-
-    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [PWideChar(RedirectedPath)]);
-  end else begin
-    result := PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc, [lpFileName]);
-  end;
-end; // .function Hook_GetFileAttributesW
-
-function Hook_GetFileAttributesA (Hook: PatchApi.THiHook; lpFileName: pchar): DWORD; stdcall;
-begin
-  result := Windows.GetFileAttributesW(PWideChar(WideString(String(lpFileName))));
-end;
-
-function Hook_LoadCursorFromFileA (Hook: PatchApi.THiHook; lpFileName: PAnsiChar): DWORD; stdcall;
-var
-  FilePath:           string;
-  RedirectedFilePath: string;
-  FinalFilePath:      string;
-
-begin
-
-end; // .function Hook_LoadCursorFromFileA
-
-function Hook_LoadLibraryW (Hook: PatchApi.THiHook; lpLibFileName: PWideChar): HMODULE; stdcall;
+function Hook_LoadLibraryW (OrigFunc: pointer; lpLibFileName: PWideChar): HMODULE; stdcall;
 var
   LibPath:          WideString;
   CharPos:          integer;
@@ -1158,7 +1018,7 @@ begin
   end;
 end; // .function Hook_LoadLibraryW
 
-function Hook_LoadLibraryA (Hook: PatchApi.THiHook; lpLibFileName: PAnsiChar): HMODULE; stdcall;
+function Hook_LoadLibraryA (OrigFunc: pointer; lpLibFileName: PAnsiChar): HMODULE; stdcall;
 begin
   result := Windows.LoadLibraryW(PWideChar(WideString(String(lpLibFileName))));
 end;
@@ -1335,7 +1195,7 @@ begin
   end;
 end;
 
-function Hook_FindFirstFileExW (Hook: PatchApi.THiHook; lpFileName: PWideChar; fInfoLevelId: TFindexInfoLevels; var lpFindFileData: TWin32FindDataW;
+function Hook_FindFirstFileExW (OrigFunc: pointer; lpFileName: PWideChar; fInfoLevelId: TFindexInfoLevels; var lpFindFileData: TWin32FindDataW;
                                 fSearchOp: TFindexSearchOps; lpSearchFilter: Pointer; dwAdditionalFlags: DWORD): THandle; stdcall;
 var
   LastError: integer;
@@ -1345,7 +1205,7 @@ begin
   Windows.SetLastError(LastError);
 end;
 
-function Hook_FindFirstFileExA (Hook: PatchApi.THiHook; lpFileName: PAnsiChar; fInfoLevelId: TFindexInfoLevels; var lpFindFileData: TWIN32FindDataA;
+function Hook_FindFirstFileExA (OrigFunc: pointer; lpFileName: PAnsiChar; fInfoLevelId: TFindexInfoLevels; var lpFindFileData: TWIN32FindDataA;
                                 fSearchOp: TFindexSearchOps; lpSearchFilter: Pointer; dwAdditionalFlags: DWORD): THandle; stdcall;
 var
   LastError: integer;
@@ -1355,7 +1215,7 @@ begin
   Windows.SetLastError(LastError);
 end;
 
-function Hook_FindFirstFileW (Hook: PatchApi.THiHook; lpFileName: PWideChar; var lpFindFileData: TWIN32FindDataW): THandle; stdcall;
+function Hook_FindFirstFileW (OrigFunc: pointer; lpFileName: PWideChar; var lpFindFileData: TWIN32FindDataW): THandle; stdcall;
 var
   LastError: integer;
 
@@ -1364,7 +1224,7 @@ begin
   Windows.SetLastError(LastError);
 end;
 
-function Hook_FindFirstFileA (Hook: PatchApi.THiHook; lpFileName: PAnsiChar; var lpFindFileData: TWIN32FindDataA): THandle; stdcall;
+function Hook_FindFirstFileA (OrigFunc: pointer; lpFileName: PAnsiChar; var lpFindFileData: TWIN32FindDataA): THandle; stdcall;
 var
   LastError: integer;
 
@@ -1373,7 +1233,7 @@ begin
   Windows.SetLastError(LastError);
 end;
 
-function Hook_FindNextFileW (Hook: PatchApi.THiHook; hFindFile: THandle; var lpFindFileData: TWIN32FindDataW): BOOL; stdcall;
+function Hook_FindNextFileW (OrigFunc: pointer; hFindFile: THandle; var lpFindFileData: TWIN32FindDataW): BOOL; stdcall;
 var
 {Un} DirListing: TDirListing;
 {Un} FileInfo:   Windows.PWin32FindDataW;
@@ -1438,7 +1298,7 @@ begin
   end; // .with FileSearchCritSection
 end; // .function Hook_FindNextFileW
 
-function Hook_FindNextFileA (Hook: PatchApi.THiHook; hFindFile: THandle; var lpFindFileData: TWIN32FindDataA): BOOL; stdcall;
+function Hook_FindNextFileA (OrigFunc: pointer; hFindFile: THandle; var lpFindFileData: TWIN32FindDataA): BOOL; stdcall;
 var
   FileInfo: Windows.TWin32FindDataW;
 
@@ -1450,7 +1310,7 @@ begin
   end;
 end;
 
-function Hook_FindClose (Hook: PatchApi.THiHook; hFindFile: THandle): BOOL; stdcall;
+function Hook_FindClose (OrigFunc: pointer; hFindFile: THandle): BOOL; stdcall;
 begin
   with FileSearchCritSection do begin
     Enter;
@@ -1627,7 +1487,7 @@ begin
   // end; // .with
 end; // .function Hook_NtQueryAttributesFile
 
-function Hook_NtQueryFullAttributesFile (Hook: PatchApi.THiHook; ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_NETWORK_OPEN_INFORMATION): NTSTATUS; stdcall;
+function Hook_NtQueryFullAttributesFile (OrigFunc: pointer; ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_NETWORK_OPEN_INFORMATION): NTSTATUS; stdcall;
 var
   ExpandedPath:     WideString;
   RedirectedPath:   WideString;
@@ -1667,7 +1527,7 @@ begin
   end;
 end; // .Hook_NtQueryFullAttributesFile
 
-function Hook_NtOpenFile (Hook: PatchApi.THiHook; FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES;
+function Hook_NtOpenFile (OrigFunc: pointer; FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES;
                           IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall;
 begin
   with VfsCritSection do begin
@@ -1683,7 +1543,7 @@ begin
   end;
 end;
 
-function Hook_NtCreateFile (Hook: PatchApi.THiHook; FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
+function Hook_NtCreateFile (OrigFunc: pointer; FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
                             FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall;
 var
   ExpandedPath:     WideString;
@@ -1746,7 +1606,7 @@ begin
   end;
 end; // .function Hook_NtCreateFile
 
-function Hook_SetCurrentDirectoryW (Hook: PatchApi.THiHook; lpPathName: PWideChar): LONGBOOL; stdcall;
+function Hook_SetCurrentDirectoryW (OrigFunc: pointer; lpPathName: PWideChar): LONGBOOL; stdcall;
 var
   UseRedirection: boolean;
   DirPath:        WideString;
@@ -1836,60 +1696,10 @@ begin
   //VarDump([GetCurrentDir()]);
 end; // .function Hook_SetCurrentDirectoryW
 
-function Hook_SetCurrentDirectoryA (Hook: PatchApi.THiHook; lpPathName: pchar): LONGBOOL; stdcall;
+function Hook_SetCurrentDirectoryA (OrigFunc: pointer; lpPathName: pchar): LONGBOOL; stdcall;
 begin
   result := Windows.SetCurrentDirectoryW(PWideChar(WideString(String(lpPathName))));
 end;
-
-function Hook_GetPrivateProfileStringA (Hook: PatchApi.THiHook;
-                                        lpAppName, lpKeyName, lpDefault: PAnsiChar;
-                                        lpReturnedString: PAnsiChar; nSize: DWORD;
-                                        lpFileName: PAnsiChar): DWORD; stdcall;
-var
-  FilePath:           string;
-  RedirectedFilePath: string;
-  FinalFilePath:      string;
-
-begin
-
-end; // .function Hook_GetPrivateProfileStringA
-
-function Hook_PlaySoundA (Hook: PatchApi.THiHook; pszSound: PAnsiChar; hmod: HMODULE;
-                          fdwSound: DWORD): BOOL; stdcall;
-
-const
-  SND_NOT_FILE = MMSystem.SND_ALIAS or MMSystem.SND_RESOURCE;
-
-var
-  FilePath:           string;
-  RedirectedFilePath: string;
-  FinalFilePath:      string;
-
-begin
-  FilePath := pszSound;
-
-  if DebugOpt then begin
-    WriteLog('VFS', 'PlaySoundA', 'Original: ' + FilePath);
-  end; // .if
-
-  // if sound is not found in current directory, we should preserve its original
-  // unexpanded form in order kernel to search for it in system directories
-  FinalFilePath := FilePath;
-  FilePath      := SysUtils.ExpandFileName(FilePath);
-
-  // NULL name means stop playing any sound
-  if (FinalFilePath <> '') and ((fdwSound and SND_NOT_FILE) = 0)
-  then begin
-    
-  end; // .if
-
-  if DebugOpt then begin
-    WriteLog('VFS', 'PlaySoundA', 'Redirected: ' + FinalFilePath);
-  end; // .if
-
-  result := BOOL(PatchApi.Call(PatchApi.STDCALL_, Hook.GetDefaultFunc,
-                               [pchar(FinalFilePath), hmod, fdwSound]));
-end; // .function Hook_PlaySoundA
 
 function MapDir (const VirtPath, RealPath: WideString; OverwriteExisting: boolean; Flags: integer = 0): boolean;
 begin
@@ -1909,11 +1719,6 @@ begin
     Leave;
   end;
 end; // .procedure ResetVfs
-
-function Mods (const str: WideString): PWideChar;
-begin
-  result := pointer(str);
-end;
 
 procedure InstallVfsHooks;
 var
@@ -2252,56 +2057,7 @@ begin
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG', DONT_OVERWRITE_EXISTING);
   //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
   RunVfs(SORT_FIFO);
-  // SetCurrentDir('D:\Heroes 3\Data\s');
-  // //VarDump([LoadCursorFromFileA('Data\zvs\Lib1.res\arrowcur.cur')]);
 
-
-  // // CurrDirIsVirtual := true;
-  // // CurrDirRealLoweredPath := 'd:';
-  // // CurrDirVirtPath := 'd:\mods\wog';
-  // if FileExists('29 wog - Henchmen.erm') then begin
-  //   ReadFileContents('29 wog - Henchmen.erm', s);
-  //   Msg(s);
-  // end;
-
-  
-  
-  // // Обнаруживается файл из Mods\Dev, разузнать(!)
-  //Msg(FilesEx.GetFileList('D:\Heroes 3\*.*', FILES_AND_DIRS).ToText(#13#10));
-  //halt;
-
-  // halt;
-
-
-  // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing GetPrivateProfileStringA hook');
-  // Core.p.WriteHiHook
-  // (
-  //   GetRealProcAddress(Kernel32Handle, 'GetPrivateProfileStringA'),
-  //   PatchApi.SPLICE_,
-  //   PatchApi.EXTENDED_,
-  //   PatchApi.STDCALL_,
-  //   @Hook_GetPrivateProfileStringA,
-  // );
-
-  // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing LoadCursorFromFileA hook');
-  // Core.p.WriteHiHook
-  // (
-  //   GetRealProcAddress(User32Handle, 'LoadCursorFromFileA'),
-  //   PatchApi.SPLICE_,
-  //   PatchApi.EXTENDED_,
-  //   PatchApi.STDCALL_,
-  //   @Hook_LoadCursorFromFileA,
-  // );
-
-  // if DebugOpt then WriteLog('VFS', 'InstallHook', 'Installing PlaySoundA hook');
-  // Core.p.WriteHiHook
-  // (
-  //   GetRealProcAddress(Windows.LoadLibrary('winmm.dll'), 'PlaySoundA'),
-  //   PatchApi.SPLICE_,
-  //   PatchApi.EXTENDED_,
-  //   PatchApi.STDCALL_,
-  //   @Hook_PlaySoundA,
-  // );
 end; // .procedure Init
 
 function String2Hex(const Buffer: Ansistring): string;

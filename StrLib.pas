@@ -1,8 +1,8 @@
 unit StrLib;
-{
-DESCRIPTION:  Strings processing
-AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
-}
+(*
+  DESCRIPTION: Strings processing
+  AUTHOR:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+*)
 
 (***)  interface  (***)
 uses Windows, Math, SysUtils, Classes, StrUtils, Utils;

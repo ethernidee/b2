@@ -1,22 +1,22 @@
 unit FilesEx;
-{
-DESCRIPTION:  High-level finctions for working with files
-AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
-}
+(*
+  DESCRIPTION:  High-level finctions for working with files
+  AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+*)
 
 (***)  interface  (***)
-uses SysUtils, Utils, Files, DataLib, StrLib;
+uses SysUtils, Utils, Files, DataLib, StrLib, Classes, DataFlows;
 
 type
-  (* IMPORT *)
+  (* Import *)
   TStrList    = DataLib.TStrList;
   TDict       = DataLib.TDict;
   TSearchSubj = Files.TSearchSubj;
 
   (*
-  Provides means for formatted output to external storage.
-  It's recommended to internally use StrBuilder for file output.
-  Default indentation must be '  ', line end marker - #13#10.
+    Provides means for formatted output to external storage.
+    It's recommended to internally use StrBuilder for file output.
+    Default indentation must be '  ', line end marker - #13#10.
   *)
   IFormattedOutput = interface
     procedure SetIndentation (const Identation: string);
@@ -40,7 +40,31 @@ type
     property LineEndMarker: string write SetLineEndMarker;
   end; // .interface IFormattedOutput
 
-  TFileFormattedOutput = class (TInterfacedObject, IFormattedOutput)
+  TStrFormattedOutput = class (TInterfacedObject, IFormattedOutput)
+   protected
+    {O} fOutputBuf:     StrLib.TStrBuilder;
+        fOutputStrPtr:  ^string;
+        fIndentation:   string;
+        fIndentLevel:   integer;
+        fLineEndMarker: string;
+
+   public
+    constructor Create (OutputStrPtr: ^string);
+    destructor Destroy; override;
+
+    procedure SetIndentation (const aIndentation: string);
+    procedure SetLineEndMarker (const aLineEndMarker: string);
+    procedure Indent;
+    procedure Unindent;
+    procedure SetIndentLevel (Level: integer);
+    procedure WriteIndentation;
+    procedure Write (const Str: string);
+    procedure RawLine (const Str: string);
+    procedure Line (const Str: string);
+    procedure EmptyLine;
+  end; // .class TFileFormattedOutput
+
+  TFileFormattedOutput = class (TStrFormattedOutput) MOVe to strlib?
    protected
     {O} fOutputBuf:     StrLib.TStrBuilder;
         fFilePath:      string;
@@ -74,13 +98,15 @@ function  WriteFormattedOutput (const FilePath: string): IFormattedOutput;
 (***) implementation (***)
 
 
-constructor TFileFormattedOutput.Create (const aFilePath: string);
+constructor TStrFormattedOutput.Create (OutputStrPtr: ^string);
 begin
-  fFilePath      := aFilePath;
-  fOutputBuf     := StrLib.TStrBuilder.Create;
-  fIndentation   := '  ';
-  fIndentLevel   := 0;
-  fLineEndMarker := #13#10;
+  inherited;
+  {!} Assert(OutputStrPtr <> nil);
+  Self.fOutputStrPtr  := OutputStrPtr;
+  Self.fOutputBuf     := StrLib.TStrBuilder.Create;
+  Self.fIndentation   := '  ';
+  Self.fIndentLevel   := 0;
+  Self.fLineEndMarker := #13#10;
 end;
 
 destructor TFileFormattedOutput.Destroy;
@@ -160,6 +186,16 @@ begin
   fOutputBuf.Append(fLineEndMarker);
 end;
 
+constructor TFileFormattedOutput.Create (const aFilePath: string);
+begin
+  inherited;
+  fFilePath      := aFilePath;
+  fOutputBuf     := StrLib.TStrBuilder.Create;
+  fIndentation   := '  ';
+  fIndentLevel   := 0;
+  fLineEndMarker := #13#10;
+end;
+
 function GetFileList (const MaskedPath: string; SearchSubj: TSearchSubj): {O} TStrList;
 begin
   result := DataLib.NewStrList(not Utils.OWNS_ITEMS, DataLib.CASE_INSENSITIVE);
@@ -203,6 +239,6 @@ begin
   FormattedOutputObj := TFileFormattedOutput.Create(FilePath);
   // * * * * * //
   result := FormattedOutputObj; FormattedOutputObj := nil;
-end; // .function WriteFormattedOutput
+end;
 
 end.
