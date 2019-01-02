@@ -29,64 +29,98 @@ type
     function Seek (Pos: integer): boolean;
   end;
 
-  IIndentedOutput
+  TBinaryReader = class abstract
+
+  end;
+
+  TBinaryWriter = class abstract
+    class procedure WriteBytes (const Destination: IWritable; Count: integer; {n} Buf: pointer); static;
+  end;
+
+  // NullReader
+  // NullWriter
 
   (*
     Provides means for formatted output to external storage.
     It's recommended to internally use StrBuilder for file output.
     Default indentation must be '  ', line end marker - #13#10.
   *)
-  IFormattedOutput = interface (IWritable)
-    (* Sets new string to use as single level indentation. Real indentation string will be multiplied by indentation level *)
-    procedure SetIndentationTemplate (const IndentationTmpl: string);
+  // IFormattedOutput = interface (IWritable)
+  //   (* Sets new string to use as single level indentation. Real indentation string will be multiplied by indentation level *)
+  //   procedure SetIndentationTemplate (const IndentationTmpl: string);
     
-    (* Assigns new string to use as line end marker. Markers are used to detecting, where indentation should be applied *)
-    procedure SetLineEndMarker (const LineEndMarker: string);
+  //   (* Assigns new string to use as line end marker. Markers are used to detecting, where indentation should be applied *)
+  //   procedure SetLineEndMarker (const LineEndMarker: string);
 
-    (* Increase indentation level by one *)
-    procedure Indent;
+  //   (* Increase indentation level by one *)
+  //   procedure Indent;
     
-    (* Decreases indentation level by one *)
-    procedure Outdent;
+  //   (* Decreases indentation level by one *)
+  //   procedure Outdent;
     
-    (* Sets new indentation level (>= 0) *)
-    procedure SetIndentationLevel (Level: integer);
+  //   (* Sets new indentation level (>= 0) *)
+  //   procedure SetIndentationLevel (Level: integer);
 
-    (* Returns current indentation level (>= 0) *)
-    function GetIndentationLevel: integer;
+  //   (* Returns current indentation level (>= 0) *)
+  //   function GetIndentationLevel: integer;
 
-    function GetIndentationTemplate: string;
+  //   function GetIndentationTemplate: string;
     
-    procedure Write (const Str: string);
+  //   procedure Write (const Str: string);
     
-    // Same as Write + Write([line end marker])
-    procedure WriteIndentation;
+  //   // Same as Write + Write([line end marker])
+  //   procedure WriteIndentation;
 
-    (* Same as: set indent level to 0 + Write + restore indent level + [line end marker] *)
-    procedure RawLine (const Str: string);
+  //   (* Same as: set indent level to 0 + Write + restore indent level + [line end marker] *)
+  //   procedure RawLine (const Str: string);
     
-    // Same as Write([indentation]) * [indent level] + RawLine(Str)
-    procedure Line (const Str: string);
+  //   // Same as Write([indentation]) * [indent level] + RawLine(Str)
+  //   procedure Line (const Str: string);
     
-    (* Same as Write([line end marker]) *)
-    procedure EmptyLine;
-  end; // .interface IFormattedOutput
+  //   (* Same as Write([line end marker]) *)
+  //   procedure EmptyLine;
+  // end; // .interface IFormattedOutput
+
+  // TBufferedOutput = class (TInterfacedObject, IWritable)
+  //  private
+  //   fDestination: IWritable;
+  //   fBuf:         Utils.TArrayOfByte;
+  //   fSize:        integer;
+  //   fPos:         integer;
+
+  //   function Alloc (NumBytes: integer): {U} pbyte;
+   
+  //  public
+  //   constructor Create (Destination: IWritable);
+
+  //   function WriteUpTo (Count: integer; {n} Buf: pointer): integer;
+    
+  //   (* Erases any buffered data *)
+  //   procedure Clear;
+
+  //   (* Writes all buffered data to destination immeaditely *)
+  //   procedure Flush;
+  // end; // .class TBufferedOutput
 
 
 (***)  implementation  (***)
 
 
-TBytesWriter
+// TGrowableBuffer
 
-with TFormattedOutput.Create(TBufferedOutput(TFile.Create(Path), 1000000)) do begin
+// TBytesWriter
 
-end;
+// with TFormattedOutput.Create(TBufferedOutput(TFile.Create(Path), 1000000)) do begin
 
-with StrLib.FormatOutput(DataFlows.BufOutput(TFile.Create(Path), 1000000)) do begin
+// end;
 
-end;
+// with StrLib.FormatOutput(DataFlows.BufOutput(TFile.Create(Path), 1000000)) do begin
 
-DataFlows.Reader.ReadBytes();
+// end;
+
+// DataFlows.Reader.ReadBytes();
+
+//constructor TBufferedOutput.Create
 
 procedure ReadBytes (Count: integer; {n} Buf: pointer; Source: IReadable);
 var
@@ -109,7 +143,7 @@ begin
   end;
 end; // .procedure ReadBytes
 
-procedure WriteBytes (Count: integer; {n} Buf: pointer; Destination: IWritable);
+class procedure TBinaryWriter.WriteBytes (const Destination: IWritable; Count: integer; {n} Buf: pointer);
 var
   NumBytesWritten:   integer;
   TotalBytesWritten: integer;
@@ -128,6 +162,6 @@ begin
 
     Inc(TotalBytesWritten, NumBytesWritten);
   end;
-end; // .procedure WriteBytes
+end; // .procedure TBinaryWriter.WriteBytes
 
 end.

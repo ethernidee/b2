@@ -5,7 +5,7 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 }
 
 (***)  interface  (***)
-uses Math;
+uses Math, SysUtils;
 
 const
   (* Relations between containers and their items *)
@@ -91,6 +91,50 @@ type
   
   TEventHandler = procedure ({n} Mes: TObject) of object;
 
+  (* Any Delphi's interface implementation, capable to be converted back to object *)
+  IGetSelf = interface ['{96F10D1D-56EE-4997-BFE3-645D12ED24F9}']
+    (* Fastest and reliable way to convert interface to object *)
+    function GetSelf: TObject;
+  end;
+
+  TInterfaceAwareObject = class;
+
+  IObjInterface = interface ['{DFB594D8-CCAF-40F3-985C-6C5C50A0A16B}']
+    (* Converts interface to TInterfaceAwareObject, increasing RefCount and preserving all interface references.
+       If HasMainOwner() is true, an exception will be thrown. *)
+    function BecomeMainOwner: {O} TInterfaceAwareObject;
+
+    (* Returns true if object has main owner in the form of regular object pointer *)
+    function HasMainOwner: boolean;
+
+    (* Fastest and reliable way to convert interface to object *)
+    function GetSelf: TInterfaceAwareObject;
+  end;
+
+  (* Improved System.TInterfacedObject class, capable to be converted from interface back to raw object
+     pointer. Has 0 ref count after construction and is totally interface driven, unless _AddRef is called. *)
+  TInterfaceAwareObject = class (System.TInterfacedObject, IObjInterface)
+   protected
+    fHasMainOwner: integer;
+
+   public
+    (* Overwritten to maintaint fHasMainOwner and not decrease reference count, i.e. RefCount will be 1 after construction *)
+    procedure AfterConstruction; override;
+
+    (* Makes object fully managable via interfaces only if HasMainOwner() is true. Raw object pointer must not be used afterwards *)
+    procedure ReleaseMainOwnage;
+    
+    function GetSelf: TInterfaceAwareObject;
+    function HasMainOwner: boolean;
+    function BecomeMainOwner: {O} TInterfaceAwareObject;
+  end; // .class TInterfaceAwareObject
+
+  (* Object must be accessible via interface reference only and cannot be Freed manually by default. *)
+  TManagedObject = class (TInterfaceAwareObject)
+   public
+    procedure AfterConstruction; override;
+  end;
+
 
 (* Low level functions *)
 function  PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer; inline;
@@ -121,6 +165,10 @@ function ClassFromMethod (Method: TObjProcedure): TClass; inline;
 (* Ternary operator *)
 function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload;
 function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload;
+function IfThen (Condition: boolean; SuccessResult: pointer; FailureResult: pointer): pointer; inline; overload;
+
+(* Attemps to convert interface to TObject. Currently object MUST implement IGetSelf for success *)
+function ToObject (Intf: System.IInterface): {n} TObject;
 
 
 (***)  implementation  (***)
@@ -246,7 +294,60 @@ begin
   result := TClass(TMethod(Method).Data);
 end;
 
-function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
-function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; overload;    begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (Condition: boolean; SuccessResult: pointer; FailureResult: pointer): pointer; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+
+procedure TInterfaceAwareObject.AfterConstruction;
+begin
+  Self.fHasMainOwner := 1;
+end;
+
+function InterlockedCompareExchange (var Destination: integer; NewValue, Comperand: integer): integer; stdcall; external 'kernel32' name 'InterlockedCompareExchange';
+function InterlockedIncrement       (var Value: integer): integer; stdcall; external 'kernel32' name 'InterlockedIncrement';
+function InterlockedDecrement       (var Value: integer): integer; stdcall; external 'kernel32' name 'InterlockedDecrement';
+
+procedure TInterfaceAwareObject.ReleaseMainOwnage;
+begin
+  if (Self.fHasMainOwner <> 0) and (InterlockedCompareExchange(Self.fHasMainOwner, 0, 1) = 0) then begin
+    Self._Release();
+  end;
+end;
+
+function TInterfaceAwareObject.GetSelf: TInterfaceAwareObject;
+begin
+  result := Self;
+end;
+
+function TInterfaceAwareObject.HasMainOwner: boolean;
+begin
+  result := Self.fHasMainOwner <> 0;
+end;
+
+function TInterfaceAwareObject.BecomeMainOwner: {O} TInterfaceAwareObject;
+begin
+  {!} Assert(InterlockedIncrement(Self.fRefCount) > 1, 'Error trying to become main owner of freed interfaced object');
+  {!} Assert((Self.fHasMainOwner = 0) and (InterlockedCompareExchange(Self.fHasMainOwner, 1, 0) = 1), 'Another pointer is main owner of interfaced object. Cannot become main owner');
+end;
+
+procedure TManagedObject.AfterConstruction;
+begin
+  Self.fRefCount := 0;
+end;
+
+function ToObject (Intf: System.IInterface): {n} TObject;
+var
+  SelfGetter:  IObjInterface;
+  SelfGetter2: IGetSelf;
+
+begin
+  result := nil;
+
+  if SysUtils.Supports(Intf, IObjInterface, SelfGetter) then begin
+    result := SelfGetter.GetSelf();
+  end else if SysUtils.Supports(Intf, IGetSelf, SelfGetter2) then begin
+    result := SelfGetter2.GetSelf();
+  end;
+end;
 
 end.

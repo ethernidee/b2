@@ -40,31 +40,7 @@ type
     property LineEndMarker: string write SetLineEndMarker;
   end; // .interface IFormattedOutput
 
-  TStrFormattedOutput = class (TInterfacedObject, IFormattedOutput)
-   protected
-    {O} fOutputBuf:     StrLib.TStrBuilder;
-        fOutputStrPtr:  ^string;
-        fIndentation:   string;
-        fIndentLevel:   integer;
-        fLineEndMarker: string;
-
-   public
-    constructor Create (OutputStrPtr: ^string);
-    destructor Destroy; override;
-
-    procedure SetIndentation (const aIndentation: string);
-    procedure SetLineEndMarker (const aLineEndMarker: string);
-    procedure Indent;
-    procedure Unindent;
-    procedure SetIndentLevel (Level: integer);
-    procedure WriteIndentation;
-    procedure Write (const Str: string);
-    procedure RawLine (const Str: string);
-    procedure Line (const Str: string);
-    procedure EmptyLine;
-  end; // .class TFileFormattedOutput
-
-  TFileFormattedOutput = class (TStrFormattedOutput) MOVe to strlib?
+  TFileFormattedOutput = class (TInterfacedObject, IFormattedOutput)
    protected
     {O} fOutputBuf:     StrLib.TStrBuilder;
         fFilePath:      string;
@@ -97,17 +73,6 @@ function  WriteFormattedOutput (const FilePath: string): IFormattedOutput;
 
 (***) implementation (***)
 
-
-constructor TStrFormattedOutput.Create (OutputStrPtr: ^string);
-begin
-  inherited;
-  {!} Assert(OutputStrPtr <> nil);
-  Self.fOutputStrPtr  := OutputStrPtr;
-  Self.fOutputBuf     := StrLib.TStrBuilder.Create;
-  Self.fIndentation   := '  ';
-  Self.fIndentLevel   := 0;
-  Self.fLineEndMarker := #13#10;
-end;
 
 destructor TFileFormattedOutput.Destroy;
 begin
@@ -188,7 +153,6 @@ end;
 
 constructor TFileFormattedOutput.Create (const aFilePath: string);
 begin
-  inherited;
   fFilePath      := aFilePath;
   fOutputBuf     := StrLib.TStrBuilder.Create;
   fIndentation   := '  ';
