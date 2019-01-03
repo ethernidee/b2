@@ -99,6 +99,9 @@ begin
   
   // Ensure original code bridge is aligned
   p.Nop(p.Pos mod CODE_ADDR_ALIGNMENT);
+
+  // Set result to offset from splice bridge start to original function bridge
+  result := pointer(p.Pos);
   
   // Write original function bridge
   p.PutLabel(OrigFuncBridgeLabel);
@@ -111,6 +114,9 @@ begin
   // Persist splice bridge
   GetMem(SpliceBridge, p.Size);
   WritePatchAtCode(p.PatchMaker, SpliceBridge);
+
+  // Turn result from offset to absolute address
+  result := Ptr(integer(SpliceBridge) + integer(result));
 
   // Create and apply hook at target function start
   p.Clear();

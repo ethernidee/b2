@@ -118,8 +118,8 @@ type
     fHasMainOwner: integer;
 
    public
-    (* Overwritten to maintaint fHasMainOwner and not decrease reference count, i.e. RefCount will be 1 after construction *)
     procedure AfterConstruction; override;
+    procedure BeforeDestruction; override;
 
     (* Makes object fully managable via interfaces only if HasMainOwner() is true. Raw object pointer must not be used afterwards *)
     procedure ReleaseMainOwnage;
@@ -298,14 +298,19 @@ function IfThen (Condition: boolean; SuccessResult: string; FailureResult: strin
 function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
 function IfThen (Condition: boolean; SuccessResult: pointer; FailureResult: pointer): pointer; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
 
+function InterlockedCompareExchange (var Destination: integer; NewValue, Comperand: integer): integer; stdcall; external 'kernel32' name 'InterlockedCompareExchange';
+function InterlockedIncrement       (var Value: integer): integer; stdcall; external 'kernel32' name 'InterlockedIncrement';
+function InterlockedDecrement       (var Value: integer): integer; stdcall; external 'kernel32' name 'InterlockedDecrement';
+
 procedure TInterfaceAwareObject.AfterConstruction;
 begin
   Self.fHasMainOwner := 1;
 end;
 
-function InterlockedCompareExchange (var Destination: integer; NewValue, Comperand: integer): integer; stdcall; external 'kernel32' name 'InterlockedCompareExchange';
-function InterlockedIncrement       (var Value: integer): integer; stdcall; external 'kernel32' name 'InterlockedIncrement';
-function InterlockedDecrement       (var Value: integer): integer; stdcall; external 'kernel32' name 'InterlockedDecrement';
+procedure TInterfaceAwareObject.BeforeDestruction;
+begin
+  {!} Assert(Self.fHasMainOwner = Self.fRefCount, 'TInterfaceAwareObject consistency was broken. An attempt to destroy object with non-zero reference count or existing external owner');
+end;
 
 procedure TInterfaceAwareObject.ReleaseMainOwnage;
 begin

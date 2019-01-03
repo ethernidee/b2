@@ -9,6 +9,10 @@ unit DataFlows;
 uses
   SysUtils, Utils;
 
+const
+  ENDLESS_SIZE = -1;
+  SIZE_ERROR   = -2;
+
 type
   IReadable = interface
     (* Reads up to specified number of bytes to buffer. Returns number of actually read bytes *)
@@ -29,6 +33,27 @@ type
     function Seek (Pos: integer): boolean;
   end;
 
+  ISizable = interface
+    function GetSize: Int64;
+  end;
+
+  IEndless = interface
+
+  end;
+
+  (* Endless stream of zero bytes *)
+  TZeroReader = class (Utils.TManagedObject, IReadable)
+   public
+    function ReadUpTo (Count: integer; {n} Buf: pointer): integer;
+    function IsEof: boolean;
+  end;
+
+  (* Endless stream, consuming all bytes without any action *)
+  TNullWriter = class (Utils.TManagedObject, IWritable)
+   public
+    function WriteUpTo (Count: integer; {n} Buf: pointer): integer;
+  end;
+
   TBinaryReader = class abstract
 
   end;
@@ -36,6 +61,37 @@ type
   TBinaryWriter = class abstract
     class procedure WriteBytes (const Destination: IWritable; Count: integer; {n} Buf: pointer); static;
   end;
+
+  (* All methods assert reading success *)
+  IInputByteMapper = interface
+    function GetSource: IReadable;
+    function ReadByte: byte;
+    function ReadWord: word;
+    function ReadInt: integer;
+    function ReadInt64: int64;
+    function ReadFloat32: single;
+    function ReadDouble: double;
+    function ReadStr (StrLen: integer): string;
+    function ReadStrWithLenPrefix (StrLenPrefixSize: integer): string;
+  end;
+
+  // TInputByteMapper = class (TInterfacedObject, IInputByteMapper)
+  //  protected
+  //   fByteSource: IReadable;
+
+  //  public
+  //   constructor Create (ByteSource: IReadable);
+
+  //   function GetSource: IReadable;
+  //   function ReadByte: byte;
+  //   function ReadWord: word;
+  //   function ReadInt: integer;
+  //   function ReadInt64: int64;
+  //   function ReadFloat32: single;
+  //   function ReadDouble: double;
+  //   function ReadStr (StrLen: integer): string;
+  //   function ReadStrWithLenPrefix (StrLenPrefixSize: integer): string;
+  // end; // .TInputByteMapper
 
   // NullReader
   // NullWriter
@@ -110,7 +166,7 @@ type
 
 // TBytesWriter
 
-// with TFormattedOutput.Create(TBufferedOutput(TFile.Create(Path), 1000000)) do begin
+// with TFormattedOutput.Create(TBufferedOutput.Create(TFile.Create(Path), 1000000)) do begin
 
 // end;
 
@@ -121,6 +177,24 @@ type
 // DataFlows.Reader.ReadBytes();
 
 //constructor TBufferedOutput.Create
+
+function TZeroReader.ReadUpTo (Count: integer; {n} Buf: pointer): integer;
+begin
+  {!} Assert(Utils.IsValidBuf(Buf, Count));
+  System.FillChar(Buf^, Count, 0);
+  result := Count;
+end;
+
+function TZeroReader.IsEof: boolean;
+begin
+  result := false;
+end;
+
+function TNullWriter.WriteUpTo (Count: integer; {n} Buf: pointer): integer;
+begin
+  {!} Assert(Utils.IsValidBuf(Buf, Count));
+  result := Count;
+end;
 
 procedure ReadBytes (Count: integer; {n} Buf: pointer; Source: IReadable);
 var

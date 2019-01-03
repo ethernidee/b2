@@ -289,7 +289,7 @@ type
   end;
 
   (* Always returns the same code size value for any non-nil code pointer. *)
-  TFixedCodeSizeDetector = class (TInterfacedObject, ICodeSizeDetector)
+  TFixedCodeSizeDetector = class (Utils.TManagedObject, ICodeSizeDetector)
    private
     fCodeSize: integer;
 
@@ -301,7 +301,7 @@ type
 
   (* Analyses code block of specified size. Extends block size to include the last whole instruction,
      if the instruction crosses block border. *)
-  TMinCodeSizeDetector = class (TInterfacedObject, ICodeSizeDetector)
+  TMinCodeSizeDetector = class (Utils.TManagedObject, ICodeSizeDetector)
    private
     fMinCodeSize: integer;
 
@@ -313,7 +313,7 @@ type
 
   (* Analyses function code, searching for RET instruction as end marker. Raises exception if MaxCodeSize bytes
      were scanned and RET was not found. *)
-  TFuncCodeSizeDetector = class (TInterfacedObject, ICodeSizeDetector)
+  TFuncCodeSizeDetector = class (Utils.TManagedObject, ICodeSizeDetector)
    private
     fMaxCodeSize: integer;
 
