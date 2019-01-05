@@ -49,7 +49,8 @@
 uses
   Windows, SysUtils, Math,
   Utils, WinNative, Lists, DataLib, StrLib, Files, Log, TypeWrappers,
-  PatchApi, Core, Ini, WinUtils, Concur, PatchForge, hde32, VfsPatching, {ApiJack, }DlgMes;
+  PatchApi, Core, Ini, WinUtils, Concur, PatchForge, hde32, VfsPatching, {ApiJack, }DlgMes,
+  {DELETEME}FilesEx;
 
 (*
   Redirects calls to:
@@ -1120,7 +1121,7 @@ begin
               end;
 
               // Scan real directory
-              //RealScanDir(lpFileName, AddedVfsItems, DirListing);
+              RealScanDir(lpFileName, AddedVfsItems, DirListing);
 
               DisableVfsForThisThread         := PrevDisableVfsForThisThread;
               FileSearchInProgress := false;
@@ -1992,6 +1993,7 @@ begin
   InitModList(aModList);
   //BuildVfsSnapshot();
   DebugOpt := true; // FIXME
+  //VarDump([GetFileList('D:\Heroes 3\*', FILES_AND_DIRS).ToText(#13#10)]);
   ResetVfs;
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Phoenix', DONT_OVERWRITE_EXISTING);
   //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\BattleHeroes', DONT_OVERWRITE_EXISTING);
@@ -2010,6 +2012,8 @@ begin
   //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
   RunVfs(SORT_FIFO);
 
+  //VarDump([GetFileList('D:\Heroes 3\*', FILES_AND_DIRS).ToText(#13#10)]);
+  //halt(0);
 end; // .procedure Init
 
 function String2Hex(const Buffer: Ansistring): string;
