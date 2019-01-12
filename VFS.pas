@@ -179,18 +179,24 @@ type
     destructor  Destroy; override;
   end; // .class TSearchList
 
-  // FIXME, Use TFileInfo for GetNextItem
   TDirListing = class
-   public(*FIXME to private*)
-    {O} FileList: {O} DataLib.TList {OF TFileInfo};
-        FileInd:  integer;
+   private
+    {O} fFileList: {O} DataLib.TList {OF TFileInfo};
+        fFileInd:  integer;
+
+    function GetCount: integer;
 
    public
     constructor Create;
     destructor  Destroy; override;
 
-    procedure AddItem ({U} FileInfo: PNativeFileInfo);
+    function  IsEnd: boolean;
+    procedure AddItem ({U} FileInfo: PNativeFileInfo; const FileName: WideString = ''; const InsertBefore: integer = High(integer));
     function  GetNextItem ({OUT} var Res: TFileInfo): boolean;
+    procedure Rewind;
+
+    property FileInd: integer read fFileInd;
+    property Count: integer read GetCount;
   end; // .class TDirListing
 
   TVfsItem = class
@@ -224,6 +230,26 @@ type
     (* Name in original case. Automatically sets/converts SearchName, Info.FileName,  Info.Base.FileNameLength *)
     property Name: WideString read GetName write SetName;
   end; // .class TVfsItem
+
+  (* Meta-information for file handle *)
+  TOpenedFile = class
+   public
+    (* Handle for either virtual or real path *)
+    hFile: Windows.THandle;
+
+    (* Formal or virtual path to file *)
+    AbsPath: WideString;
+
+    (* Directory listing (both real and virtual children). Created on the fly on NtQueryDirectoryFile call *)
+    {On} DirListing: TDirListing;
+
+    constructor Create (hFile: Windows.THandle; const AbsPath: WideString);
+    destructor Destroy; override;
+
+    (* Makes complete directory listing, including real and virtual items. Does nothing if listing already exists.
+       Can be called only for redirected items. *)
+    procedure FillDirListing (const Mask: WideString);
+  end;
 
   ISysDirScanner = interface
     function IterNext ({OUT} var FileName: WideString; {n} FileInfo: WinNative.PFILE_BOTH_DIR_INFORMATION = nil): boolean;
@@ -280,7 +306,7 @@ end;
 function TNativeFileInfo.CopyFileNameToBuf ({ni} Buf: pbyte; BufSize: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, BufSize));
-  result := Self.Base.FileNameLength <= BufSize;
+  result := integer(Self.Base.FileNameLength) <= BufSize;
 
   if BufSize > 0 then begin
     Utils.CopyMem(Self.Base.FileNameLength, PWideChar(Self.FileName), Buf);
@@ -308,16 +334,16 @@ end;
 
 constructor TDirListing.Create;
 begin
-  Self.FileList  := DataLib.NewList(Utils.OWNS_ITEMS);
-  Self.FileInd := 0;
+  Self.fFileList := DataLib.NewList(Utils.OWNS_ITEMS);
+  Self.fFileInd  := 0;
 end;
 
 destructor TDirListing.Destroy;
 begin
-  SysUtils.FreeAndNil(Self.FileList);
+  SysUtils.FreeAndNil(Self.fFileList);
 end;
 
-procedure TDirListing.AddItem ({U} FileInfo: PNativeFileInfo);
+procedure TDirListing.AddItem (FileInfo: PNativeFileInfo; const FileName: WideString = ''; const InsertBefore: integer = High(integer));
 var
 {O} Item: TFileInfo;
 
@@ -325,19 +351,43 @@ begin
   {!} Assert(FileInfo <> nil);
   // * * * * * //
   Item := TFileInfo.Create(FileInfo);
-  Self.FileList.Add(Item); Item := nil;
+
+  if FileName <> '' then begin
+    Item.Data.SetFileName(FileName);
+  end;
+
+  if InsertBefore >= Self.fFileList.Count then begin
+    Self.fFileList.Add(Item); Item := nil;
+  end else begin
+    Self.fFileList.Insert(Item, InsertBefore); Item := nil;
+  end;  
   // * * * * * //
   SysUtils.FreeAndNil(Item);
+end; // .procedure TDirListing.AddItem
+
+function TDirListing.GetCount: integer;
+begin
+  result := Self.fFileList.Count;
+end;
+
+function TDirListing.IsEnd: boolean;
+begin
+  result := Self.fFileInd >= Self.fFileList.Count;
 end;
 
 function TDirListing.GetNextItem ({OUT} var Res: TFileInfo): boolean;
 begin
-  result := Self.FileInd < Self.FileList.Count;
-  // * * * * * //
+  result := Self.fFileInd < Self.fFileList.Count;
+
   if result then begin
-    Res := TFileInfo(Self.FileList[Self.FileInd]);
-    Inc(Self.FileInd);
+    Res := TFileInfo(Self.fFileList[Self.fFileInd]);
+    Inc(Self.fFileInd);
   end;
+end;
+
+procedure TDirListing.Rewind;
+begin
+  Self.fFileInd := 0;
 end;
 
 function TVfsItem.IsDir: boolean;
@@ -768,7 +818,7 @@ begin
       FileInfo.FileNameLength := FileNameLen * sizeof(WideChar);
     end;
 
-    Self.fBufPos := Utils.IfThen(FileInfoInBuf.NextEntryOffset <> 0, Self.fBufPos + FileInfoInBuf.NextEntryOffset, Self.BUF_SIZE);
+    Self.fBufPos := Utils.IfThen(FileInfoInBuf.NextEntryOffset <> 0, Self.fBufPos + integer(FileInfoInBuf.NextEntryOffset), Self.BUF_SIZE);
   end else begin
     Self.fBufPos  := 0;
     Status        := WinNative.NtQueryDirectoryFile(Self.fDirHandle, 0, nil, nil, @IoStatusBlock, @Self.fBuf, Self.BUF_SIZE, WinNative.FileBothDirectoryInformation, MULTIPLE_ENTRIES, @Self.fMaskU, Self.fIsStart);
@@ -792,6 +842,107 @@ function SysScanDir (const DirPath, Mask: WideString): ISysDirScanner; overload;
 begin
   result := TSysDirScanner.Create(DirPath, Mask);
 end;
+
+procedure SortNativeDirListing ({U} List: DataLib.TList {OF TVfsItem}); forward;
+function GetVfsDirInfo (const AbsVirtPath, Mask: WideString; {OUT} var DirInfo: TNativeFileInfo; DirListing: TDirListing): boolean; forward;
+
+procedure GetDirectoryListing (const SearchPath, FileMask: WideString; Exclude: TDict {OF not NIL}; DirListing: TDirListing);
+var
+{O} Items: {O} TList {OF TVfsItem};
+{O} Item:  {O} TVfsItem;
+    i:     integer;
+
+begin
+  {!} Assert(Exclude <> nil);
+  {!} Assert(DirListing <> nil);
+  // * * * * * //
+  Items := DataLib.NewList(Utils.OWNS_ITEMS);
+  Item  := TVfsItem.Create;
+  // * * * * * //
+  with SysScanDir(SearchPath, FileMask) do begin
+    while IterNext(Item.Info.FileName, @Item.Info.Base) do begin
+      // Update all name dependencies
+      Item.Name := Item.Info.FileName;
+      
+      if Exclude[WideStrToCaselessKey(Item.Name)] = nil then begin
+        Items.Add(Item); Item := nil;
+        Item := TVfsItem.Create;
+      end;
+    end;
+  end;
+
+  SortNativeDirListing(Items);
+
+  for i := 0 to Items.Count - 1 do begin
+    DirListing.AddItem(@TVfsItem(Items[i]).Info);
+  end;
+  // * * * * * //
+  SysUtils.FreeAndNil(Items);
+  SysUtils.FreeAndNil(Item);
+end; // .procedure GetDirectoryListing
+
+constructor TOpenedFile.Create (hFile: Windows.THandle; const AbsPath: WideString);
+begin
+  Self.hFile   := hFile;
+  Self.AbsPath := AbsPath;
+end;
+
+destructor TOpenedFile.Destroy;
+begin
+  FreeAndNil(Self.DirListing);
+end;
+
+procedure TOpenedFile.FillDirListing (const Mask: WideString);
+var
+{On} ExcludedItems:               {U} TDict {OF not nil};
+     PrevDisableVfsForThisThread: boolean;
+     NumVfsChildren:              integer;
+     DirInfo:                     TNativeFileInfo;
+     ParentDirInfo:               TNativeFileInfo;
+     DirItem:                     TFileInfo;
+     i:                           integer;
+
+begin
+  ExcludedItems := nil;
+  // * * * * * //
+  if Self.DirListing <> nil then begin
+    exit;
+  end;
+
+  Self.DirListing := TDirListing.Create;
+
+  if GetVfsDirInfo(Self.AbsPath, Mask, DirInfo, Self.DirListing) then begin
+    ExcludedItems := DataLib.NewDict(not Utils.OWNS_ITEMS, DataLib.CASE_SENSITIVE);
+
+    while DirListing.GetNextItem(DirItem) do begin
+      ExcludedItems[WideStrToCaselessKey(DirItem.Data.FileName)] := Ptr(1);
+    end;
+
+    Self.DirListing.Rewind;
+
+    // Add real items
+    NumVfsChildren              := Self.DirListing.Count;
+    PrevDisableVfsForThisThread := DisableVfsForThisThread;
+    DisableVfsForThisThread     := true;
+    GetDirectoryListing(Self.AbsPath, Mask, ExcludedItems, Self.DirListing);
+    DisableVfsForThisThread     := PrevDisableVfsForThisThread;
+
+    // No real items added, maybe there is a need to add '.' and/or '..' manually
+    if Self.DirListing.Count = NumVfsChildren then begin
+      if StrLib.MatchW('..', Mask) and GetFileInfo(Self.AbsPath + '\..', ParentDirInfo) then begin
+        Self.DirListing.AddItem(@ParentDirInfo, '..');
+      end;
+
+      if StrLib.MatchW('.', Mask) then begin
+        Self.DirListing.AddItem(@DirInfo, '.');
+      end;
+    end;
+  end else begin
+    SysUtils.FreeAndNil(Self.DirListing);
+  end; // .else
+  // * * * * * //
+  SysUtils.FreeAndNil(ExcludedItems);
+end; // .procedure TOpenedFile.FillDirListing
 
 function FileExistsW (const FilePath: WideString): boolean;
 begin
@@ -1045,7 +1196,7 @@ end; // .function _MapDir
 (*
   Returns real path for vfs item by its absolute virtual path or empty string. Optionally returns file info structure.
 *)
-function GetVfsItemRealPath (const AbsVirtPath: WideString; {n} FileInfo: Windows.PWin32FindDataW = nil): WideString;
+function GetVfsItemRealPath (const AbsVirtPath: WideString; {n} FileInfo: PNativeFileInfo = nil): WideString;
 var
 {n} VfsItem: TVfsItem;
 
@@ -1054,26 +1205,61 @@ begin
   // * * * * * //
   result := '';
 
-//  if not DisableVfsForThisThread then begin
-//    with VfsCritSection do begin
-//      Enter;
-//
-//      if VfsIsRunning then begin
-//        VfsItem := VfsItems[WideStrToCaselessKey(AbsVirtPath)];
-//
-//        if VfsItem <> nil then begin
-//          result := VfsItem.RealPath;
-//
-//          if FileInfo <> nil then begin
-//            FileInfo^ := VfsItem.Info;
-//          end;
-//        end;
-//      end; // .if
-//
-//      Leave;
-//    end; // .with
-//  end; // .if
+  if not DisableVfsForThisThread then begin
+    with VfsCritSection do begin
+      Enter;
+
+      if VfsIsRunning then begin
+        VfsItem := VfsItems[WideStrToCaselessKey(AbsVirtPath)];
+
+        if VfsItem <> nil then begin
+          result := VfsItem.RealPath;
+
+          if FileInfo <> nil then begin
+            FileInfo^ := VfsItem.Info;
+          end;
+        end;
+      end; // .if
+
+      Leave;
+    end; // .with
+  end; // .if
 end; // .function GetVfsItemRealPath
+
+function GetVfsDirInfo (const AbsVirtPath, Mask: WideString; {OUT} var DirInfo: TNativeFileInfo; DirListing: TDirListing): boolean;
+var
+{n} VfsItem: TVfsItem;
+    i:       integer;
+
+begin
+  {!} Assert(DirListing <> nil);
+  result := false;
+  // * * * * * //
+  if not DisableVfsForThisThread then begin
+    with VfsCritSection do begin
+      Enter;
+
+      if VfsIsRunning then begin
+        VfsItem := VfsItems[WideStrToCaselessKey(AbsVirtPath)];
+
+        if (VfsItem <> nil) and VfsItem.IsDir then begin
+          result  := true;
+          DirInfo := VfsItem.Info;
+
+          if VfsItem.Children <> nil then begin
+            for i := 0 to VfsItem.Children.Count - 1 do begin
+              if StrLib.MatchW(TVfsItem(VfsItem.Children[i]).SearchName, Mask) then begin
+                DirListing.AddItem(@TVfsItem(VfsItem.Children[i]).Info);
+              end;
+            end;
+          end; // .if
+        end; // .if
+      end; // .if
+
+      Leave;
+    end; // .with
+  end; // .if
+end; // .function GetVfsDirInfo
 
 function AllocSearchHandle ({U} var {OUT} DirListing: TDirListing): THandle;
 var
@@ -1116,38 +1302,6 @@ function GetSearchData (SearchHandle: integer): {n} TDirListing;
 begin
   result := TDirListing(SearchHandles[Ptr(SearchHandle)]);
 end;
-
-procedure GetDirectoryListing (const SearchPath, FileMask: WideString; Exclude: TDict {OF not NIL}; DirListing: TDirListing);
-var
-{O} Items: {O} TList {OF TVfsItem};
-{O} Item:  {O} TVfsItem;
-    i:     integer;
-
-begin
-  Items := DataLib.NewList(Utils.OWNS_ITEMS);
-  Item  := TVfsItem.Create;
-  // * * * * * //
-  with SysScanDir(SearchPath, FileMask) do begin
-    while IterNext(Item.Info.FileName, @Item.Info.Base) do begin
-      // Update all name dependencies
-      Item.Name := Item.Info.FileName;
-      
-      if Exclude[WideStrToCaselessKey(Item.Name)] = nil then begin
-        Items.Add(Item); Item := nil;
-        Item := TVfsItem.Create;
-      end;
-    end;
-  end;
-
-  SortNativeDirListing(Items);
-
-  for i := 0 to Items.Count - 1 do begin
-    DirListing.AddItem(@TVfsItem(Items[i]).Info);
-  end;
-  // * * * * * //
-  SysUtils.FreeAndNil(Items);
-  SysUtils.FreeAndNil(Item);
-end; // .procedure GetDirectoryListing
 
 procedure ConvertWin32FindDataToAnsi (WideData: Windows.PWin32FindDataW; AnsiData: Windows.PWin32FindDataA);
 const
@@ -1926,6 +2080,7 @@ end;
 
 procedure ResetVfs;
 begin
+  // FIXME Clear hFile => TOpenedFile cache
   with VfsCritSection do begin
     Enter;
 
@@ -2222,33 +2377,16 @@ io: IO_STATUS_BLOCK;
 FileInfo: TNativeFileInfo;
 w: TWin32FindDataW;
 FileName: WideString;
-fifo: WinNative.FILE_BOTH_DIR_INFORMATION;
+fifo: TFileInfo;
 Listing: TDirListing;
 Exclude: TDict;
-f: TFileInfo;
+f: TOpenedFile;
 
 begin
   {!} Assert(aModList <> nil);
   // * * * * * //
   InitModList(aModList);
   //BuildVfsSnapshot();
-  DebugOpt := true; // FIXME
-  Listing := TDirListing.Create();
-  Exclude := NewDict(NOT Utils.OWNS_ITEMS, CASE_SENSITIVE);
-  Exclude[WideStrToCaselessKey('.')] := Ptr(1);
-  Exclude[WideStrToCaselessKey('..')] := Ptr(1);
-  GetDirectoryListing('D:\Heroes 3', '*', Exclude, Listing);
-
-  while true do begin
-    f := Listing.GetNextItem();
-    if f = nil then begin
-      break;
-    end;
-
-    VarDump([f.Data.FileName]);
-  end;
-
-  halt(0);
 
   //VarDump([GetFileList('D:\Heroes 3\*', FILES_AND_DIRS).ToText(#13#10)]);
   ResetVfs;
@@ -2266,6 +2404,23 @@ begin
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Secondary Skills Scrolling', DONT_OVERWRITE_EXISTING);
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG Rus', DONT_OVERWRITE_EXISTING);
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG', DONT_OVERWRITE_EXISTING);
+
+  // FIXME DELETEME
+  {!!!} RebuildVfsItemsTree();
+  {!!!} SortVfsDirListings(SORT_FIFO);
+  {!!!} VfsIsRunning := true;
+
+  if SysOpenFile(ToNtAbsPath('D:\Heroes 3\Data'), hDir) then begin
+    f := TOpenedFile.Create(hDir, 'D:\Heroes 3\Data');
+    f.FillDirListing('*');
+    {!} Assert(f.DirListing <> nil);
+
+    while f.DirListing.GetNextItem(fifo) do begin
+      VarDump([fifo.Data.FileName + ' ' + IntToStr(fifo.Data.Base.EndOfFile.LowPart)]);
+    end;
+  end;
+
+
   {!} Assert(VfsItems[WideStrToCaselessKey(NormalizePath('D:\Heroes 3\Data\s\29 wog - henchmen.erm'))] <> nil);
   VarDump([TVfsItem(VfsItems[WideStrToCaselessKey(NormalizePath('D:\Heroes 3\Data\s\29 wog - henchmen.erm'))]).Info.Base.EndOfFile.LowPart]);
   halt(0);
