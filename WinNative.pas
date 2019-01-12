@@ -32,12 +32,14 @@ const
   GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT = 2;
   GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS       = 4;
 
+  MAX_FILENAME_LEN = 256;
+
 type
   NTSTATUS  = Longword;
   USHORT    = word;
   PCSZ      = PAnsiChar;
   PWSTR     = PWideChar;
-  HANDLE    = THandle;
+  HANDLE    = Windows.THandle;
   PVOID     = pointer;
   LONG      = integer;
   ULONG_PTR = pointer;
@@ -102,6 +104,8 @@ type
     Attributes:               ULONG;
     SecurityDescriptor:       PVOID;
     SecurityQualityOfService: PVOID;
+
+    procedure Init ({n} Path: PUNICODE_STRING = nil);
   end;
   
   OBJECT_ATTRIBUTES  = _OBJECT_ATTRIBUTES;
@@ -266,6 +270,87 @@ type
 
   FILE_BASIC_INFORMATION  = _FILE_BASIC_INFORMATION;
   PFILE_BASIC_INFORMATION = ^FILE_BASIC_INFORMATION;
+
+  PFILE_STANDARD_INFORMATION = ^FILE_STANDARD_INFORMATION;
+  FILE_STANDARD_INFORMATION  = packed record
+    AllocationSize: LARGE_INTEGER;
+    EndOfFile:      LARGE_INTEGER;
+    NumberOfLinks:  ULONG;
+    DeletePending:  BOOLEAN;
+    Dummy_1:        byte;
+    Directory:      BOOLEAN;
+    Dummy_2:        byte;
+  end;
+
+  PFILE_INTERNAL_INFORMATION = ^FILE_INTERNAL_INFORMATION;
+  FILE_INTERNAL_INFORMATION  = packed record
+    IndexNumber: LARGE_INTEGER;
+  end;
+
+  PFILE_EA_INFORMATION = ^FILE_EA_INFORMATION;
+  FILE_EA_INFORMATION  = packed record
+    EaSize: ULONG;
+  end;
+
+  PFILE_ACCESS_INFORMATION = ^FILE_ACCESS_INFORMATION;
+  FILE_ACCESS_INFORMATION  = packed record
+    AccessFlags: ACCESS_MASK;
+  end;
+
+  PFILE_POSITION_INFORMATION = ^FILE_POSITION_INFORMATION;
+  FILE_POSITION_INFORMATION  = packed record
+    CurrentByteOffset: LARGE_INTEGER;
+  end;
+
+  PFILE_MODE_INFORMATION = ^FILE_MODE_INFORMATION;
+  FILE_MODE_INFORMATION  = packed record
+    Mode: ULONG;
+  end;
+
+  PFILE_ALIGNMENT_INFORMATION = ^FILE_ALIGNMENT_INFORMATION;
+  FILE_ALIGNMENT_INFORMATION  = packed record
+    AlignmentRequirement: ULONG;
+  end;
+
+  PFILE_NAME_INFORMATION = ^FILE_NAME_INFORMATION;
+  FILE_NAME_INFORMATION  = packed record
+    FileNameLength: ULONG;
+    FileName:       Utils.TEmptyRec;
+  end;
+
+  _FILE_BOTH_DIR_INFORMATION = packed record
+    NextEntryOffset: ULONG;
+    FileIndex:       ULONG;
+    CreationTime:    LARGE_INTEGER;
+    LastAccessTime:  LARGE_INTEGER;
+    LastWriteTime:   LARGE_INTEGER;
+    ChangeTime:      LARGE_INTEGER;
+    EndOfFile:       LARGE_INTEGER;
+    AllocationSize:  LARGE_INTEGER;
+    FileAttributes:  ULONG;
+    FileNameLength:  ULONG;
+    EaSize:          ULONG;
+    ShortNameLength: BYTE;
+    Dummy:           BYTE;
+    ShortName:       array [0..11] of WCHAR;
+    FileName:        TEmptyRec;
+  end;
+
+  FILE_BOTH_DIR_INFORMATION  = _FILE_BOTH_DIR_INFORMATION;
+  PFILE_BOTH_DIR_INFORMATION = ^FILE_BOTH_DIR_INFORMATION;
+
+  PFILE_ALL_INFORMATION = ^FILE_ALL_INFORMATION;
+  FILE_ALL_INFORMATION  = packed record
+    BasicInformation:     FILE_BASIC_INFORMATION; Dummy_1: ULONG;
+    StandardInformation:  FILE_STANDARD_INFORMATION;
+    InternalInformation:  FILE_INTERNAL_INFORMATION;
+    EaInformation:        FILE_EA_INFORMATION;
+    AccessInformation:    FILE_ACCESS_INFORMATION;
+    PositionInformation:  FILE_POSITION_INFORMATION;
+    ModeInformation:      FILE_MODE_INFORMATION;
+    AlignmentInformation: FILE_ALIGNMENT_INFORMATION;
+    NameInformation:      FILE_NAME_INFORMATION;
+  end;
 
   _FILE_NETWORK_OPEN_INFORMATION = packed record
     CreationTime:   LARGE_INTEGER;
@@ -680,6 +765,8 @@ type
                            FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall;
 
   TNtQueryInformationFile    = function (FileHandle: HANDLE; PIO_STATUS_BLOCK: PIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: integer (* FILE_INFORMATION_CLASS *)): NTSTATUS; stdcall;
+  TNtQueryDirectoryFile      = function (FileHandle: HANDLE; Event: HANDLE; ApcRoutine: POINTER; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID; BufLength: ULONG;
+                                         InfoClass: FILE_INFORMATION_CLASS; SingleEntry: BOOLEAN; Mask: PUNICODE_STRING; RestartScan: BOOLEAN): NTSTATUS; stdcall;
   TNtQueryAttributesFile     = function (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_BASIC_INFORMATION): NTSTATUS; stdcall;
   TNtQueryFullAttributesFile = function (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_NETWORK_OPEN_INFORMATION): NTSTATUS; stdcall;
   TNtDeleteFile              = function (ObjectAttributes: POBJECT_ATTRIBUTES): NTSTATUS; stdcall;
@@ -690,9 +777,14 @@ type
   procedure RtlAcquirePebLock; stdcall; external 'ntdll.dll';
   procedure RtlReleasePebLock; stdcall; external 'ntdll.dll';
 
+  function  NtQueryAttributesFile (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_BASIC_INFORMATION): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtQueryInformationFile (FileHandle: HANDLE; PIO_STATUS_BLOCK: PIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: integer (* FILE_INFORMATION_CLASS *)): NTSTATUS; stdcall; external 'ntdll.dll';
+  function  NtQueryDirectoryFile (FileHandle: HANDLE; Event: HANDLE; ApcRoutine: pointer; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID; BufLength: ULONG; InfoClass: FILE_INFORMATION_CLASS;
+                                  SingleEntry: BOOLEAN; Mask: PUNICODE_STRING; RestartScan: BOOLEAN): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtCreateFile (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
                           FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
+  function  NtOpenFile (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
+  function  NtClose (hData: HANDLE): NTSTATUS; stdcall; external 'ntdll.dll';
   function  PathIsRelativeW (lpFileName: PWideChar): boolean; stdcall; external 'Shlwapi.dll';
   function  GetModuleHandleExW (dwFlags: integer; lpModuleName: PWideChar; var hModule: Windows.THandle): LONGBOOL; stdcall; external 'kernel32.dll';
 
@@ -795,6 +887,16 @@ begin
   end else begin
     result := StrLib.WideStringFromBuf(Self.Buffer, Self.GetLength());
   end;
+end;
+
+procedure _OBJECT_ATTRIBUTES.Init ({n} Path: PUNICODE_STRING = nil);
+begin
+  Self.Length                   := sizeof(Self);
+  Self.RootDirectory            := 0;
+  Self.Attributes               := OBJ_CASE_INSENSITIVE;
+  Self.ObjectName               := Path;
+  Self.SecurityDescriptor       := nil;
+  Self.SecurityQualityOfService := nil;
 end;
 
 function NT_SUCCESS (Status: NTSTATUS): boolean; inline;

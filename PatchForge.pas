@@ -571,7 +571,7 @@ function JumpTypeToNear (JumpType: TJumpType): TJumpType;
 begin
   result := JumpType;
 
-  if Utils.FlagSet(JUMP_TYPE_FLAG_SHORT, GetJumpAssembly(JumpType).Flags) then begin
+  if Utils.HasFlag(JUMP_TYPE_FLAG_SHORT, GetJumpAssembly(JumpType).Flags) then begin
     result := ConvertBetweenShortNearJump(result);
   end;
 end;
@@ -580,7 +580,7 @@ function JumpTypeToShort (JumpType: TJumpType): TJumpType;
 begin
   result := JumpType;
 
-  if Utils.FlagSet(JUMP_TYPE_FLAG_NEAR, GetJumpAssembly(JumpType).Flags) then begin
+  if Utils.HasFlag(JUMP_TYPE_FLAG_NEAR, GetJumpAssembly(JumpType).Flags) then begin
     result := ConvertBetweenShortNearJump(result);
   end;
 end;
@@ -1279,7 +1279,7 @@ TYPE
     CallTargetAddr := OrigCmdPtr + sizeof(TJumpCall32Rec) + pinteger(integer(CmdPtr) + Disasm.PrefixedOpcodeSize)^;
 
     if not IsOrigLocalAddr(CallTargetAddr, FOR_CALL) then begin
-      if Utils.FlagSet(FIX_CODE_MAKE_MOVABLE, FixCodeFlags) then begin
+      if Utils.HasFlag(FIX_CODE_MAKE_MOVABLE, FixCodeFlags) then begin
         Self.CallAbs(Ptr(CallTargetAddr));
       end else begin
         Self.Call(Ptr(CallTargetAddr));
@@ -1306,7 +1306,7 @@ TYPE
         Assert(false, Format('Failed to get jump type for opcode: %x', [Disasm.Opcode]));
       end;
 
-      if Utils.FlagSet(FIX_CODE_MAKE_MOVABLE, FixCodeFlags) then begin
+      if Utils.HasFlag(FIX_CODE_MAKE_MOVABLE, FixCodeFlags) then begin
         Self.JumpAbs(JumpType, Ptr(JumpTargetAddr));
       end else begin
         Self.Jump(JumpTypeToNear(JumpType), Ptr(JumpTargetAddr));
@@ -1318,7 +1318,7 @@ TYPE
 
 begin
   {!} Assert(CodeSizeDetector <> nil);
-  {!} Assert(not Utils.FlagSet(FIX_CODE_SAME_SIZE, FixCodeFlags) or not Utils.FlagSet(FIX_CODE_MAKE_MOVABLE, FixCodeFlags), 'FIX_CODE_SAME_SIZE and FIX_CODE_MAKE_MOVABLE flags cannot be used at the same time');
+  {!} Assert(not Utils.HasFlag(FIX_CODE_SAME_SIZE, FixCodeFlags) or not Utils.HasFlag(FIX_CODE_MAKE_MOVABLE, FixCodeFlags), 'FIX_CODE_SAME_SIZE and FIX_CODE_MAKE_MOVABLE flags cannot be used at the same time');
   CmdPtr := nil;
   EndPtr := nil;
   result := Self;
@@ -1342,7 +1342,7 @@ begin
 
       if Disasm.Opcode = OPCODE_CALL_CONST32 then begin
         HandleCallConst32(CmdPtr, OrigCmdPtr);
-      end else if IsNearJumpConst32Opcode(Disasm.Opcode) or (IsShortJumpConst8Opcode(Disasm.Opcode) and not Utils.FlagSet(FIX_CODE_SAME_SIZE, FixCodeFlags)) then begin
+      end else if IsNearJumpConst32Opcode(Disasm.Opcode) or (IsShortJumpConst8Opcode(Disasm.Opcode) and not Utils.HasFlag(FIX_CODE_SAME_SIZE, FixCodeFlags)) then begin
         HandleJumpConst(CmdPtr, OrigCmdPtr);
       end else begin
         Self.WriteBytes(Disasm.Len, CmdPtr);

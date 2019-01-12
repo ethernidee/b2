@@ -144,7 +144,7 @@ procedure Exchange (var A, B: integer);
 procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer);
 
 (* Returns true if simple or complex bit flag is set *)
-function  FlagSet (Flag, Flags: integer): boolean; inline;
+function  HasFlag (Flag, Flags: integer): boolean; inline;
 
 (* Extra system functions *)
 function  Even (Num: integer): boolean;
@@ -218,7 +218,7 @@ begin
   PCharByte(PtrOfs(What, NumBytesToCopy))^ := #0;
 end; // .procedure SetPcharValue
 
-function FlagSet (Flag, Flags: integer): boolean;
+function HasFlag (Flag, Flags: integer): boolean;
 begin
   result := (Flags and Flag) = Flag;
 end;
