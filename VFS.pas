@@ -22,6 +22,10 @@
   Known limitations:
   - it's not possible to map directories to drive roots (C:, D:, etc).
   - short DOS names are not generated and listed for virtual items (see FindFirstFile).
+  - Unique 16 byte object IDs are returned as 0 on listing '.' and '..' directory items.
+
+  TODO!!!!!!!!!!!!!!!!
+  !!! Recheck file info structures sizes and structure of all types: https://msdn.microsoft.com/en-us/library/cc232070.aspx
 
   Intercepted WinApi functions:
   - LoadLibraryW (for debuggers support)
@@ -48,7 +52,7 @@
 (***)  interface  (***)
 uses
   Windows, SysUtils, Math,
-  Utils, WinNative, Lists, DataLib, StrLib, Files, Log, TypeWrappers,
+  Utils, WinNative, Alg, Lists, DataLib, StrLib, Files, Log, TypeWrappers,
   PatchApi, Core, Ini, WinUtils, Concur, PatchForge, hde32, VfsPatching, {ApiJack, }DlgMes,
   {DELETEME}FilesEx;
 
@@ -120,6 +124,8 @@ var
   NativeSetCurrentDirectoryW:      function (lpPathName: LPWSTR): BOOL; stdcall;
   NativeNtOpenFile:                WinNative.TNtOpenFile;
   NativeNtCreateFile:              WinNative.TNtCreateFile;
+  NativeNtClose:                   WinNative.TNtClose;
+  NativeNtQueryDirectoryFile:      WinNative.TNtQueryDirectoryFile;
   NativeNtQueryAttributesFile:     WinNative.TNtQueryAttributesFile;
   NativeNtQueryFullAttributesFile: WinNative.TNtQueryFullAttributesFile;
   NativeNtDeleteFile:              WinNative.TNtDeleteFile;
@@ -156,7 +162,7 @@ const
 type
   PNativeFileInfo = ^TNativeFileInfo;
   TNativeFileInfo = record
-    Base:     WinNative.FILE_BOTH_DIR_INFORMATION;
+    Base:     WinNative.FILE_ID_BOTH_DIR_INFORMATION;
     FileName: WideString;
 
     procedure SetFileName (const NewFileName: WideString);
@@ -194,6 +200,10 @@ type
     procedure AddItem ({U} FileInfo: PNativeFileInfo; const FileName: WideString = ''; const InsertBefore: integer = High(integer));
     function  GetNextItem ({OUT} var Res: TFileInfo): boolean;
     procedure Rewind;
+
+    (* Always seeks as close as possible *)
+    function Seek (SeekInd: integer): boolean;
+    function SeekRel (RelInd: integer): boolean;
 
     property FileInd: integer read fFileInd;
     property Count: integer read GetCount;
@@ -240,24 +250,24 @@ type
     (* Formal or virtual path to file *)
     AbsPath: WideString;
 
-    (* Directory listing (both real and virtual children). Created on the fly on NtQueryDirectoryFile call *)
+    (* Directory listing (both real and virtual children). Created on the fly on FillDirListing call *)
     {On} DirListing: TDirListing;
 
     constructor Create (hFile: Windows.THandle; const AbsPath: WideString);
     destructor Destroy; override;
 
     (* Makes complete directory listing, including real and virtual items. Does nothing if listing already exists.
-       Can be called only for redirected items. *)
+       Can be called only for redirected items. Returns true on non-nil listing. *)
     procedure FillDirListing (const Mask: WideString);
   end;
 
   ISysDirScanner = interface
-    function IterNext ({OUT} var FileName: WideString; {n} FileInfo: WinNative.PFILE_BOTH_DIR_INFORMATION = nil): boolean;
+    function IterNext ({OUT} var FileName: WideString; {n} FileInfo: WinNative.PFILE_ID_BOTH_DIR_INFORMATION = nil): boolean;
   end;
 
   TSysDirScanner = class (Utils.TManagedObject, ISysDirScanner)
    protected const
-     BUF_SIZE = (sizeof(WinNative.FILE_BOTH_DIR_INFORMATION) + MAX_FILENAME_SIZE) * 10;
+     BUF_SIZE = (sizeof(WinNative.FILE_ID_BOTH_DIR_INFORMATION) + MAX_FILENAME_SIZE) * 10;
 
    protected
     fOwnsDirHandle: boolean;
@@ -274,7 +284,7 @@ type
     constructor Create (const DirPath, Mask: WideString); overload;
     destructor Destroy; override;
     
-    function IterNext ({OUT} var FileName: WideString; {n} FileInfo: WinNative.PFILE_BOTH_DIR_INFORMATION = nil): boolean;
+    function IterNext ({OUT} var FileName: WideString; {n} FileInfo: WinNative.PFILE_ID_BOTH_DIR_INFORMATION = nil): boolean;
   end; // .class TSysDirScanner
 
 // Will it become zero during finalization?
@@ -285,10 +295,11 @@ var
 (* Map of DLL handle => API name => Real api address *)
 {O} DllRealApiAddrs: {O} TObjDict {OF TDict};
 
-{O} VfsItems: {O} TDict {OF TVfsItem};
+{O} VfsItems:    {O} TDict {OF TVfsItem};
+{O} OpenedFiles: {O} TObjDict {OF TOpenedFile};
 
-  VfsHooksInstalled: boolean = false;
-  VfsIsRunning:      boolean = false;
+  VfsHooksInstalled:   boolean = false;
+  VfsIsRunning:        boolean = false;
   OverwritingPriority: integer = INITIAL_OVERWRITING_PRIORITY;
   AddingPriority:      integer = INITIAL_ADDING_PRIORITY;
   SearchAutoHandle:    integer = 1;
@@ -388,6 +399,17 @@ end;
 procedure TDirListing.Rewind;
 begin
   Self.fFileInd := 0;
+end;
+
+function TDirListing.Seek (SeekInd: integer): boolean;
+begin
+  Self.fFileInd := Alg.ToRange(SeekInd, 0, Self.fFileList.Count - 1);
+  result        := Self.fFileInd = SeekInd;
+end;
+
+function TDirListing.SeekRel (RelInd: integer): boolean;
+begin
+  result := Self.Seek(Self.fFileInd + RelInd);    
 end;
 
 function TVfsItem.IsDir: boolean;
@@ -742,6 +764,8 @@ begin
     Res.Base.ShortNameLength := 0;
     Res.Base.ShortName[0]    := #0;
     Res.Base.FileNameLength  := FileAllInfo.NameInformation.FileNameLength;
+    Res.Base.FileId.LowPart  := 0;
+    Res.Base.FileId.HighPart := 0;
     Res.SetFileName(StrLib.ExtractFileNameW(StrLib.WideStringFromBuf(@FileAllInfo.NameInformation.FileName, Min(integer(IoStatusBlock.Information) - sizeof(FileAllInfo^), FileAllInfo.NameInformation.FileNameLength) div sizeof(WideChar))));
   end else if IsNtRootDriveAbsPath(NtAbsPath) and (SaveAndRet(Windows.GetFileAttributesW(PWideChar(StripNtAbsPathPrefix(NtAbsPath))), FileAllInfo.BasicInformation.FileAttributes) <> integer(Windows.INVALID_HANDLE_VALUE)) then begin
     // Return fake info for root drive
@@ -758,7 +782,7 @@ constructor TSysDirScanner.Create (const hDir: Windows.THandle; const Mask: Wide
 begin
   Self.fOwnsDirHandle := false;
   Self.fDirHandle     := hDir;
-  Self.fMask          := Mask;
+  Self.fMask          := StrLib.WideLowerCase(Mask);
   Self.fMaskU.AssignExistingStr(Self.fMask);
   Self.fIsStart       := true;
   Self.fIsEnd         := false;
@@ -789,12 +813,12 @@ begin
   end;
 end;
 
-function TSysDirScanner.IterNext ({OUT} var FileName: WideString; {n} FileInfo: WinNative.PFILE_BOTH_DIR_INFORMATION = nil): boolean;
+function TSysDirScanner.IterNext ({OUT} var FileName: WideString; {n} FileInfo: WinNative.PFILE_ID_BOTH_DIR_INFORMATION = nil): boolean;
 const
   MULTIPLE_ENTRIES = false;
 
 var
-{n} FileInfoInBuf: WinNative.PFILE_BOTH_DIR_INFORMATION;
+{n} FileInfoInBuf: WinNative.PFILE_ID_BOTH_DIR_INFORMATION;
     IoStatusBlock: WinNative.IO_STATUS_BLOCK;
     FileNameLen:   integer;
     Status:        integer;
@@ -818,11 +842,14 @@ begin
       FileInfo.FileNameLength := FileNameLen * sizeof(WideChar);
     end;
 
+    //VarDump(['Read entry: ', FileName]);
+
     Self.fBufPos := Utils.IfThen(FileInfoInBuf.NextEntryOffset <> 0, Self.fBufPos + integer(FileInfoInBuf.NextEntryOffset), Self.BUF_SIZE);
   end else begin
     Self.fBufPos  := 0;
-    Status        := WinNative.NtQueryDirectoryFile(Self.fDirHandle, 0, nil, nil, @IoStatusBlock, @Self.fBuf, Self.BUF_SIZE, WinNative.FileBothDirectoryInformation, MULTIPLE_ENTRIES, @Self.fMaskU, Self.fIsStart);
+    Status        := WinNative.NtQueryDirectoryFile(Self.fDirHandle, 0, nil, nil, @IoStatusBlock, @Self.fBuf, Self.BUF_SIZE, ord(WinNative.FileIdBothDirectoryInformation), MULTIPLE_ENTRIES, @Self.fMaskU, Self.fIsStart);
     result        := (Status = WinNative.STATUS_SUCCESS) and (integer(IoStatusBlock.Information) <> 0);
+    //VarDump([Format('Called NtQueryDirectoryFile. Status: %x. Io.Information: %d', [Status, int(IoStatusBlock.Information)])]);
     Self.fIsStart := false;
 
     if result then begin
@@ -896,6 +923,7 @@ procedure TOpenedFile.FillDirListing (const Mask: WideString);
 var
 {On} ExcludedItems:               {U} TDict {OF not nil};
      PrevDisableVfsForThisThread: boolean;
+     VfsItemFound:                boolean;
      NumVfsChildren:              integer;
      DirInfo:                     TNativeFileInfo;
      ParentDirInfo:               TNativeFileInfo;
@@ -910,36 +938,34 @@ begin
   end;
 
   Self.DirListing := TDirListing.Create;
+  VfsItemFound    := GetVfsDirInfo(Self.AbsPath, Mask, DirInfo, Self.DirListing);
+  ExcludedItems   := DataLib.NewDict(not Utils.OWNS_ITEMS, DataLib.CASE_SENSITIVE);
 
-  if GetVfsDirInfo(Self.AbsPath, Mask, DirInfo, Self.DirListing) then begin
-    ExcludedItems := DataLib.NewDict(not Utils.OWNS_ITEMS, DataLib.CASE_SENSITIVE);
-
+  if VfsItemFound then begin
     while DirListing.GetNextItem(DirItem) do begin
       ExcludedItems[WideStrToCaselessKey(DirItem.Data.FileName)] := Ptr(1);
     end;
 
     Self.DirListing.Rewind;
+  end;
 
-    // Add real items
-    NumVfsChildren              := Self.DirListing.Count;
-    PrevDisableVfsForThisThread := DisableVfsForThisThread;
-    DisableVfsForThisThread     := true;
-    GetDirectoryListing(Self.AbsPath, Mask, ExcludedItems, Self.DirListing);
-    DisableVfsForThisThread     := PrevDisableVfsForThisThread;
+  // Add real items
+  NumVfsChildren              := Self.DirListing.Count;
+  PrevDisableVfsForThisThread := DisableVfsForThisThread;
+  DisableVfsForThisThread     := true;
+  GetDirectoryListing(Self.AbsPath, Mask, ExcludedItems, Self.DirListing);
+  DisableVfsForThisThread     := PrevDisableVfsForThisThread;
 
-    // No real items added, maybe there is a need to add '.' and/or '..' manually
-    if Self.DirListing.Count = NumVfsChildren then begin
-      if StrLib.MatchW('..', Mask) and GetFileInfo(Self.AbsPath + '\..', ParentDirInfo) then begin
-        Self.DirListing.AddItem(@ParentDirInfo, '..');
-      end;
-
-      if StrLib.MatchW('.', Mask) then begin
-        Self.DirListing.AddItem(@DirInfo, '.');
-      end;
+  // No real items added, maybe there is a need to add '.' and/or '..' manually
+  if VfsItemFound and (Self.DirListing.Count = NumVfsChildren) then begin
+    if StrLib.MatchW('..', Mask) and GetFileInfo(Self.AbsPath + '\..', ParentDirInfo) then begin
+      Self.DirListing.AddItem(@ParentDirInfo, '..');
     end;
-  end else begin
-    SysUtils.FreeAndNil(Self.DirListing);
-  end; // .else
+
+    if StrLib.MatchW('.', Mask) then begin
+      Self.DirListing.AddItem(@DirInfo, '.');
+    end;
+  end;
   // * * * * * //
   SysUtils.FreeAndNil(ExcludedItems);
 end; // .procedure TOpenedFile.FillDirListing
@@ -1052,7 +1078,7 @@ begin
   result := FindVfsItem(AbsPath) <> nil;
 end;
 
-procedure CopyFileInfoWithoutNames (var Src, Dest: WinNative.FILE_BOTH_DIR_INFORMATION);
+procedure CopyFileInfoWithoutNames (var Src, Dest: WinNative.FILE_ID_BOTH_DIR_INFORMATION);
 begin
   Dest.FileIndex      := 0;
   Dest.CreationTime   := Src.CreationTime;
@@ -1068,7 +1094,7 @@ end;
 (*
   Redirects single file/directory path (not including directory contents). Target must exist for success.
 *)
-function RedirectFile (const AbsVirtPath, AbsRealPath: WideString; {n} FileInfoPtr: WinNative.PFILE_BOTH_DIR_INFORMATION; OverwriteExisting: boolean; Priority: integer): {Un} TVfsItem;
+function RedirectFile (const AbsVirtPath, AbsRealPath: WideString; {n} FileInfoPtr: WinNative.PFILE_ID_BOTH_DIR_INFORMATION; OverwriteExisting: boolean; Priority: integer): {Un} TVfsItem;
 const
   WIDE_NULL_CHAR_LEN = 1;
 
@@ -1129,7 +1155,7 @@ end; // .function RedirectFile
 (*
   Maps real directory contents to virtual path. Target must exist for success.
 *)
-function _MapDir (const AbsVirtPath, AbsRealPath: WideString; {n} FileInfoPtr: WinNative.PFILE_BOTH_DIR_INFORMATION; OverwriteExisting: boolean; Priority: integer): {Un} TVfsItem;
+function _MapDir (const AbsVirtPath, AbsRealPath: WideString; {n} FileInfoPtr: WinNative.PFILE_ID_BOTH_DIR_INFORMATION; OverwriteExisting: boolean; Priority: integer): {Un} TVfsItem;
 var
 {O}  Subdirs:        {O} TList {OF TFileInfo};
 {U}  SubdirInfo:     TFileInfo;
@@ -1226,10 +1252,24 @@ begin
   end; // .if
 end; // .function GetVfsItemRealPath
 
+function IsVfsOn: boolean;
+begin
+  result := false;
+
+  if not DisableVfsForThisThread then begin
+    with VfsCritSection do begin
+      Enter;
+      result := VfsIsRunning;
+      Leave;
+    end;
+  end;
+end;
+
 function GetVfsDirInfo (const AbsVirtPath, Mask: WideString; {OUT} var DirInfo: TNativeFileInfo; DirListing: TDirListing): boolean;
 var
-{n} VfsItem: TVfsItem;
-    i:       integer;
+{n} VfsItem:        TVfsItem;
+    NormalizedMask: WideString;
+    i:              integer;
 
 begin
   {!} Assert(DirListing <> nil);
@@ -1247,8 +1287,10 @@ begin
           DirInfo := VfsItem.Info;
 
           if VfsItem.Children <> nil then begin
+            NormalizedMask := StrLib.WideLowerCase(Mask);
+
             for i := 0 to VfsItem.Children.Count - 1 do begin
-              if StrLib.MatchW(TVfsItem(VfsItem.Children[i]).SearchName, Mask) then begin
+              if StrLib.MatchW(TVfsItem(VfsItem.Children[i]).SearchName, NormalizedMask) then begin
                 DirListing.AddItem(@TVfsItem(VfsItem.Children[i]).Info);
               end;
             end;
@@ -1862,7 +1904,7 @@ begin
   end; // .else
 
   if DebugOpt then begin
-    Log.Write('VFS', 'NtQueryAttributesFile', Format('Result: %d. Attrs: 0x%x. Path: "%s" => "%s"', [result, FileInformation.FileAttributes, string(ExpandedPath), string(RedirectedPath)]));
+    Log.Write('VFS', 'NtQueryAttributesFile', Format('Result: %x. Attrs: 0x%x. Path: "%s" => "%s"', [result, FileInformation.FileAttributes, string(ExpandedPath), string(RedirectedPath)]));
   end;
 end; // .function Hook_NtQueryAttributesFile
 
@@ -1904,7 +1946,7 @@ begin
   result := OrigFunc(@ReplacedObjAttrs, FileInformation);
 
   if DebugOpt then begin
-    Log.Write('VFS', 'NtQueryFullAttributesFile', Format('Result: %d. Attrs: 0x%x. Path: "%s" => "%s"', [result, FileInformation.FileAttributes, string(ExpandedPath), string(RedirectedPath)]));
+    Log.Write('VFS', 'NtQueryFullAttributesFile', Format('Result: %x. Attrs: 0x%x. Path: "%s" => "%s"', [result, FileInformation.FileAttributes, string(ExpandedPath), string(RedirectedPath)]));
   end;
 end; // .Hook_NtQueryFullAttributesFile
 
@@ -1942,14 +1984,6 @@ begin
     RedirectedPath := GetVfsItemRealPath(StrLib.ExcludeTrailingDelimW(ExpandedPath, @HadTrailingDelim), @FileInfo);
   end;
 
-  // This will make SetCurrentDirectoryW to fail ( but we have to prevent redirecting existing directories to virtual)
-  // Emm, but only if real directory does not exist, right?
-//  if (RedirectedPath <> '') and Utils.HasFlag(Windows.FILE_ATTRIBUTE_DIRECTORY, FileInfo.FileAttributes) and DirExistsW(ExpandedPath) then begin
-//    RedirectedPath := '';
-//    // FIXMEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
-//    //result := OrigFunc(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-//  end;
-
   if RedirectedPath = '' then begin
     RedirectedPath := ExpandedPath;
   end else if HadTrailingDelim then begin
@@ -1966,14 +2000,235 @@ begin
 
   result := OrigFunc(FileHandle, DesiredAccess, @ReplacedObjAttrs, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 
+  if (result = WinNative.STATUS_SUCCESS) and Utils.HasFlag(WinNative.FILE_SYNCHRONOUS_IO_NONALERT, CreateOptions) and Utils.HasFlag(WinNative.SYNCHRONIZE, DesiredAccess) then begin
+    OpenedFiles[Ptr(FileHandle^)] := TOpenedFile.Create(FileHandle^, ExpandedPath);
+  end;
+
   if DebugOpt then begin
     if ExpandedPath <> StripNtAbsPathPrefix(RedirectedPath) then begin
-      Log.Write('VFS', 'NtCreateFile', Format('Access: 0x%x. Handle: %d. Status: %d. Redirected "%s" => "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath), StrLib.WideToAnsiSubstitute(StripNtAbsPathPrefix(RedirectedPath))]));
+      Log.Write('VFS', 'NtCreateFile', Format('Access: 0x%x. Handle: %x. Status: %x. Redirected "%s" => "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath), StrLib.WideToAnsiSubstitute(StripNtAbsPathPrefix(RedirectedPath))]));
     end else begin
-      Log.Write('VFS', 'NtCreateFile', Format('Access: 0x%x. Handle: %d. Status: %d. Path: "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath)]));
+      Log.Write('VFS', 'NtCreateFile', Format('Access: 0x%x. Handle: %x. Status: %x. Path: "%s"', [DesiredAccess, FileHandle^, result, StrLib.WideToAnsiSubstitute(ExpandedPath)]));
     end;
   end;
 end; // .function Hook_NtCreateFile
+
+function Hook_NtClose (OrigFunc: WinNative.TNtClose; hData: HANDLE): NTSTATUS; stdcall;
+begin
+  if DebugOpt then begin
+    Log.Write('VFS', 'NtClose', Format('Handle: %x', [integer(hData)]));
+  end;
+
+  OpenedFiles.DeleteItem(pointer(hData));
+
+  result := OrigFunc(hData);
+
+  if DebugOpt then begin
+    Log.Write('VFS', 'NtClose', Format('Status: %x', [integer(result)]));
+  end;
+end; // .function Hook_NtClose
+
+function IsSupportedFileInformationClass (FileInformationClass: integer): boolean;
+begin
+  result := (FileInformationClass <= High(byte)) and (FILE_INFORMATION_CLASS(byte(FileInformationClass)) in [FileBothDirectoryInformation, FileDirectoryInformation, FileFullDirectoryInformation, FileIdBothDirectoryInformation, FileIdFullDirectoryInformation, FileNamesInformation]);
+end;
+
+type
+  TFileInfoConvertResult  = (TOO_SMALL_BUF, COPIED_ALL, TRUNCATED_NAME);
+  TTruncatedNamesStrategy = (DONT_TRUNCATE_NAMES, TRUNCATE_NAMES);
+
+function ConvertFileInfoStruct (SrcInfo: PNativeFileInfo; TargetFormat: FILE_INFORMATION_CLASS; {n} Buf: pointer; BufSize: integer; TruncatedNamesStrategy: TTruncatedNamesStrategy;
+                                {OUT} var BytesWritten: integer): TFileInfoConvertResult;
+var
+{n} FileNameBuf:     pointer;
+    FileNameBufSize: integer;
+    StructBaseSize:  integer;
+    StructFullSize:  integer;
+
+begin
+  {!} Assert(SrcInfo <> nil);
+  {!} Assert(IsSupportedFileInformationClass(ord(TargetFormat)), Format('Unsupported file information class: %d', [ord(TargetFormat)]));
+  FileNameBuf := nil;
+  // * * * * * //
+  BytesWritten   := 0;
+  StructBaseSize := WinNative.GetFileInformationClassSize(TargetFormat);
+  StructFullSize := StructBaseSize + SrcInfo.Base.FileNameLength;
+
+  if (Buf = nil) or (BufSize < StructBaseSize)  then begin
+    result := TOO_SMALL_BUF;
+    exit;
+  end;
+
+  result := COPIED_ALL;
+
+  if BufSize < StructFullSize then begin
+    result := TRUNCATED_NAME;
+
+    if TruncatedNamesStrategy = DONT_TRUNCATE_NAMES then begin
+      exit;
+    end;
+  end;
+
+  case TargetFormat of
+    FileNamesInformation: PFILE_NAMES_INFORMATION(Buf).FileNameLength := SrcInfo.Base.FileNameLength;
+   
+    FileBothDirectoryInformation, FileDirectoryInformation, FileFullDirectoryInformation, FileIdBothDirectoryInformation, FileIdFullDirectoryInformation: begin
+      Utils.CopyMem(StructBaseSize, @SrcInfo.Base, Buf);
+    end;
+  else
+    {!} Assert(IsSupportedFileInformationClass(ord(TargetFormat)), Format('Unexpected unsupported file information class: %d', [ord(TargetFormat)]));
+  end;
+
+  FileNameBufSize := Min(BufSize - StructBaseSize, SrcInfo.Base.FileNameLength) and not $00000001;
+  FileNameBuf     := Utils.PtrOfs(Buf, StructBaseSize);
+
+  Utils.CopyMem(FileNameBufSize, PWideChar(SrcInfo.FileName), FileNameBuf);
+
+  BytesWritten := StructBaseSize + FileNameBufSize;
+end; // .function ConvertFileInfoStruct
+
+function Hook_NtQueryDirectoryFile (OrigFunc: WinNative.TNtQueryDirectoryFile; FileHandle: HANDLE; Event: HANDLE; ApcRoutine: pointer; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID;
+                                    BufLength: ULONG; InfoClass: integer (* FILE_INFORMATION_CLASS *); SingleEntry: BOOLEAN; Mask: PUNICODE_STRING; RestartScan: BOOLEAN): NTSTATUS; stdcall;
+const
+  ENTRIES_ALIGNMENT = 8;
+
+type
+  PPrevEntry = ^TPrevEntry;
+  TPrevEntry = packed record
+    NextEntryOffset: ULONG;
+    FileIndex:       ULONG;
+  end;
+
+var
+{Un} OpenedFile:             TOpenedFile;
+{Un} FileInfo:               TFileInfo;
+{n}  BufCurret:              pointer;
+{n}  PrevEntry:              PPrevEntry;
+     BufSize:                integer;
+     BufSizeLeft:            integer;
+     BytesWritten:           integer;
+     IsFirstEntry:           boolean;
+     Proceed:                boolean;
+     TruncatedNamesStrategy: TTruncatedNamesStrategy;
+     StructConvertResult:    TFileInfoConvertResult;
+
+begin
+  OpenedFile := TOpenedFile(OpenedFiles[pointer(FileHandle)]);
+  FileInfo   := nil;
+  BufCurret  := nil;
+  PrevEntry  := nil;
+  // * * * * * //
+  if DebugOpt then begin
+    Log.Write('VFS', 'NtQueryDirectoryFile', Format('Handle: %x. InfoClass: %s', [integer(FileHandle), WinNative.FileInformationClassToStr(InfoClass)]));
+  end;
+
+  if (OpenedFile = nil) or (Event <> 0) or (ApcRoutine <> nil) or (ApcContext <> nil) or not IsVfsOn() then begin
+    result := OrigFunc(FileHandle, Event, ApcRoutine, ApcContext, Io, Buffer, BufLength, InfoClass, SingleEntry, Mask, RestartScan);
+  end else begin
+    int(Io.Information) := 0;
+    result              := STATUS_SUCCESS;
+
+    if RestartScan then begin
+      SysUtils.FreeAndNil(OpenedFile.DirListing);
+    end;
+
+    OpenedFile.FillDirListing(Mask.ToWideStr());
+
+    Proceed := (Buffer <> nil) and (BufLength > 0);
+
+    // Validate buffer
+    if not Proceed then begin
+      result := STATUS_INVALID_BUFFER_SIZE;
+    end else begin
+      BufSize := Utils.IfThen(integer(BufLength) > 0, integer(BufLength), High(integer));
+    end;
+
+    // Validate information class
+    if Proceed then begin
+      Proceed := IsSupportedFileInformationClass(InfoClass);
+
+      if not Proceed then begin
+        result := STATUS_INVALID_INFO_CLASS;
+      end;
+    end;
+
+    // Signal of scanning end, if necessary
+    if Proceed then begin
+      Proceed := not OpenedFile.DirListing.IsEnd;
+
+      if not Proceed then begin
+        result := STATUS_NO_MORE_FILES;
+      end;
+    end;
+
+    // Scan directory
+    if Proceed then begin
+      BufCurret    := Buffer;
+      BytesWritten := 1;
+
+      while (BytesWritten > 0) and OpenedFile.DirListing.GetNextItem(FileInfo) do begin
+        // Align next record to 8-bytes boundary from Buffer start
+        BufCurret   := pointer(int(Buffer) + Alg.IntRoundToBoundary(int(Io.Information), ENTRIES_ALIGNMENT));
+        BufSizeLeft := BufSize - (int(BufCurret) - int(Buffer));
+
+        IsFirstEntry := OpenedFile.DirListing.FileInd = 1;
+
+        if IsFirstEntry then begin
+          TruncatedNamesStrategy := TRUNCATE_NAMES;
+        end else begin
+          TruncatedNamesStrategy := DONT_TRUNCATE_NAMES;
+        end;
+
+        StructConvertResult := ConvertFileInfoStruct(@FileInfo.Data, FILE_INFORMATION_CLASS(byte(InfoClass)), BufCurret, BufSizeLeft, TruncatedNamesStrategy, BytesWritten);
+        //VarDump(['Converted struct to buf offset:', int(BufCurret) - int(Buffer), 'Written:', BytesWritten, 'Result:', ord(StructConvertResult)]);
+
+        with PFILE_ID_BOTH_DIR_INFORMATION(BufCurret)^ do begin
+          NextEntryOffset := 0;
+          FileIndex       := 0;
+        end;
+
+        if StructConvertResult = TOO_SMALL_BUF then begin
+          OpenedFile.DirListing.SeekRel(-1);
+
+          if IsFirstEntry then begin
+            result := STATUS_BUFFER_TOO_SMALL;
+          end;
+        end else if StructConvertResult = TRUNCATED_NAME then begin
+          if IsFirstEntry then begin
+            result := STATUS_BUFFER_OVERFLOW;
+            Inc(int(Io.Information), BytesWritten);
+          end else begin
+            OpenedFile.DirListing.SeekRel(-1);
+          end;
+        end else if StructConvertResult = COPIED_ALL then begin
+          if PrevEntry <> nil then begin
+            int(Io.Information) := int(BufCurret) - int(Buffer) + BytesWritten;
+          end else begin
+            int(Io.Information) := BytesWritten;
+          end;
+        end; // .else
+
+        if (BytesWritten > 0) and (PrevEntry <> nil) then begin
+          PrevEntry.NextEntryOffset := cardinal(int(BufCurret) - int(PrevEntry));
+        end;
+
+        PrevEntry := BufCurret;
+
+        //Msg(Format('Written: %d. Total: %d', [BytesWritten, int(Io.Information)]));
+
+        if SingleEntry then begin
+          BytesWritten := 0;
+        end;
+      end; // .while
+    end; // .if    
+
+    Io.Status.Status := result;
+  end; // .else
+
+  if DebugOpt then begin
+    Log.Write('VFS', 'NtQueryDirectoryFile', Format('Status: %x. Written: %d bytes', [integer(result), integer(Io.Information)]));
+  end;
+end; // .function Hook_NtQueryDirectoryFile
 
 function Hook_SetCurrentDirectoryW (OrigFunc: pointer; lpPathName: PWideChar): LONGBOOL; stdcall;
 var
@@ -2080,11 +2335,11 @@ end;
 
 procedure ResetVfs;
 begin
-  // FIXME Clear hFile => TOpenedFile cache
   with VfsCritSection do begin
     Enter;
 
     if VfsIsRunning then begin
+      OpenedFiles.Clear();
       VfsItems.Clear();
       VfsIsRunning := false;
     end;
@@ -2215,54 +2470,54 @@ begin
     //   @Hook_LoadLibraryA,
     // );
 
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExW hook');
-    NativeFindFirstFileExW := VfsPatching.SpliceWinApi
-    (
-      GetRealProcAddress(Kernel32Handle, 'FindFirstFileExW'),
-      @Hook_FindFirstFileExW
-    );
+    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExW hook');
+    // NativeFindFirstFileExW := VfsPatching.SpliceWinApi
+    // (
+    //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileExW'),
+    //   @Hook_FindFirstFileExW
+    // );
 
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExA hook');
-    VfsPatching.SpliceWinApi
-    (
-      GetRealProcAddress(Kernel32Handle, 'FindFirstFileExA'),
-      @Hook_FindFirstFileExA
-    );
+    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileExA hook');
+    // VfsPatching.SpliceWinApi
+    // (
+    //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileExA'),
+    //   @Hook_FindFirstFileExA
+    // );
 
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileW hook');
-    VfsPatching.SpliceWinApi
-    (
-      GetRealProcAddress(Kernel32Handle, 'FindFirstFileW'),
-      @Hook_FindFirstFileW
-    );
+    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileW hook');
+    // VfsPatching.SpliceWinApi
+    // (
+    //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileW'),
+    //   @Hook_FindFirstFileW
+    // );
 
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
-    VfsPatching.SpliceWinApi
-    (
-      GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
-      @Hook_FindFirstFileA
-    );
+    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindFirstFileA hook');
+    // VfsPatching.SpliceWinApi
+    // (
+    //   GetRealProcAddress(Kernel32Handle, 'FindFirstFileA'),
+    //   @Hook_FindFirstFileA
+    // );
 
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileW hook');
-    NativeFindNextFileW := VfsPatching.SpliceWinApi
-    (
-      GetRealProcAddress(Kernel32Handle, 'FindNextFileW'),
-      @Hook_FindNextFileW
-    );
+    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileW hook');
+    // NativeFindNextFileW := VfsPatching.SpliceWinApi
+    // (
+    //   GetRealProcAddress(Kernel32Handle, 'FindNextFileW'),
+    //   @Hook_FindNextFileW
+    // );
 
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileA hook');
-    VfsPatching.SpliceWinApi
-    (
-      GetRealProcAddress(Kernel32Handle, 'FindNextFileA'),
-      @Hook_FindNextFileA
-    );
+    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindNextFileA hook');
+    // VfsPatching.SpliceWinApi
+    // (
+    //   GetRealProcAddress(Kernel32Handle, 'FindNextFileA'),
+    //   @Hook_FindNextFileA
+    // );
 
-    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindClose hook');
-    NativeFindClose := VfsPatching.SpliceWinApi
-    (
-      GetRealProcAddress(Kernel32Handle, 'FindClose'),
-      @Hook_FindClose
-    );
+    // if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing FindClose hook');
+    // NativeFindClose := VfsPatching.SpliceWinApi
+    // (
+    //   GetRealProcAddress(Kernel32Handle, 'FindClose'),
+    //   @Hook_FindClose
+    // );
 
     if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing SetCurrentDirectoryW hook');
     NativeSetCurrentDirectoryW := VfsPatching.SpliceWinApi
@@ -2306,6 +2561,20 @@ begin
     (
       GetRealProcAddress(NtdllHandle, 'NtCreateFile'),
       @Hook_NtCreateFile
+    );
+
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtClose hook');
+    NativeNtClose := VfsPatching.SpliceWinApi
+    (
+      GetRealProcAddress(NtdllHandle, 'NtClose'),
+      @Hook_NtClose
+    );
+
+    if DebugOpt then Log.Write('VFS', 'InstallHook', 'Installing NtQueryDirectoryFile hook');
+    NativeNtQueryDirectoryFile := VfsPatching.SpliceWinApi
+    (
+      GetRealProcAddress(NtdllHandle, 'NtQueryDirectoryFile'),
+      @Hook_NtQueryDirectoryFile
     );
 
     VfsHooksInstalled := true;
@@ -2387,6 +2656,7 @@ begin
   // * * * * * //
   InitModList(aModList);
   //BuildVfsSnapshot();
+  DebugOpt := true; // FIXME!!!
 
   //VarDump([GetFileList('D:\Heroes 3\*', FILES_AND_DIRS).ToText(#13#10)]);
   ResetVfs;
@@ -2405,27 +2675,31 @@ begin
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG Rus', DONT_OVERWRITE_EXISTING);
   MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\WoG', DONT_OVERWRITE_EXISTING);
 
-  // FIXME DELETEME
-  {!!!} RebuildVfsItemsTree();
-  {!!!} SortVfsDirListings(SORT_FIFO);
-  {!!!} VfsIsRunning := true;
+  // {!} Assert(VfsItems[WideStrToCaselessKey(NormalizePath('D:\Heroes 3\Data\s\29 wog - henchmen.erm'))] <> nil);
+  // VarDump([TVfsItem(VfsItems[WideStrToCaselessKey(NormalizePath('D:\Heroes 3\Data\s\29 wog - henchmen.erm'))]).Info.Base.EndOfFile.LowPart]);
+  // halt(0);
+  //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
+  RunVfs(SORT_FIFO);
 
-  if SysOpenFile(ToNtAbsPath('D:\Heroes 3\Data'), hDir) then begin
-    f := TOpenedFile.Create(hDir, 'D:\Heroes 3\Data');
-    f.FillDirListing('*');
-    {!} Assert(f.DirListing <> nil);
-
-    while f.DirListing.GetNextItem(fifo) do begin
-      VarDump([fifo.Data.FileName + ' ' + IntToStr(fifo.Data.Base.EndOfFile.LowPart)]);
+  with SysScanDir('D:\Heroes 3\Data', '*') do begin
+    while IterNext(FileName, @FileInfo.Base) do begin
+      VarDump([FileName + ': ' + IntToStr(FileInfo.Base.EndOfFile.LowPart)]);
     end;
   end;
 
-
-  {!} Assert(VfsItems[WideStrToCaselessKey(NormalizePath('D:\Heroes 3\Data\s\29 wog - henchmen.erm'))] <> nil);
-  VarDump([TVfsItem(VfsItems[WideStrToCaselessKey(NormalizePath('D:\Heroes 3\Data\s\29 wog - henchmen.erm'))]).Info.Base.EndOfFile.LowPart]);
   halt(0);
-  //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
-  RunVfs(SORT_FIFO);
+
+  // if SysOpenFile(ToNtAbsPath(), hDir) then begin
+  //   NtClose(hDir);
+  //   halt(0);
+  //   // f := TOpenedFile.Create(hDir, 'D:\Heroes 3\Data');
+  //   // f.FillDirListing('*');
+  //   // {!} Assert(f.DirListing <> nil);
+
+  //   // while f.DirListing.GetNextItem(fifo) do begin
+  //   //   VarDump([fifo.Data.FileName + ' ' + IntToStr(fifo.Data.Base.EndOfFile.LowPart)]);
+  //   // end;
+  // end;
 
   //
   // DO NOT LIST . and .. for ROOT DRIVES in NtQueryDirectoryFile
@@ -2460,6 +2734,7 @@ initialization
 
   ModList       := Lists.NewSimpleStrList;
   VfsItems      := DataLib.NewDict(Utils.OWNS_ITEMS, DataLib.CASE_SENSITIVE);
+  OpenedFiles   := DataLib.NewObjDict(Utils.OWNS_ITEMS);
   CachedPaths   := DataLib.NewDict(Utils.OWNS_ITEMS, DataLib.CASE_INSENSITIVE);
   SearchHandles := DataLib.NewObjDict(Utils.OWNS_ITEMS);
 

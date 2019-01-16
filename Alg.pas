@@ -8,6 +8,8 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 uses Utils, Math;
 
 type
+  TOnRangeMinMaxConflict = (FORCE_MIN_VALUE, FORCE_MAX_VALUE);
+
   TCompareFunc   = function (Value1, Value2: integer): integer;
   TCompareMethod = function (Value1, Value2: integer): integer of object;
   
@@ -23,6 +25,7 @@ type
    Example: f(21, 4, true) = 24 *)
 function IntRoundToBoundary (Value, Boundary: integer; Ceil: boolean = true): integer;
 
+function  ToRange (Value, MinValue, MaxValue: integer; OnRangeMinMaxConflict: TOnRangeMinMaxConflict = FORCE_MIN_VALUE): integer;
 function  IntLog2 (Num: integer): integer; {=> Ceil(Log2(N)), N > 0}
 function  IntCompare (Int1, Int2: integer): integer;
 function  CardCompare (Card1, Card2: cardinal): integer;
@@ -52,12 +55,31 @@ function  CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Need
 function IntRoundToBoundary (Value, Boundary: integer; Ceil: boolean = true): integer;
 begin
   {!} Assert(Boundary >= 1);
-  if Ceil then begin
-    result := (Value + Boundary - 1) div Boundary * Boundary;
-  end else begin
-    result := Value div Boundary * Boundary;
-  end;
+  result := (Value + (Boundary - 1)) and not (Boundary - 1);
 end;
+
+function ToRange (Value, MinValue, MaxValue: integer; OnRangeMinMaxConflict: TOnRangeMinMaxConflict = FORCE_MIN_VALUE): integer;
+begin
+  result := Value;
+
+  if OnRangeMinMaxConflict = FORCE_MIN_VALUE then begin
+    if Value > MaxValue then begin
+      Value := MaxValue;
+    end;
+
+    if Value < MinValue then begin
+      Value := MinValue;
+    end;
+  end else begin
+    if Value < MinValue then begin
+      Value := MinValue;
+    end;
+
+    if Value > MaxValue then begin
+      Value := MaxValue;
+    end;
+  end; // .else
+end; // .function ToRange
 
 function IntLog2 (Num: integer): integer;
 var

@@ -21,8 +21,14 @@ const
 
   WIDE_NULL_CHAR_SIZE = sizeof(WideChar);
 
-  STATUS_SUCCESS      = 0;
-  STATUS_NO_SUCH_FILE = $C000000F;
+  STATUS_SUCCESS             = 0;
+  STATUS_NO_SUCH_FILE        = $C000000F;
+  STATUS_NOT_A_DIRECTORY     = $C0000103;
+  STATUS_INVALID_BUFFER_SIZE = $C0000206;
+  STATUS_INVALID_INFO_CLASS  = $C0000003;
+  STATUS_BUFFER_TOO_SMALL    = $C0000023;
+  STATUS_NO_MORE_FILES       = $80000006;
+  STATUS_BUFFER_OVERFLOW     = $80000005;
 
   (* For GetFileAttributesXXX *)
   INVALID_FILE_ATTRIBUTES = -1;
@@ -338,6 +344,83 @@ type
 
   FILE_BOTH_DIR_INFORMATION  = _FILE_BOTH_DIR_INFORMATION;
   PFILE_BOTH_DIR_INFORMATION = ^FILE_BOTH_DIR_INFORMATION;
+
+  PFILE_DIRECTORY_INFORMATION = ^FILE_DIRECTORY_INFORMATION;
+  FILE_DIRECTORY_INFORMATION  = packed record
+    NextEntryOffset: ULONG;
+    FileIndex:       ULONG;
+    CreationTime:    LARGE_INTEGER;
+    LastAccessTime:  LARGE_INTEGER;
+    LastWriteTime:   LARGE_INTEGER;
+    ChangeTime:      LARGE_INTEGER;
+    EndOfFile:       LARGE_INTEGER;
+    AllocationSize:  LARGE_INTEGER;
+    FileAttributes:  ULONG;
+    FileNameLength:  ULONG;
+    FileName:        TEmptyRec;
+  end;
+
+  PFILE_FULL_DIR_INFORMATION = ^FILE_FULL_DIR_INFORMATION;
+  FILE_FULL_DIR_INFORMATION  = packed record
+    NextEntryOffset: ULONG;
+    FileIndex:       ULONG;
+    CreationTime:    LARGE_INTEGER;
+    LastAccessTime:  LARGE_INTEGER;
+    LastWriteTime:   LARGE_INTEGER;
+    ChangeTime:      LARGE_INTEGER;
+    EndOfFile:       LARGE_INTEGER;
+    AllocationSize:  LARGE_INTEGER;
+    FileAttributes:  ULONG;
+    FileNameLength:  ULONG;
+    EaSize:          ULONG;
+    FileName:        TEmptyRec;
+  end;
+
+  PFILE_ID_BOTH_DIR_INFORMATION = ^FILE_ID_BOTH_DIR_INFORMATION;
+  FILE_ID_BOTH_DIR_INFORMATION  = packed record
+    NextEntryOffset: ULONG;
+    FileIndex:       ULONG;
+    CreationTime:    LARGE_INTEGER;
+    LastAccessTime:  LARGE_INTEGER;
+    LastWriteTime:   LARGE_INTEGER;
+    ChangeTime:      LARGE_INTEGER;
+    EndOfFile:       LARGE_INTEGER;
+    AllocationSize:  LARGE_INTEGER;
+    FileAttributes:  ULONG;
+    FileNameLength:  ULONG;
+    EaSize:          ULONG;
+    ShortNameLength: BYTE;
+    Dummy_1:         BYTE;
+    ShortName:       array [0..11] of WCHAR;
+    Dummy_2:         WORD;
+    FileId:          LARGE_INTEGER;
+    FileName:        TEmptyRec;
+  end;
+
+  PFILE_ID_FULL_DIR_INFORMATION = ^FILE_ID_FULL_DIR_INFORMATION;
+  FILE_ID_FULL_DIR_INFORMATION  = packed record
+    NextEntryOffset: ULONG;
+    FileIndex:       ULONG;
+    CreationTime:    LARGE_INTEGER;
+    LastAccessTime:  LARGE_INTEGER;
+    LastWriteTime:   LARGE_INTEGER;
+    ChangeTime:      LARGE_INTEGER;
+    EndOfFile:       LARGE_INTEGER;
+    AllocationSize:  LARGE_INTEGER;
+    FileAttributes:  ULONG;
+    FileNameLength:  ULONG;
+    EaSize:          ULONG;
+    FileId:          LARGE_INTEGER;
+    FileName:        TEmptyRec;
+  end;
+
+  PFILE_NAMES_INFORMATION = ^FILE_NAMES_INFORMATION;
+  FILE_NAMES_INFORMATION  = packed record
+    NextEntryOffset: ULONG;
+    FileIndex:       ULONG;
+    FileNameLength:  ULONG;
+    FileName:        TEmptyRec;
+  end;
 
   PFILE_ALL_INFORMATION = ^FILE_ALL_INFORMATION;
   FILE_ALL_INFORMATION  = packed record
@@ -763,10 +846,11 @@ type
   
   TNtCreateFile = function(FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
                            FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall;
+  TNtClose = function (hData: HANDLE): NTSTATUS; stdcall;
 
   TNtQueryInformationFile    = function (FileHandle: HANDLE; PIO_STATUS_BLOCK: PIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: integer (* FILE_INFORMATION_CLASS *)): NTSTATUS; stdcall;
   TNtQueryDirectoryFile      = function (FileHandle: HANDLE; Event: HANDLE; ApcRoutine: POINTER; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID; BufLength: ULONG;
-                                         InfoClass: FILE_INFORMATION_CLASS; SingleEntry: BOOLEAN; Mask: PUNICODE_STRING; RestartScan: BOOLEAN): NTSTATUS; stdcall;
+                                         InfoClass: integer (* FILE_INFORMATION_CLASS *); SingleEntry: BOOLEAN; Mask: PUNICODE_STRING; RestartScan: BOOLEAN): NTSTATUS; stdcall;
   TNtQueryAttributesFile     = function (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_BASIC_INFORMATION): NTSTATUS; stdcall;
   TNtQueryFullAttributesFile = function (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_NETWORK_OPEN_INFORMATION): NTSTATUS; stdcall;
   TNtDeleteFile              = function (ObjectAttributes: POBJECT_ATTRIBUTES): NTSTATUS; stdcall;
@@ -779,7 +863,7 @@ type
 
   function  NtQueryAttributesFile (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_BASIC_INFORMATION): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtQueryInformationFile (FileHandle: HANDLE; PIO_STATUS_BLOCK: PIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: integer (* FILE_INFORMATION_CLASS *)): NTSTATUS; stdcall; external 'ntdll.dll';
-  function  NtQueryDirectoryFile (FileHandle: HANDLE; Event: HANDLE; ApcRoutine: pointer; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID; BufLength: ULONG; InfoClass: FILE_INFORMATION_CLASS;
+  function  NtQueryDirectoryFile (FileHandle: HANDLE; Event: HANDLE; ApcRoutine: pointer; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID; BufLength: ULONG; InfoClass: integer (* FILE_INFORMATION_CLASS *);
                                   SingleEntry: BOOLEAN; Mask: PUNICODE_STRING; RestartScan: BOOLEAN): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtCreateFile (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
                           FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
@@ -797,6 +881,11 @@ type
   function NT_INFORMATION (Status: NTSTATUS): boolean; inline;
   function NT_WARNING     (Status: NTSTATUS): boolean; inline;
   function NT_ERROR       (Status: NTSTATUS): boolean; inline;
+
+  function FileInformationClassToStr (FileInformationClass: integer): AnsiString; overload;
+  function FileInformationClassToStr (FileInformationClass: FILE_INFORMATION_CLASS): AnsiString; overload;
+  function GetFileInformationClassSize (FileInformationClass: integer): integer; overload;
+  function GetFileInformationClassSize (FileInformationClass: FILE_INFORMATION_CLASS): integer; overload;
 
 
 (***)  implementation  (***)
@@ -942,6 +1031,110 @@ function GetTeb: PTEB; assembler;
 asm
   db $64, $A1, $18, $00, $00, $00; // mov [eax], dword [FS:$18]
   mov result, eax
+end;
+
+function FileInformationClassToStr (FileInformationClass: integer): AnsiString; overload;
+begin
+  case FileInformationClass of
+    ord(FileDirectoryInformation):                 result := 'FileDirectoryInformation';
+    ord(FileFullDirectoryInformation):             result := 'FileFullDirectoryInformation';
+    ord(FileBothDirectoryInformation):             result := 'FileBothDirectoryInformation';
+    ord(FileBasicInformation):                     result := 'FileBasicInformation';
+    ord(FileStandardInformation):                  result := 'FileStandardInformation';
+    ord(FileInternalInformation):                  result := 'FileInternalInformation';
+    ord(FileEaInformation):                        result := 'FileEaInformation';
+    ord(FileAccessInformation):                    result := 'FileAccessInformation';
+    ord(FileNameInformation):                      result := 'FileNameInformation';
+    ord(FileRenameInformation):                    result := 'FileRenameInformation';
+    ord(FileLinkInformation):                      result := 'FileLinkInformation';
+    ord(FileNamesInformation):                     result := 'FileNamesInformation';
+    ord(FileDispositionInformation):               result := 'FileDispositionInformation';
+    ord(FilePositionInformation):                  result := 'FilePositionInformation';
+    ord(FileFullEaInformation):                    result := 'FileFullEaInformation';
+    ord(FileModeInformation):                      result := 'FileModeInformation';
+    ord(FileAlignmentInformation):                 result := 'FileAlignmentInformation';
+    ord(FileAllInformation):                       result := 'FileAllInformation';
+    ord(FileAllocationInformation):                result := 'FileAllocationInformation';
+    ord(FileEndOfFileInformation):                 result := 'FileEndOfFileInformation';
+    ord(FileAlternateNameInformation):             result := 'FileAlternateNameInformation';
+    ord(FileStreamInformation):                    result := 'FileStreamInformation';
+    ord(FilePipeInformation):                      result := 'FilePipeInformation';
+    ord(FilePipeLocalInformation):                 result := 'FilePipeLocalInformation';
+    ord(FilePipeRemoteInformation):                result := 'FilePipeRemoteInformation';
+    ord(FileMailslotQueryInformation):             result := 'FileMailslotQueryInformation';
+    ord(FileMailslotSetInformation):               result := 'FileMailslotSetInformation';
+    ord(FileCompressionInformation):               result := 'FileCompressionInformation';
+    ord(FileObjectIdInformation):                  result := 'FileObjectIdInformation';
+    ord(FileCompletionInformation):                result := 'FileCompletionInformation';
+    ord(FileMoveClusterInformation):               result := 'FileMoveClusterInformation';
+    ord(FileQuotaInformation):                     result := 'FileQuotaInformation';
+    ord(FileReparsePointInformation):              result := 'FileReparsePointInformation';
+    ord(FileNetworkOpenInformation):               result := 'FileNetworkOpenInformation';
+    ord(FileAttributeTagInformation):              result := 'FileAttributeTagInformation';
+    ord(FileTrackingInformation):                  result := 'FileTrackingInformation';
+    ord(FileIdBothDirectoryInformation):           result := 'FileIdBothDirectoryInformation';
+    ord(FileIdFullDirectoryInformation):           result := 'FileIdFullDirectoryInformation';
+    ord(FileValidDataLengthInformation):           result := 'FileValidDataLengthInformation';
+    ord(FileShortNameInformation):                 result := 'FileShortNameInformation';
+    ord(FileIoCompletionNotificationInformation):  result := 'FileIoCompletionNotificationInformation';
+    ord(FileIoStatusBlockRangeInformation):        result := 'FileIoStatusBlockRangeInformation';
+    ord(FileIoPriorityHintInformation):            result := 'FileIoPriorityHintInformation';
+    ord(FileSfioReserveInformation):               result := 'FileSfioReserveInformation';
+    ord(FileSfioVolumeInformation):                result := 'FileSfioVolumeInformation';
+    ord(FileHardLinkInformation):                  result := 'FileHardLinkInformation';
+    ord(FileProcessIdsUsingFileInformation):       result := 'FileProcessIdsUsingFileInformation';
+    ord(FileNormalizedNameInformation):            result := 'FileNormalizedNameInformation';
+    ord(FileNetworkPhysicalNameInformation):       result := 'FileNetworkPhysicalNameInformation';
+    ord(FileIdGlobalTxDirectoryInformation):       result := 'FileIdGlobalTxDirectoryInformation';
+    ord(FileIsRemoteDeviceInformation):            result := 'FileIsRemoteDeviceInformation';
+    ord(FileUnusedInformation):                    result := 'FileUnusedInformation';
+    ord(FileNumaNodeInformation):                  result := 'FileNumaNodeInformation';
+    ord(FileStandardLinkInformation):              result := 'FileStandardLinkInformation';
+    ord(FileRemoteProtocolInformation):            result := 'FileRemoteProtocolInformation';
+    ord(FileRenameInformationBypassAccessCheck):   result := 'FileRenameInformationBypassAccessCheck';
+    ord(FileLinkInformationBypassAccessCheck):     result := 'FileLinkInformationBypassAccessCheck';
+    ord(FileVolumeNameInformation):                result := 'FileVolumeNameInformation';
+    ord(FileIdInformation):                        result := 'FileIdInformation';
+    ord(FileIdExtdDirectoryInformation):           result := 'FileIdExtdDirectoryInformation';
+    ord(FileReplaceCompletionInformation):         result := 'FileReplaceCompletionInformation';
+    ord(FileHardLinkFullIdInformation):            result := 'FileHardLinkFullIdInformation';
+    ord(FileIdExtdBothDirectoryInformation):       result := 'FileIdExtdBothDirectoryInformation';
+    ord(FileDispositionInformationEx):             result := 'FileDispositionInformationEx';
+    ord(FileRenameInformationEx):                  result := 'FileRenameInformationEx';
+    ord(FileRenameInformationExBypassAccessCheck): result := 'FileRenameInformationExBypassAccessCheck';
+    ord(FileDesiredStorageClassInformation):       result := 'FileDesiredStorageClassInformation';
+    ord(FileStatInformation):                      result := 'FileStatInformation';
+    ord(FileMemoryPartitionInformation):           result := 'FileMemoryPartitionInformation';
+    ord(FileStatLxInformation):                    result := 'FileStatLxInformation';
+    ord(FileCaseSensitiveInformation):             result := 'FileCaseSensitiveInformation';
+    ord(FileMaximumInformation):                   result := 'FileMaximumInformation';
+  else
+    result := SysUtils.IntToStr(FileInformationClass);
+  end; // .switch FileInformationClass
+end; // .function FileInformationClassToStr
+
+function FileInformationClassToStr (FileInformationClass: FILE_INFORMATION_CLASS): AnsiString; overload;
+begin
+  result := FileInformationClassToStr(ord(FileInformationClass));
+end;
+
+function GetFileInformationClassSize (FileInformationClass: integer): integer; overload;
+begin
+  case FileInformationClass of
+    ord(FileBothDirectoryInformation):   result := sizeof(FILE_BOTH_DIR_INFORMATION);
+    ord(FileDirectoryInformation):       result := sizeof(FILE_DIRECTORY_INFORMATION);
+    ord(FileFullDirectoryInformation):   result := sizeof(FILE_FULL_DIR_INFORMATION);
+    ord(FileIdBothDirectoryInformation): result := sizeof(FILE_ID_BOTH_DIR_INFORMATION);
+    ord(FileIdFullDirectoryInformation): result := sizeof(FILE_ID_FULL_DIR_INFORMATION);
+    ord(FileNamesInformation):           result := sizeof(FILE_NAMES_INFORMATION);
+  else
+    result := 0;
+  end; // .switch FileInformationClass
+end; // .function GetFileInformationClassSize
+
+function GetFileInformationClassSize (FileInformationClass: FILE_INFORMATION_CLASS): integer; overload;
+begin
+  result := GetFileInformationClassSize(ord(FileInformationClass));
 end;
 
 end.
