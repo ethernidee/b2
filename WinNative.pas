@@ -69,6 +69,9 @@ type
     Buffer:        PWSTR;
 
     function  GetLength (): integer; inline; // in characters
+
+    (* Inits string as static empty value *)
+    procedure Reset;
     
     (* Allocates new buffer, copies data and sets up record fields *)
     procedure AssignNewStr (const Str: WideString); overload;
@@ -272,6 +275,7 @@ type
     LastWriteTime:  LARGE_INTEGER;
     ChangeTime:     LARGE_INTEGER;
     FileAttributes: ULONG;
+    Dummy:          ULONG;
   end;
 
   FILE_BASIC_INFORMATION  = _FILE_BASIC_INFORMATION;
@@ -283,9 +287,8 @@ type
     EndOfFile:      LARGE_INTEGER;
     NumberOfLinks:  ULONG;
     DeletePending:  BOOLEAN;
-    Dummy_1:        byte;
     Directory:      BOOLEAN;
-    Dummy_2:        byte;
+    Dummy:          byte;
   end;
 
   PFILE_INTERNAL_INFORMATION = ^FILE_INTERNAL_INFORMATION;
@@ -410,6 +413,7 @@ type
     FileAttributes:  ULONG;
     FileNameLength:  ULONG;
     EaSize:          ULONG;
+    Dummy:           ULONG;
     FileId:          LARGE_INTEGER;
     FileName:        TEmptyRec;
   end;
@@ -424,7 +428,7 @@ type
 
   PFILE_ALL_INFORMATION = ^FILE_ALL_INFORMATION;
   FILE_ALL_INFORMATION  = packed record
-    BasicInformation:     FILE_BASIC_INFORMATION; Dummy_1: ULONG;
+    BasicInformation:     FILE_BASIC_INFORMATION;
     StandardInformation:  FILE_STANDARD_INFORMATION;
     InternalInformation:  FILE_INTERNAL_INFORMATION;
     EaInformation:        FILE_EA_INFORMATION;
@@ -443,6 +447,7 @@ type
     AllocationSize: LARGE_INTEGER;
     EndOfFile:      LARGE_INTEGER;
     FileAttributes: ULONG;
+    Reserved:       ULONG;
   end;
 
   FILE_NETWORK_OPEN_INFORMATION  = _FILE_NETWORK_OPEN_INFORMATION;
@@ -894,6 +899,13 @@ type
 function _UNICODE_STRING.GetLength: integer;
 begin
   result := Self.Length shr 1;
+end;
+
+procedure _UNICODE_STRING.Reset;
+begin
+  Self.Length        := 0;
+  Self.MaximumLength := 0;
+  Self.Buffer        := nil;
 end;
 
 procedure _UNICODE_STRING.AssignNewStr (const Str: WideString);
