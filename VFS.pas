@@ -27,6 +27,18 @@
   TODO!!!!!!!!!!!!!!!!
   !!! Recheck file info structures sizes and structure of all types: https://msdn.microsoft.com/en-us/library/cc232070.aspx
   !!! OpenedFiles access/writings is not thread-safe
+  !!! If only one core is used, InitializeCriticalSectionWithSpinCount = 0, if not done automatically by Windows.
+  !!! Adjust spin-lock for fast operations
+
+  Found issues:
+  -) Not tracked file handles cannot be reliable converted to nt paths in GetFilePathByHandle
+  We had to call SetCurrentDirectory twice to different folders in order to set current directory handle to the tracked one.
+  -) If GetFileObjectPath fails, all function do not handle ExpandedPath = '' error.
+  -) OpenedFile is only partially protected from concurrency.
+  -) OpenedFile.AbsPath and NormalizePath return "D:" instead of "D:\". Concatenation with slash is used in a few places
+  instead of generic path join function.
+  -) VFS Refresh (F12) capabilities are under question, because file attributes and directory contents is cached, including
+  file size info.
 
   Intercepted WinApi functions:
   - LoadLibraryW (for debuggers support)
@@ -48,6 +60,8 @@
   Possible VFS item attributes to implement in the future:
   - DONT_SHOW_IN_LISTINGS. Virtual file/directory will not be shown in directory listings (only accessible by direct path).
   - IGNORE_REAL_LISTING.   During directory scan, real files will be ignored.
+
+  NOTE: it's possible to use kernelbase directly for many apis, not GetRealAddress
 *)
 
 (***)  interface  (***)
@@ -613,10 +627,18 @@ begin
   end; // .if
 end; // .function ExpandPath
 
-(* Returns expanded path without trailing delimiter. Optionally returns flag, whether path had trailing delim or not. *)
+(* Returns expanded path without trailing delimiter (for non-drives). Optionally returns flag, whether path had trailing delim or not. *)
 function NormalizePath (const Path: WideString; {n} HadTrailingDelim: pboolean = nil): WideString;
 begin
   result := StrLib.ExcludeTrailingDelimW(ExpandPath(Path), HadTrailingDelim);
+
+  if (Length(result) = 2) and (result[1] = ':') then begin
+    result := result + '\';
+
+    if HadTrailingDelim <> nil then begin
+      HadTrailingDelim^ := false;
+    end;
+  end;
 end;
 
 (* Returns absolute expanded path without trailing delimiter and with nt path prefix '\??\' (unless
@@ -2282,7 +2304,7 @@ begin
         StructConvertResult := ConvertFileInfoStruct(@FileInfo.Data, FILE_INFORMATION_CLASS(byte(InfoClass)), BufCurret, BufSizeLeft, TruncatedNamesStrategy, BytesWritten);
 
         if DebugOpt then begin
-          EntryName := Copy(FileInfo.Data.FileName, FileInfo.Data.Base.FileNameLength div 2);
+          EntryName := Copy(FileInfo.Data.FileName, 1, Min(BytesWritten - WinNative.GetFileInformationClassSize(InfoClass), FileInfo.Data.Base.FileNameLength) div 2);
           Log.Write('VFS', 'NtQueryDirectoryFile', 'Written entry: ' + EntryName);
         end;
 
@@ -2445,7 +2467,7 @@ begin
     Enter;
 
     if VfsIsRunning then begin
-      // Em, critical error here? Concurrent access, unless OpenedFilesi s protected same as VfsCritSection
+      // Em, critical error here? Concurrent access, unless OpenedFiles is protected same as VfsCritSection
       OpenedFiles.Clear();
       VfsItems.Clear();
       VfsIsRunning            := false;
@@ -2800,13 +2822,13 @@ begin
   //MapDir('D:\Heroes 3', 'D:\Heroes 3\Mods\Dev', DONT_OVERWRITE_EXISTING);
   RunVfs(SORT_FIFO);
 
-  with Files.Locate('D:\Heroes 3\Data\*', FILES_AND_DIRS) do begin
-    while FindNext() do begin
-      //Msg(GetFoundName());
-    end;
-  end;
+  // with Files.Locate('D:\Загрузки*', FILES_AND_DIRS) do begin
+  //   while FindNext() do begin
+  //     Msg(GetFoundName());
+  //   end;
+  // end;
 
-  //halt(0);
+  // halt(0);
 
   // SetCurrentDirectoryW('D:\Heroes 3\');
   // Msg(GetCurrentDir);
