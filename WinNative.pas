@@ -288,7 +288,7 @@ type
     NumberOfLinks:  ULONG;
     DeletePending:  BOOLEAN;
     Directory:      BOOLEAN;
-    Dummy:          byte;
+    Dummy:          word;
   end;
 
   PFILE_INTERNAL_INFORMATION = ^FILE_INTERNAL_INFORMATION;
