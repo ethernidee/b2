@@ -859,6 +859,7 @@ type
   TNtQueryAttributesFile     = function (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_BASIC_INFORMATION): NTSTATUS; stdcall;
   TNtQueryFullAttributesFile = function (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_NETWORK_OPEN_INFORMATION): NTSTATUS; stdcall;
   TNtDeleteFile              = function (ObjectAttributes: POBJECT_ATTRIBUTES): NTSTATUS; stdcall;
+  TRtlExitUserProcess        = procedure (Status: integer); stdcall;
   
   function  wcslen (Str: PWideChar): integer; stdcall; external 'ntdll.dll';
   function  RtlAllocateHeap (HeapHandle: HANDLE; Flags: ULONG; Size: SIZE_T): PVOID; stdcall; external 'ntdll.dll';
@@ -874,6 +875,7 @@ type
                           FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtOpenFile (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtClose (hData: HANDLE): NTSTATUS; stdcall; external 'ntdll.dll';
+  procedure RtlExitUserProcess (Status: integer); stdcall; external 'ntdll.dll';
   function  PathIsRelativeW (lpFileName: PWideChar): boolean; stdcall; external 'Shlwapi.dll';
   function  GetModuleHandleExW (dwFlags: integer; lpModuleName: PWideChar; var hModule: Windows.THandle): LONGBOOL; stdcall; external 'kernel32.dll';
 

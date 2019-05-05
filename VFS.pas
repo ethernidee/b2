@@ -306,8 +306,8 @@ type
   TThreadNativeApiUser = record
     PrevDisableVfsForThisThread: boolean;
 
-    procedure BeginUsage;
-    procedure EndUsage;
+    procedure DisableVfsForThread;
+    procedure RestoreVfsForThread;
   end;
 
 // Will it become zero during finalization?
@@ -331,17 +331,17 @@ var
   CurrDirVirtPath:  WideString;
   CurrDirRealLoweredPath:  WideString;
 
-function GetNativeApiUser: TThreadNativeApiUser;
+function GetThreadVfsDisabler: TThreadNativeApiUser;
 begin
 end;
 
-procedure TThreadNativeApiUser.BeginUsage;
+procedure TThreadNativeApiUser.DisableVfsForThread;
 begin
   Self.PrevDisableVfsForThisThread := DisableVfsForThisThread;
   DisableVfsForThisThread          := true;
 end;
 
-procedure TThreadNativeApiUser.EndUsage;
+procedure TThreadNativeApiUser.RestoreVfsForThread;
 begin
   DisableVfsForThisThread := Self.PrevDisableVfsForThisThread;
 end;
@@ -1112,10 +1112,10 @@ begin
   // Add real items
   NumVfsChildren := Self.DirListing.Count;
 
-  with GetNativeApiUser do begin
-    BeginUsage;
+  with GetThreadVfsDisabler do begin
+    DisableVfsForThread;
     GetDirectoryListing(Self.AbsPath, Mask, ExcludedItems, Self.DirListing);
-    EndUsage;
+    RestoreVfsForThread;
   end;
 
   // No real items added, maybe there is a need to add '.' and/or '..' manually
@@ -1175,7 +1175,7 @@ begin
   end;
 end;
 
-function _CompareNativeItemsByAndNameAsc (Item1, Item2: integer): integer;
+function CompareNativeItemsByAndNameAsc (Item1, Item2: integer): integer;
 begin
   result := CompareWideChars(PWideChar(TVfsItem(Item1).SearchName), PWideChar(TVfsItem(Item2).SearchName));
 
@@ -1186,7 +1186,7 @@ end;
 
 procedure SortNativeDirListing ({U} List: DataLib.TList {OF TVfsItem});
 begin
-  List.CustomSort(_CompareNativeItemsByAndNameAsc);
+  List.CustomSort(CompareNativeItemsByAndNameAsc);
 end;
 
 procedure SortVfsDirListings (SortType: TDirListingSortType);
@@ -1974,8 +1974,8 @@ begin
   SetLength(Buf, Windows.MAX_PATH + BUFSIZE_PREFIX_SIZE div 2);
   BufSize := Length(Buf) * sizeof(Buf[1]);
 
-  with GetNativeApiUser do begin
-    BeginUsage;
+  with GetThreadVfsDisabler do begin
+    DisableVfsForThread;
     
     if WinNative.NtQueryInformationFile(hFile, @IoStatusBlock, PWideChar(Buf), BufSize, ord(WinNative.FileNameInformation)) <> WinNative.STATUS_SUCCESS then begin
       BufSizeRequired := pinteger(Buf)^ + BUFSIZE_PREFIX_SIZE;
@@ -1999,7 +1999,7 @@ begin
       end;
     end; // .if
 
-    EndUsage;
+    RestoreVfsForThread;
   end; // .with
 end; // .function GetFilePathByHandleHeur
 

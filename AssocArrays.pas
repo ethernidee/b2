@@ -88,10 +88,10 @@ type
       (
                     Hash:       integer;
               const Key:        string;
-        out {ni}   ParentNode: PAssocArrayNode;
-        out {ni}   ItemNode:   PAssocArrayNode;
-        out {ni}   ParentItem: PAssocArrayItem;
-        out {ni}   Item:       PAssocArrayItem
+        out {ni}    ParentNode: PAssocArrayNode;
+        out {ni}    ItemNode:   PAssocArrayNode;
+        out {ni}    ParentItem: PAssocArrayItem;
+        out {ni}    Item:       PAssocArrayItem
       ): boolean;
 
     (***) public (***)
