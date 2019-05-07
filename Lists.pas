@@ -1203,11 +1203,11 @@ var
 
 begin
   if Self.Count = Self.Capacity then begin
-    result  :=  StrLib.Join(Self.fKeys, EndOfLineMarker);
+    result := StrLib.Join(Self.fKeys, EndOfLineMarker);
   end else begin
-    ClonedKeys  :=  Self.fKeys;
+    ClonedKeys := Self.fKeys;
     SetLength(ClonedKeys, Self.Count);
-    result  :=  StrLib.Join(ClonedKeys, EndOfLineMarker);;
+    result := StrLib.Join(ClonedKeys, EndOfLineMarker);
   end;
 end; // .function TStringList.ToText
 

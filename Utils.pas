@@ -4,6 +4,8 @@ DESCRIPTION:  Addition to System unit
 AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 }
 
+{$ASSERTIONS ON}
+
 (***)  interface  (***)
 uses Math, SysUtils;
 
@@ -333,6 +335,7 @@ function TInterfaceAwareObject.BecomeMainOwner: {O} TInterfaceAwareObject;
 begin
   {!} Assert(InterlockedIncrement(Self.fRefCount) > 1, 'Error trying to become main owner of freed interfaced object');
   {!} Assert((Self.fHasMainOwner = 0) and (InterlockedCompareExchange(Self.fHasMainOwner, 1, 0) = 1), 'Another pointer is main owner of interfaced object. Cannot become main owner');
+  result := Self;
 end;
 
 procedure TManagedObject.AfterConstruction;

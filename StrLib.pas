@@ -472,12 +472,16 @@ var
 begin
   StrLen := Length(Str);
   result := Math.InRange(StartPos, 1, StrLen);
+  
   if result then begin
     i :=  StartPos;
+    
     while (i <= StrLen) and (Str[i] <> Ch) do begin
       Inc(i);
     end;
+    
     result := i <= StrLen;
+    
     if result then begin
       CharPos :=  i;
     end;
@@ -499,12 +503,16 @@ var
 begin
   StrLen := Length(Str);
   result := Math.InRange(StartPos, 1, StrLen);
+  
   if result then begin
     i :=  StartPos;
+    
     while (i >= 1) and (Str[i] <> Ch) do begin
       Dec(i);
     end;
+    
     result := i >= 1;
+    
     if result then begin
       CharPos :=  i;
     end;
@@ -753,6 +761,7 @@ var
 begin
   {!} Assert(not LimitTokens or (MaxTokens > 0));
   DelimPosList := Classes.TList.Create;
+  result       := nil;
   // * * * * * //
   StrLen   := Length(Str);
   DelimLen := Length(Delim);
@@ -812,32 +821,38 @@ var
         i:          integer;
 
 begin
-  Mem :=  nil;
+  Mem    := nil;
+  result := '';
   // * * * * * //
-  ArrLen := Length(Arr);
-  GlueLen :=  Length(Glue);
+  ArrLen  := Length(Arr);
+  GlueLen := Length(Glue);
+  
   if ArrLen > 0 then begin
     NumPairs   := ArrLen - 1;
     ResultSize := 0;
-    for i:=0 to ArrLen - 1 do begin
+    
+    for i := 0 to ArrLen - 1 do begin
       ResultSize := ResultSize + Length(Arr[i]);
     end;
+    
     ResultSize := ResultSize + NumPairs * GlueLen;
     SetLength(result, ResultSize);
-    Mem :=  pointer(result);
+    Mem := pointer(result);
+    
     if GlueLen = 0 then begin
-      for i:=0 to NumPairs - 1 do begin
+      for i := 0 to NumPairs - 1 do begin
         Utils.CopyMem(Length(Arr[i]), pointer(Arr[i]), Mem);
         Mem :=  Utils.PtrOfs(Mem, Length(Arr[i]));
       end;
     end else begin
-      for i:=0 to NumPairs - 1 do begin
+      for i := 0 to NumPairs - 1 do begin
         Utils.CopyMem(Length(Arr[i]), pointer(Arr[i]), Mem);
         Mem :=  Utils.PtrOfs(Mem, Length(Arr[i]));
         Utils.CopyMem(Length(Glue), pointer(Glue), Mem);
         Mem :=  Utils.PtrOfs(Mem, Length(Glue));
       end;
     end; // .else
+    
     Utils.CopyMem(Length(Arr[NumPairs]), pointer(Arr[NumPairs]), Mem);
   end; // .if
 end; // .function Join
@@ -872,6 +887,7 @@ var
 begin
   NumTemplArgs := Length(TemplArgs);
   {!} Assert(Utils.Even(NumTemplArgs));
+  result := '';
   // * * * * * //
   if NumTemplArgs = 0 then begin
     result := Template;
@@ -929,40 +945,48 @@ begin
   // * * * * * //
   BufSize      := 0;
   StartItemInd := 0;
+  
   while StartItemInd < CHARSET_CAPACITY do begin
-    if CHR(StartItemInd) in Charset then begin
+    if chr(StartItemInd) in Charset then begin
       if BufSize > 0 then begin
         BufPos^ :=  DELIMETER[1]; Inc(BufPos);
         BufPos^ :=  DELIMETER[2]; Inc(BufPos);
         Inc(BufSize, DELIM_LEN);
       end;
+      
       FinitItemInd := StartItemInd + 1;
-      while (FinitItemInd < CHARSET_CAPACITY) and (CHR(FinitItemInd) in Charset) do begin
+      
+      while (FinitItemInd < CHARSET_CAPACITY) and (chr(FinitItemInd) in Charset) do begin
         Inc(FinitItemInd);
       end;
+      
       RangeLen := FinitItemInd - StartItemInd;
-      WriteItem(CHR(StartItemInd));
+      WriteItem(chr(StartItemInd));
+      
       if RangeLen > 1 then begin
         if RangeLen > 2 then begin
           BufPos^ :=  '-';
           Inc(BufPos);
           Inc(BufSize);
         end;
-        WriteItem(CHR(FinitItemInd - 1));
+        
+        WriteItem(chr(FinitItemInd - 1));
       end;
+      
       StartItemInd := FinitItemInd;
     end else begin
       Inc(StartItemInd);
     end; // .else
   end; // .while
+  
   SetLength(result, BufSize);
   Utils.CopyMem(BufSize, @Buffer[0], pointer(result));
 end; // .function CharsetToStr
 
 function IntToRoman (Value: integer): string;
 const
-  Arabics:  array [0..12] of integer  = (1,4,5,9,10,40,50,90,100,400,500,900,1000);
-  Romans:   array [0..12] of string   = ('I','IV','V','IX','X','XL','L','XC','C','CD','D','CM','M');
+  Arabics:  array [0..12] of integer  = (1, 4, 5, 9, 10, 40, 50, 90, 100, 400, 500, 900, 1000);
+  Romans:   array [0..12] of string   = ('I', 'IV', 'V', 'IX', 'X', 'XL', 'L', 'XC', 'C', 'CD', 'D', 'CM', 'M');
 
 var
   i:  integer;
@@ -970,7 +994,8 @@ var
 begin
   {!} Assert(Value > 0);
   result := '';
-  for i:=12 downto 0 do begin
+  
+  for i := 12 downto 0 do begin
     while Value >= Arabics[i] do begin
       Value  := Value - Arabics[i];
       result := result + Romans[i];
@@ -980,12 +1005,12 @@ end; // .function IntToRoman
 
 function CharToLower (c: char): char;
 begin
-  result := CHR(integer(Windows.CharLower(Ptr(ORD(c)))));
+  result := chr(integer(Windows.CharLower(Ptr(ORD(c)))));
 end;
 
 function CharToUpper (c: char): char;
 begin
-  result := CHR(integer(Windows.CharUpper(Ptr(ORD(c)))));
+  result := chr(integer(Windows.CharUpper(Ptr(ORD(c)))));
 end;
 
 function Capitalize (const Str: string): string;
@@ -1000,6 +1025,7 @@ end;
 function HexCharToByte (HexChar: char): byte;
 begin
   HexChar :=  CharToLower(HexChar);
+  
   if HexChar in ['0'..'9'] then begin
     result := ORD(HexChar) - ORD('0');
   end else if HexChar in ['a'..'f'] then begin
@@ -1013,6 +1039,7 @@ end; // .function HexCharToByte
 function ByteToHexChar (ByteValue: byte): char;
 begin
   {!} Assert(Math.InRange(ByteValue, $00, $0F));
+  
   if ByteValue < 10 then begin
     result := CHR(ByteValue + ORD('0'));
   end else begin
@@ -1029,15 +1056,18 @@ var
 
 begin
   ResLen := 0;
-  for i:=0 to High(Strings) do begin
+  
+  for i := 0 to High(Strings) do begin
     ResLen := ResLen + Length(Strings[i]);
   end;
   
   SetLength(result, ResLen);
   
   Offset := 0;
-  for i:=0 to High(Strings) do begin
+  
+  for i := 0 to High(Strings) do begin
     StrLen := Length(Strings[i]);
+    
     if StrLen > 0 then begin
       Utils.CopyMem(StrLen, pointer(Strings[i]), Utils.PtrOfs(pointer(result), Offset));
       Offset := Offset + StrLen;
@@ -1196,8 +1226,7 @@ var
   s:              integer;  // Pos in Pattern
   p:              integer;  // Pos in Str
   c:              char;     // First letter to search for
-  
-  
+
   procedure SkipMatchingSubstr;
   begin
     while
@@ -1292,7 +1321,7 @@ begin
             State := STATE_FIRST_LETTER_SEARCH;
           end;
         end; // .case STATE_MATCH_SUBSTR_TAIL
-    end; // .SWITCH State
+    end; // .switch State
   end; // .while
   
   result := (s = (StrLen + 1)) and (p = (PatternLen + 1));
