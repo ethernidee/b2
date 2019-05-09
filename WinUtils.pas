@@ -43,6 +43,8 @@ type
 
 function TakeScreenshot (hWnd: THandle; HideCursor: boolean; out Res: TRawImage): boolean;
 function GetExePath: WideString;
+function GetCurrentDirW: WideString;
+function SetCurrentDirW (const DirPath: WideString): boolean;
 
 
 (***)  implementation  (***)
@@ -235,6 +237,26 @@ begin
     Leave;
   end; // .with
 end; // .function GetExePath
+
+function GetCurrentDirW: WideString;
+var
+  Buf:    array [0..32767 - 1] of WideChar;
+  ResLen: integer;
+
+begin
+  result := '';
+  ResLen := Windows.GetCurrentDirectoryW(sizeof(Buf), @Buf);
+
+  if ResLen > 0 then begin
+    SetLength(result, ResLen);
+    Utils.CopyMem(ResLen * sizeof(WideChar), @Buf, PWideChar(result));
+  end;
+end;
+
+function SetCurrentDirW (const DirPath: WideString): boolean;
+begin
+  result  := Windows.SetCurrentDirectoryW(PWideChar(DirPath));
+end;
 
 initialization
   StaticCritSection.Init;

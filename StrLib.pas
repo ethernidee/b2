@@ -199,7 +199,9 @@ function  WideToAnsiSubstitute (const Str: WideString): string;
 function  WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
 function  WideStringToBuf (const Str: WideString; Buf: PWideChar): PWideChar;
 function  WideLowerCase (const Str: WideString): WideString;
-function  ExcludeTrailingDelimW (const Str: WideString; {n} HadTrailingDelim: pboolean = nil): WideString;
+function  ExcludeLeadingBackslashW (const Str: WideString; {n} HadLeadingBackslash: pboolean = nil): WideString;
+function  ExcludeTrailingBackslashW (const Str: WideString; {n} HadTrailingBackslash: pboolean = nil): WideString;
+function  TrimBackslashesW (const Str: WideString): WideString;
 function  ExtractDirPathW (const Path: WideString): WideString;
 function  ExtractFileNameW (const Path: WideString): WideString;
 function  CompareWideChars (Str1Ptr, Str2Ptr: PWideChar; Len: integer = -1): integer;
@@ -1530,7 +1532,33 @@ begin
   end;  
 end;
 
-function ExcludeTrailingDelimW (const Str: WideString; {n} HadTrailingDelim: pboolean = nil): WideString;
+function ExcludeLeadingBackslashW (const Str: WideString; {n} HadLeadingBackslash: pboolean = nil): WideString;
+var
+  StrLen: integer;
+  Pos:    integer;
+
+begin
+  result := Str;
+
+  if result <> '' then begin
+    StrLen := Length(result);
+    Pos    := 1;
+
+    while (Pos <= StrLen) and (result[Pos] in PATH_DELIMS) do begin
+      Inc(Pos);
+    end;
+
+    if Pos <> StrLen then begin
+      SetLength(result, Pos);
+    end;
+  end;
+
+  if HadLeadingBackslash <> nil then begin
+    HadLeadingBackslash^ := Length(result) <> Length(Str);
+  end;
+end; // .function ExcludeTrailingBackslashW
+
+function ExcludeTrailingBackslashW (const Str: WideString; {n} HadTrailingBackslash: pboolean = nil): WideString;
 var
   StrLen: integer;
   Pos:    integer;
@@ -1551,10 +1579,45 @@ begin
     end;
   end;
 
-  if HadTrailingDelim <> nil then begin
-    HadTrailingDelim^ := Length(result) <> Length(Str);
+  if HadTrailingBackslash <> nil then begin
+    HadTrailingBackslash^ := Length(result) <> Length(Str);
   end;
-end; // .function ExcludeTrailingDelimW
+end; // .function ExcludeTrailingBackslashW
+
+function TrimBackslashesW (const Str: WideString): WideString;
+var
+  StrLen:   integer;
+  StartPos: integer;
+  EndPos:   integer;
+  ResLen:   integer;
+
+begin
+  result := Str;
+  
+  if result <> '' then begin
+    StrLen   := Length(result);
+    StartPos := 1;
+
+    while (StartPos <= StrLen) and (result[StartPos] in PATH_DELIMS) do begin
+      Inc(StartPos);
+    end;
+
+    EndPos := StrLen;
+
+    while (EndPos >= StartPos) and (result[EndPos] in PATH_DELIMS) do begin
+      Dec(EndPos);
+    end;
+
+    if (StartPos > 1) or (EndPos < StrLen) then begin
+      ResLen := EndPos - StartPos + 1;
+      SetLength(result, ResLen);
+
+      if ResLen > 0 then begin
+        Utils.CopyMem(ResLen * sizeof(WideChar), @Str[StartPos], @result[1]);
+      end;
+    end;
+  end; // .if
+end; // .function TrimBackslashesW
 
 function ExtractDirPathW (const Path: WideString): WideString;
 var
