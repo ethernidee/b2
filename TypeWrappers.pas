@@ -15,6 +15,13 @@ type
     procedure Assign (Source: Utils.TCloneable); override;
   end; // .class TString
 
+  TWideString = class (Utils.TCloneable)
+    Value: WideString;
+    
+    constructor Create (const Value: WideString);
+    procedure Assign (Source: Utils.TCloneable); override;
+  end;
+
   TEventHandler = class (Utils.TCloneable)
     Handler:  Utils.TEventHandler;
     
@@ -29,11 +36,21 @@ type
 constructor TString.Create (const Value: string);
 begin
   Self.Value := Value;
-end; // .constructor TString.Create
+end;
 
 procedure TString.Assign (Source: Utils.TCloneable);
 begin
   Self.Value := (Source AS TString).Value;
+end;
+
+constructor TWideString.Create (const Value: WideString);
+begin
+  Self.Value := Value;
+end;
+
+procedure TWideString.Assign (Source: Utils.TCloneable);
+begin
+  Self.Value := (Source AS TWideString).Value;
 end;
 
 constructor TEventHandler.Create (Handler: Utils.TEventHandler);

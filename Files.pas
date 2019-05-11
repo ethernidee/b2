@@ -49,6 +49,7 @@ type
     (***) public (***)
       destructor  Destroy; override;
       function  Open (const FilePath: string; DeviceMode: TDeviceMode): boolean;
+      function  AttachToHandle (FileHandle: integer): boolean;
       procedure Close;
       function  CreateNew (const FilePath: string): boolean;
       function  ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean; override;
@@ -111,7 +112,8 @@ type
   end; // .interface ILocator
 
 
-function  ReadFileContents (const FilePath: string; out FileContents: string): boolean;
+function  ReadFileContents (const FilePath: string; out FileContents: string): boolean; overload;
+function  ReadFileContents (FileHandle: integer; out FileContents: string): boolean; overload;
 function  WriteFileContents (const FileContents, FilePath: string): boolean;
 function  AppendFileContents (const FileContents, FilePath: string): boolean;
 function  DeleteDir (const DirPath: string): boolean;
@@ -138,7 +140,7 @@ const
 
 
 type
-  TLocator  = class (TInterfacedObject, ILocator)
+  TLocator = class (TInterfacedObject, ILocator)
     protected
       fLastOperRes:   boolean;
       fSearchStarted: boolean;
@@ -173,14 +175,14 @@ begin
   {!} Assert(Utils.IsValidBuf(Buf, BufSize));
   {!} Assert(DeviceMode <> MODE_OFF);
   Self.Close;
-  Self.fMode          :=  DeviceMode;
-  Self.fHasKnownSize  :=  true;
-  Self.fSizeIsConst   :=  true;
-  Self.fSize          :=  BufSize;
-  Self.fPos           :=  0;
-  Self.fEOF           :=  BufSize = 0;
-  Self.fBuf           :=  Buf;
-  Self.fOwnsMem       :=  FALSE;
+  Self.fMode         := DeviceMode;
+  Self.fHasKnownSize := true;
+  Self.fSizeIsConst  := true;
+  Self.fSize         := BufSize;
+  Self.fPos          := 0;
+  Self.fEOF          := BufSize = 0;
+  Self.fBuf          := Buf;
+  Self.fOwnsMem      := FALSE;
 end; // .procedure TFixedBuf.Open
 
 procedure TFixedBuf.Close;
@@ -188,7 +190,7 @@ begin
   if (Self.fMode <> MODE_OFF) and Self.OwnsMem then begin
     FreeMem(Self.fBuf); Self.fBuf :=  nil;
   end;
-  Self.fMode  :=  MODE_OFF;
+  Self.fMode := MODE_OFF;
 end;
 
 procedure TFixedBuf.CreateNew (BufSize: integer);
@@ -247,62 +249,61 @@ end; // .destructor TFile.Destroy
 
 function TFile.Open (const FilePath: string; DeviceMode: TDeviceMode): boolean;
 var
-  OpeningMode:  integer;
-  FileSizeL:    integer;
-  FileSizeH:    integer;
+  OpeningMode: integer;
+  FileSizeL:   integer;
+  FileSizeH:   integer;
 
 begin
   {!} Assert(DeviceMode <> MODE_OFF);
   Self.Close;
   Self.fhFile :=  WinWrappers.INVALID_HANDLE;
+  
   case DeviceMode of 
     MODE_READ:      OpeningMode :=  SysUtils.fmOpenRead or SysUtils.fmShareDenyWrite;
     MODE_WRITE:     OpeningMode :=  SysUtils.fmOpenWrite or SysUtils.fmShareExclusive;
     MODE_READWRITE: OpeningMode :=  SysUtils.fmOpenReadWrite or SysUtils.fmShareExclusive;
   else
     OpeningMode :=  0;
-  end; // .SWITCH
-  result  :=  WinWrappers.FileOpen(FilePath, OpeningMode, Self.fhFile);
-  if not result then begin
-    Log.Write('FileSystem', 'OpenFile', 'Cannot open file "' + FilePath + '"');
-  end else begin
-    result  :=  WinWrappers.GetFileSize(Self.hFile, FileSizeL, FileSizeH);
-    if not result then begin
-      Log.Write('FileSystem', 'GetFileSize', 'Cannot get size of file "' + FilePath + '"');
-    end;
   end;
+  
+  result := WinWrappers.FileOpen(FilePath, OpeningMode, Self.fhFile) and WinWrappers.GetFileSize(Self.hFile, FileSizeL, FileSizeH) and (FileSizeH = 0);
+  
   if result then begin
-    result  :=  FileSizeH = 0;
-    if not result then begin
-      Log.Write
-      (
-        'FileSystem',
-        'OpenFile',
-        'Size of file "' + FilePath +'" exceeds 2 GB = ' + SysUtils.IntToStr(INT64(FileSizeH) * $FFFFFFFF + FileSizeL)
-      );
-    end else begin
-      Self.fMode          :=  DeviceMode;
-      Self.fSize          :=  FileSizeL;
-      Self.fPos           :=  0;
-      Self.fEOF           :=  Self.Pos = Self.Size;
-      Self.fFilePath      :=  FilePath;
-      Self.fHasKnownSize  :=  true;
-      Self.fSizeIsConst   :=  FALSE;
-    end; // .else
-  end; // .if
+    Self.fMode         := DeviceMode;
+    Self.fSize         := FileSizeL;
+    Self.fPos          := 0;
+    Self.fEOF          := Self.Pos = Self.Size;
+    Self.fFilePath     := FilePath;
+    Self.fHasKnownSize := true;
+    Self.fSizeIsConst  := FALSE;
+  end;
   // * * * * * //
   if (not result) and (Self.hFile <> WinWrappers.INVALID_HANDLE) then begin
     Windows.CloseHandle(Self.hFile);
   end;
 end; // .function TFile.Open
 
-procedure TFile.Close;
+function TFile.AttachToHandle (FileHandle: integer): boolean;
 begin
-  if (Self.Mode <> MODE_OFF) and (not Windows.CloseHandle(Self.hFile)) then begin
-    Log.Write('FileSystem', 'CloseFile', 'Cannot close file "' + Self.FilePath + '"');
-  end;;
-  Self.fMode      :=  MODE_OFF;
-  Self.fFilePath  :=  '';
+  Self.Close;
+  Self.fhFile := FileHandle;
+  result      := FileHandle <> WinWrappers.INVALID_HANDLE;
+  
+  if result then begin
+    Self.fMode         := MODE_READWRITE;
+    Self.fSize         := 0;
+    Self.fPos          := 0;
+    Self.fEOF          := false;
+    Self.fFilePath     := '';
+    Self.fHasKnownSize := false;
+    Self.fSizeIsConst  := false;
+  end;
+end; // .function TFile.AttachToHandle
+
+procedure TFile.Close;
+begin  
+  Self.fMode     := MODE_OFF;
+  Self.fFilePath := '';
 end;
 
 function TFile.CreateNew (const FilePath: string): boolean;
@@ -310,9 +311,7 @@ begin
   Self.Close;
   result  :=  WinWrappers.FileCreate(FilePath, Self.fhFile);
   
-  if not result then begin
-    Log.Write('FileSystem', 'CreateFile', 'Cannot create file "' + Self.FilePath + '"');
-  end else begin
+  if result then begin
     Self.fMode         := MODE_READWRITE;
     Self.fSize         := 0;
     Self.fPos          := 0;
@@ -320,19 +319,17 @@ begin
     Self.fFilePath     := FilePath;
     Self.fHasKnownSize := true;
     Self.fSizeIsConst  := FALSE;
-  end; // .else
+  end;
 end; // .function TFile.CreateNew
 
 function TFile.ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean;
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  ((Self.Mode = MODE_READ) or (Self.Mode = MODE_READWRITE)) and (not Self.EOF);
+  
   if result then begin
     BytesRead :=  SysUtils.FileRead(Self.hFile, Buf^, Count);
-    result    :=  BytesRead > 0;
-    if not result then begin
-      Log.Write('FileSystem', 'ReadFile', 'Cannot read file "' + Self.FilePath + '" at offset ' + SysUtils.IntToStr(Self.Pos));
-    end;
+    result    :=  BytesRead > 0;    
     Self.fPos :=  Self.Pos + BytesRead;
     Self.fEOF :=  Self.Pos = Self.Size;
   end;
@@ -346,14 +343,9 @@ begin
   if result then begin
     ByteWritten := SysUtils.FileWrite(Self.hFile, Buf^, Count);
     result      := ByteWritten > 0;
-    
-    if not result then begin
-      Log.Write('FileSystem', 'WriteFile', 'Cannot write file "' + Self.FilePath + '" at offset ' + SysUtils.IntToStr(Self.Pos));
-    end;
-    
-    Self.fPos  := Self.Pos + ByteWritten;
-    Self.fSize := Self.Size + ByteWritten;
-    Self.fEOF  := Self.Pos = Self.Size;
+    Self.fPos   := Self.Pos + ByteWritten;
+    Self.fSize  := Self.Size + ByteWritten;
+    Self.fEOF   := Self.Pos = Self.Size;
   end; // .if
 end; // .function TFile.WriteUpTo
 
@@ -364,20 +356,17 @@ var
 begin
   {!} Assert(NewPos >= 0);
   result  :=  Self.Mode <> MODE_OFF;
+  
   if result then begin
-    SeekRes :=  SysUtils.FileSeek(Self.hFile, NewPos, 0);
-    result  :=  SeekRes <> -1;
+    SeekRes := SysUtils.FileSeek(Self.hFile, NewPos, 0);
+    result  := SeekRes <> -1;
 
     if result then begin
-      Self.fPos :=  SeekRes;
-      result    :=  SeekRes = NewPos;
+      Self.fPos := SeekRes;
+      result    := SeekRes = NewPos;
     end;
     
-    if not result then begin
-      Log.Write('FileSystem', 'SeekFile', 'Cannot set file "' + Self.FilePath + '" pointer to ' + SysUtils.IntToStr(NewPos));
-    end;
-    
-    Self.fEOF :=  Self.Pos = Self.Size;
+    Self.fEOF := Self.Pos = Self.Size;
   end; // .if
 end; // .function TFile.Seek
 
@@ -447,16 +436,34 @@ end; // .function TFileLocator.GetItemInfo
 
 function ReadFileContents (const FilePath: string; out FileContents: string): boolean;
 var
-{O} MyFile: TFile;
+{O} TheFile: TFile;
 
 begin
-  MyFile  :=  TFile.Create;
+  TheFile := TFile.Create;
   // * * * * * //
-  result  :=
-    MyFile.Open(FilePath, MODE_READ)  and
-    MyFile.ReadAllToStr(FileContents);
+  result := TheFile.Open(FilePath, MODE_READ) and TheFile.ReadAllToStr(FileContents);
+
+  if not result then begin
+    FileContents := '';
+  end;
   // * * * * * //
-  SysUtils.FreeAndNil(MyFile);
+  SysUtils.FreeAndNil(TheFile);
+end; // .function ReadFileContents
+
+function ReadFileContents (FileHandle: integer; out FileContents: string): boolean; overload;
+var
+{O} TheFile: TFile;
+
+begin
+  TheFile := TFile.Create;
+  // * * * * * //
+  result := TheFile.AttachToHandle(FileHandle) and TheFile.ReadAllToStr(FileContents);
+
+  if not result then begin
+    FileContents := '';
+  end;
+  // * * * * * //
+  SysUtils.FreeAndNil(TheFile);
 end; // .function ReadFileContents
 
 function WriteFileContents (const FileContents, FilePath: string): boolean;

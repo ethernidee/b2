@@ -12,7 +12,8 @@ const
   INCLUDE_DELIM = TRUE;
   LIMIT_TOKENS  = TRUE;
 
-  BINARY_CHARACTERS: set of char = [#0..#8, #11..#12, #14..#31];
+  BINARY_CHARACTERS:     set of char = [#0..#8, #11..#12, #14..#31];
+  CHARACTERS_TILL_SPACE: set of char = [#0..#32];
 
   PATH_DELIMS = ['\', '/'];
 
@@ -177,8 +178,9 @@ function  HexCharToByte (HexChar: char): byte;
 function  ByteToHexChar (ByteValue: byte): char;
 function  Concat (const Strings: array of string): string;
 
-(* Base file name does not include extension. *)
 function  TrimEx (const Str: string; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): string;
+function  TrimW (const Str: WideString): WideString;
+function  TrimExW (const Str: WideString; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): WideString;
 
 function  ExtractBaseFileName (const FilePath: string): string;
 function  SubstrBeforeChar (const Str: string; Ch: char): string;
@@ -191,6 +193,10 @@ function  BufToStr ({n} Buf: pointer; BufSize: integer): string;
 function  IsBinaryStr (const Str: string): boolean;
 
 function  Utf8ToAnsi (const Str: string): string;
+
+(* Returns empty string on failure *)
+function  Utf8ToWide (const Str: string; FailOnError: boolean = false): WideString;
+
 function  PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
 
 (* Converts null-terminated WideString to AnsiString, substituting invalid characters with special character *)
@@ -1109,6 +1115,43 @@ begin
   end; // .if
 end; // .function TrimEx
 
+function TrimW (const Str: WideString): WideString;
+begin
+  result := TrimExW(Str, CHARACTERS_TILL_SPACE, [LEFT_SIDE, RIGHT_SIDE]);
+end;
+
+function TrimExW (const Str: WideString; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): WideString;
+var
+  StrLen: integer;
+  Left:   integer;
+  Right:  integer;
+
+begin
+  result := '';
+
+  if Str <> '' then begin
+    StrLen := Length(Str);
+    Left   := 1;
+    Right  := StrLen;
+
+    if LEFT_SIDE in TrimSides then begin
+      while (Left <= Right) and (ord(Str[Left]) < 255) and (AnsiChar(Str[Left]) in TrimCharSet) do begin
+        inc(Left);
+      end;
+    end;
+
+    if (RIGHT_SIDE in TrimSides) and (Left <= Right) then begin
+      while (Right >= 1) and (ord(Str[Right]) < 255) and (AnsiChar(Str[Right]) in TrimCharSet) do begin
+        dec(Right);
+      end;
+    end;
+
+    if Left <= Right then begin
+      result := Copy(Str, Left, Right - Left + 1);
+    end;
+  end; // .if
+end; // .function TrimExW
+
 function ExtractBaseFileName (const FilePath: string): string;
 var
   DotPos: integer;
@@ -1451,6 +1494,35 @@ begin
     end;
   end; // .if
 end; // .function Utf8ToAnsi
+
+function Utf8ToWide (const Str: string; FailOnError: boolean = false): WideString;
+const
+  MB_ERR_INVALID_CHARS = $8;
+
+var
+  ResBufLen: integer;
+
+begin
+  result := '';
+
+  if Str <> '' then begin
+    SetLength(result, Length(Str));
+    ResBufLen := Windows.MultiByteToWideChar(Windows.CP_UTF8, MB_ERR_INVALID_CHARS * ord(FailOnError), pointer(Str), Length(Str), pointer(result), Length(result));
+    
+    if ResBufLen > 0 then begin
+      if ResBufLen > Length(result) then begin
+        SetLength(result, ResBufLen);
+        ResBufLen := Windows.MultiByteToWideChar(Windows.CP_UTF8, MB_ERR_INVALID_CHARS * ord(FailOnError), pointer(Str), Length(Str), pointer(result), Length(result));
+      end else begin
+        SetLength(result, ResBufLen);
+      end;      
+    end;
+
+    if ResBufLen <> Length(result) then begin
+      result := '';      
+    end;
+  end; // .if
+end; // .function Utf8ToWide
 
 function PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
 const
