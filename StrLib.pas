@@ -64,11 +64,13 @@ type
    public
     destructor  Destroy; override;
     procedure Append (const Str: string);
+    procedure AppendWide (const Str: WideString);
     procedure AppendBuf (BufSize: integer; {n} Buf: pointer);
     procedure WriteByte (Value: byte);
     procedure WriteWord (Value: word);
     procedure WriteInt (Value: integer);
     function  BuildStr: string;
+    function  BuildWideStr: WideString;
     function  BuildBuf: TArrayOfByte;
     procedure Clear;
 
@@ -227,6 +229,11 @@ begin
   Self.AppendBuf(Length(Str), pointer(Str));
 end;
 
+procedure TStrBuilder.AppendWide (const Str: WideString);
+begin
+  Self.AppendBuf(Length(Str) * sizeof(WideChar), pointer(Str));
+end;
+
 procedure TStrBuilder.AppendBuf (BufSize: integer; {n} Buf: pointer);
 var
   LeftPartSize:  integer;
@@ -289,6 +296,24 @@ begin
   CurrItem := Self.fRootItem;
   // * * * * * //
   SetLength(result, Self.fSize);
+  Pos := 0;
+  
+  while CurrItem <> nil do begin
+    Utils.CopyMem(CurrItem.DataSize, @CurrItem.Data[0], Utils.PtrOfs(pointer(result), Pos));
+    Pos      := Pos + CurrItem.DataSize;
+    CurrItem := CurrItem.NextItem;
+  end;
+end; // .function TStrBuilder.BuildStr
+
+function TStrBuilder.BuildWideStr: WideString;
+var
+{U} CurrItem: PListItem;
+    Pos:      integer;
+
+begin
+  CurrItem := Self.fRootItem;
+  // * * * * * //
+  SetLength(result, Ceil(Self.fSize / sizeof(WideChar)));
   Pos := 0;
   
   while CurrItem <> nil do begin

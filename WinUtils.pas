@@ -8,7 +8,10 @@ const
   OWNS_BUF    = true;
   HIDE_CURSOR = true;
 
-type
+  WAIT_ALL           = true;
+  WAIT_SINGLE_OBJECT = not WAIT_ALL;
+
+type  
   PBgraPix = ^TBgraPix;
   TBgraPix = packed record
     case boolean of
@@ -41,10 +44,19 @@ type
     property Height: integer read fHeight;
   end; // .class TRawImage
 
+  TWaitResult = (WR_WAITED, WR_ABANDONED_MUTEX, WR_TIMEOUT, WR_FAILED, WR_UNKNOWN);
+
+function IsValidHandle (Handle: THandle): boolean; inline;
 function TakeScreenshot (hWnd: THandle; HideCursor: boolean; out Res: TRawImage): boolean;
 function GetExePath: WideString;
 function GetCurrentDirW: WideString;
 function SetCurrentDirW (const DirPath: WideString): boolean;
+function GetLongPathNameW (lpszShortPath, lpszLongPath: PWideChar; cchBuffer: integer): integer; stdcall; external 'kernel32.dll';
+function GetLongPathW (const FilePath: WideString; Success: pboolean = nil): WideString;
+function WaitForObjects (Objects: array of THandle; out ResObject: THandle; TimeoutMsec: integer = integer(INFINITE); WaitAll: boolean = false): TWaitResult;
+
+(* Returns UTC time in msec since Jan 1, 1970 *)
+function GetMicroTime: Int64;
 
 
 (***)  implementation  (***)
@@ -56,6 +68,12 @@ var
   ExePathW: WideString = '';
   ExeDirW:  WideString = '';
   StaticCritSection: Concur.TCritSection;
+
+
+function IsValidHandle (Handle: THandle): boolean; inline;
+begin
+  result := (Handle <> 0) and (Handle <> INVALID_HANDLE_VALUE);
+end;
 
 constructor TRawImage.Create ({?} aBuf: PBgraBuf; aOwnsBuf: boolean; aWidth, aHeight: integer);
 begin
@@ -255,7 +273,90 @@ end;
 
 function SetCurrentDirW (const DirPath: WideString): boolean;
 begin
-  result  := Windows.SetCurrentDirectoryW(PWideChar(DirPath));
+  result := Windows.SetCurrentDirectoryW(PWideChar(DirPath));
+end;
+
+(* Returns path as is on failure *)
+function GetLongPathW (const FilePath: WideString; Success: pboolean = nil): WideString;
+var
+  Buf:       Utils.TArrayOfWideChar;
+  ResLen:    integer;
+  IsSuccess: boolean;
+
+begin
+  SetLength(Buf, 1000);
+  ResLen := GetLongPathNameW(PWideChar(FilePath), pointer(Buf), Length(Buf) + 1);
+
+  if ResLen > Length(Buf) + 1 then begin
+    SetLength(Buf, ResLen - 1);
+    ResLen := GetLongPathNameW(PWideChar(FilePath), pointer(Buf), Length(Buf) + 1);
+  end;
+
+  IsSuccess := (ResLen > 0) and (ResLen <= Length(Buf));
+
+  if Success <> nil then begin
+    Success^ := IsSuccess;
+  end;
+
+  if IsSuccess then begin
+    SetLength(result, ResLen);
+    Utils.CopyMem(ResLen * sizeof(WideChar), pointer(Buf), pointer(result));
+  end else begin
+    result := FilePath;
+  end;
+end; // .function GetLongPathW
+
+function WaitForObjects (Objects: array of THandle; out ResObject: THandle; TimeoutMsec: integer = integer(INFINITE); WaitAll: boolean = false): TWaitResult;
+var
+  NumObjects: integer;
+  WaitRes:    cardinal;
+  i:          integer;
+
+begin
+  ResObject  := INVALID_HANDLE_VALUE;
+  result     := WR_FAILED;
+  i          := 0;
+  NumObjects := 0;
+  
+  while (i < Length(Objects)) do begin
+    if IsValidHandle(Objects[i]) then begin
+      Objects[NumObjects] := Objects[i];
+      Inc(NumObjects);
+    end;
+
+    Inc(i);
+  end;
+
+  if NumObjects > 0 then begin
+    if NumObjects = 1 then begin
+      WaitRes := WaitForSingleObject(Objects[0], TimeoutMsec);
+    end else begin
+      WaitRes := WaitForMultipleObjects(NumObjects, @Objects, WaitAll, TimeoutMsec);
+    end;    
+
+    if WaitRes < cardinal(NumObjects) then begin
+      result   := WR_WAITED;
+      ResObject := Objects[WaitRes - WAIT_OBJECT_0];
+    end else if (WaitRes >= WAIT_ABANDONED_0) and (WaitRes <= WAIT_ABANDONED_0 + cardinal(NumObjects) - 1) then begin
+      result    := WR_ABANDONED_MUTEX;
+      ResObject := Objects[WaitRes - WAIT_ABANDONED_0];
+    end else if WaitRes = WAIT_TIMEOUT then begin
+      result := WR_TIMEOUT;
+    end else if WaitRes = WAIT_FAILED then begin
+      result := WR_FAILED;
+    end else begin
+      result := WR_UNKNOWN;
+    end;
+  end; // .if
+end; // .function WaitForObjects
+
+function GetMicroTime: Int64;
+var
+  Time: Windows.TFileTime;
+
+begin
+  Windows.GetSystemTimeAsFileTime(Time);
+  result := Int64(Time.dwLowDateTime) + (Int64(Time.dwHighDateTime) shl 32) + Int64(116444736000000000);
 end;
 
 initialization

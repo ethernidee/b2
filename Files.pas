@@ -50,6 +50,7 @@ type
       destructor  Destroy; override;
       function  Open (const FilePath: string; DeviceMode: TDeviceMode): boolean;
       function  AttachToHandle (FileHandle: integer): boolean;
+      procedure DetachHandle;
       procedure Close;
       function  CreateNew (const FilePath: string): boolean;
       function  ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean; override;
@@ -245,7 +246,8 @@ end;
 destructor TFile.Destroy;
 begin
   Self.Close;
-end; // .destructor TFile.Destroy
+  inherited Destroy;
+end;
 
 function TFile.Open (const FilePath: string; DeviceMode: TDeviceMode): boolean;
 var
@@ -256,7 +258,7 @@ var
 begin
   {!} Assert(DeviceMode <> MODE_OFF);
   Self.Close;
-  Self.fhFile :=  WinWrappers.INVALID_HANDLE;
+  Self.fhFile := WinWrappers.INVALID_HANDLE;
   
   case DeviceMode of 
     MODE_READ:      OpeningMode :=  SysUtils.fmOpenRead or SysUtils.fmShareDenyWrite;
@@ -300,8 +302,19 @@ begin
   end;
 end; // .function TFile.AttachToHandle
 
+procedure TFile.DetachHandle;
+begin
+  Self.fhFile := WinWrappers.INVALID_HANDLE;
+  Self.Close;
+end;
+
 procedure TFile.Close;
-begin  
+begin
+  if (Self.fMode <> MODE_OFF) and (Self.fhFile <> WinWrappers.INVALID_HANDLE) then begin
+    Windows.CloseHandle(Self.fhFile);
+    Self.fhFile := WinWrappers.INVALID_HANDLE;
+  end;
+
   Self.fMode     := MODE_OFF;
   Self.fFilePath := '';
 end;
@@ -309,7 +322,7 @@ end;
 function TFile.CreateNew (const FilePath: string): boolean;
 begin
   Self.Close;
-  result  :=  WinWrappers.FileCreate(FilePath, Self.fhFile);
+  result := WinWrappers.FileCreate(FilePath, Self.fhFile);
   
   if result then begin
     Self.fMode         := MODE_READWRITE;
@@ -328,10 +341,10 @@ begin
   result  :=  ((Self.Mode = MODE_READ) or (Self.Mode = MODE_READWRITE)) and (not Self.EOF);
   
   if result then begin
-    BytesRead :=  SysUtils.FileRead(Self.hFile, Buf^, Count);
-    result    :=  BytesRead > 0;    
-    Self.fPos :=  Self.Pos + BytesRead;
-    Self.fEOF :=  Self.Pos = Self.Size;
+    BytesRead := SysUtils.FileRead(Self.hFile, Buf^, Count);
+    result    := BytesRead > 0;    
+    Self.fPos := Self.Pos + BytesRead;
+    Self.fEOF := (Self.fHasKnownSize and (Self.Pos = Self.Size)) or (BytesRead <= 0);
   end;
 end; // .function TFile.ReadUpTo
 
@@ -458,6 +471,7 @@ begin
   TheFile := TFile.Create;
   // * * * * * //
   result := TheFile.AttachToHandle(FileHandle) and TheFile.ReadAllToStr(FileContents);
+  TheFile.DetachHandle;
 
   if not result then begin
     FileContents := '';

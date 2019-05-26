@@ -64,9 +64,10 @@ type
   TEndlessAnsiStrArr    = array [0..MAXLONGINT div sizeof(AnsiString) - 1] of AnsiString;
   PEndlessAnsiStrArr    = ^TEndlessAnsiStrArr;
 
-  TArrayOfByte = array of byte;
-  TArrayOfInt  = array of integer;
-  TArrayOfStr  = array of string;
+  TArrayOfByte     = array of byte;
+  TArrayOfInt      = array of integer;
+  TArrayOfStr      = array of string;
+  TArrayOfWideChar = array of WideChar;
   
   TCharSet  = set of char;
   

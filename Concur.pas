@@ -23,11 +23,7 @@ type
 
 procedure TCritSection.Init;
 begin
-  if System.IsMultiThread then begin
-    Windows.InitializeCriticalSection(fCritSection);
-  end else begin
-    Windows.InitializeCriticalSectionAndSpinCount(fCritSection, 0);
-  end;
+  Windows.InitializeCriticalSection(fCritSection);
 end;
 
 procedure TCritSection.Enter;

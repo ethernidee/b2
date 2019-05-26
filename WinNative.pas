@@ -21,14 +21,16 @@ const
 
   WIDE_NULL_CHAR_SIZE = sizeof(WideChar);
 
-  STATUS_SUCCESS             = 0;
-  STATUS_NO_SUCH_FILE        = $C000000F;
-  STATUS_NOT_A_DIRECTORY     = $C0000103;
-  STATUS_INVALID_BUFFER_SIZE = $C0000206;
-  STATUS_INVALID_INFO_CLASS  = $C0000003;
-  STATUS_BUFFER_TOO_SMALL    = $C0000023;
-  STATUS_NO_MORE_FILES       = $80000006;
-  STATUS_BUFFER_OVERFLOW     = $80000005;
+  STATUS_SUCCESS              = 0;
+  STATUS_INFO_LENGTH_MISMATCH = $C0000004;
+  STATUS_ACCESS_VIOLATION     = $C0000005;
+  STATUS_NO_SUCH_FILE         = $C000000F;
+  STATUS_NOT_A_DIRECTORY      = $C0000103;
+  STATUS_INVALID_BUFFER_SIZE  = $C0000206;
+  STATUS_INVALID_INFO_CLASS   = $C0000003;
+  STATUS_BUFFER_TOO_SMALL     = $C0000023;
+  STATUS_NO_MORE_FILES        = $80000006;
+  STATUS_BUFFER_OVERFLOW      = $80000005;
 
   (* For GetFileAttributesXXX *)
   INVALID_FILE_ATTRIBUTES = -1;
@@ -453,6 +455,16 @@ type
   FILE_NETWORK_OPEN_INFORMATION  = _FILE_NETWORK_OPEN_INFORMATION;
   PFILE_NETWORK_OPEN_INFORMATION = ^FILE_NETWORK_OPEN_INFORMATION;
 
+  PFILE_NOTIFY_INFORMATION = ^FILE_NOTIFY_INFORMATION;
+  FILE_NOTIFY_INFORMATION  = packed record
+    NextEntryOffset: DWORD;
+    Action:          DWORD;
+    FileNameLength:  DWORD;
+    FileName:        Utils.TEmptyRec;
+
+    function GetFileName: WideString;
+  end;
+
 const
   (* flags for NtCreateFile and NtOpenFile *)
   FILE_DIRECTORY_FILE            = $00000001;
@@ -592,12 +604,11 @@ const
   MAXIMUM_ALLOWED = $02000000;
 
   //
-  //  These are the generic rights.
+  // Generic rights
   //
-  GENERIC_READ    = DWORD($80000000);
-  GENERIC_WRITE   = $40000000;
-  GENERIC_EXECUTE = $20000000;
-  GENERIC_ALL     = $10000000;
+  FILE_GENERIC_READ    = STANDARD_RIGHTS_READ or FILE_READ_DATA or FILE_READ_ATTRIBUTES or FILE_READ_EA or SYNCHRONIZE;
+  FILE_GENERIC_WRITE   = STANDARD_RIGHTS_WRITE or FILE_WRITE_DATA or FILE_WRITE_ATTRIBUTES or FILE_WRITE_EA or FILE_APPEND_DATA or SYNCHRONIZE;
+  FILE_GENERIC_EXECUTE = STANDARD_RIGHTS_EXECUTE or FILE_READ_ATTRIBUTES or FILE_EXECUTE or SYNCHRONIZE;
 
 //
 //  Define the generic mapping array.  This is used to denote the
@@ -985,7 +996,7 @@ end;
 
 function _UNICODE_STRING.ToWideStr: WideString;
 begin
-  if Self.Length = 0 then begin
+  if (@Self = nil) or (Self.Length = 0) then begin
     result := '';
   end else begin
     result := StrLib.WideStringFromBuf(Self.Buffer, Self.GetLength());
@@ -1000,6 +1011,11 @@ begin
   Self.ObjectName               := Path;
   Self.SecurityDescriptor       := nil;
   Self.SecurityQualityOfService := nil;
+end;
+
+function FILE_NOTIFY_INFORMATION.GetFileName: WideString;
+begin
+  result := StrLib.WideStringFromBuf(@Self.FileName, Self.FileNameLength div sizeof(WideChar));
 end;
 
 function NT_SUCCESS (Status: NTSTATUS): boolean; inline;

@@ -227,7 +227,7 @@ begin
       end;
     end; // .while
     
-    result  :=  Self.EOF;
+    result := Self.EOF;
     
     if result and (StrLen > TotalBytesRead) then begin
       SetLength(Str, TotalBytesRead);
