@@ -168,9 +168,9 @@ var
 
 begin
   if CaseInsensitive then begin
-    KeyPreprocessFunc :=  SysUtils.AnsiLowerCase;
+    KeyPreprocessFunc := SysUtils.AnsiLowerCase;
   end else begin
-    KeyPreprocessFunc :=  nil;
+    KeyPreprocessFunc := nil;
   end;
 
   result  :=  AssocArrays.NewAssocArr
