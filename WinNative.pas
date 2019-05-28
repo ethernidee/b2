@@ -886,6 +886,8 @@ type
                           FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtOpenFile (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtClose (hData: HANDLE): NTSTATUS; stdcall; external 'ntdll.dll';
+  function  NtQueryTimerResolution (var MinimumResolution, MaximumResolution, CurrentResolution: cardinal): NTSTATUS; stdcall; external 'ntdll.dll';
+  function  NtSetTimerResolution (Resolution: cardinal; SetResolution: LONGBOOL; var CurrentResolution: cardinal): NTSTATUS; stdcall; external 'ntdll.dll';
   procedure RtlExitUserProcess (Status: integer); stdcall; external 'ntdll.dll';
   function  PathIsRelativeW (lpFileName: PWideChar): boolean; stdcall; external 'Shlwapi.dll';
   function  GetModuleHandleExW (dwFlags: integer; lpModuleName: PWideChar; var hModule: Windows.THandle): LONGBOOL; stdcall; external 'kernel32.dll';
