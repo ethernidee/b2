@@ -61,6 +61,8 @@ function GetMicroTime: Int64;
 (* Returns path to system directory or empty string on error *)
 function GetSysDirW: WideString;
 
+(* Returns attributes for file at given path *)
+function GetFileAttrs (const Path: WideString; {out} var Attrs: integer): boolean;
 
 (***)  implementation  (***)
 
@@ -379,6 +381,22 @@ begin
     end;
   end;
 end; // .function GetSysDirW
+
+function GetFileAttrs (const Path: WideString; {out} var Attrs: integer): boolean;
+const
+  INVALID_FILE_ATTRIBUTES = -1;
+
+var
+  Res: integer;
+
+begin
+  Res    := integer(Windows.GetFileAttributesW(PWideChar(Path)));
+  result := Res <> INVALID_FILE_ATTRIBUTES;
+
+  if result then begin
+    Attrs := Res;
+  end;
+end;
 
 initialization
   StaticCritSection.Init;

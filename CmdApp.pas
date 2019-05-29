@@ -41,7 +41,7 @@ var
 
 function ArgExists (const ArgName: string): boolean;
 begin
-  result  :=  Args[ArgName] <> nil;
+  result := Args[ArgName] <> nil;
 end;
 
 function GetArg (const ArgName: string): string;
@@ -101,9 +101,9 @@ var
 begin
   Scanner :=  TextScan.TTextScanner.Create;
   // * * * * * //
-  CmdLine   :=  System.CmdLine;
-  Args      :=  AssocArrays.NewStrictAssocArr(TString);
-  ArgsList  :=  Lists.NewSimpleStrList;
+  CmdLine  := System.CmdLine;
+  Args     := AssocArrays.NewStrictAssocArr(TString);
+  ArgsList := Lists.NewSimpleStrList;
   Scanner.Connect(CmdLine, #10);
   
   if Scanner.SkipCharset(BLANKS) then begin
@@ -111,23 +111,23 @@ begin
   end;
   
   while Scanner.SkipCharset(BLANKS) do begin
-    SavedPos  :=  Scanner.Pos;
+    SavedPos := Scanner.Pos;
     ArgsList.Add(ReadToken(BLANKS));
     Scanner.GotoPos(SavedPos);
-    ArgName :=  ReadToken(ARGDELIM);
+    ArgName := ReadToken(ARGDELIM);
     
     if Scanner.GetCurrChar(c) then begin
       if c = '=' then begin
         Scanner.GotoNextChar;
-        ArgValue  :=  ReadToken(BLANKS);
+        ArgValue := ReadToken(BLANKS);
       end else begin
-        ArgValue  :=  '1';
+        ArgValue := '1';
       end;
     end else begin
-      ArgValue  :=  '1';
+      ArgValue := '1';
     end;
     
-    Args[ArgName] :=  TString.Create(ArgValue);
+    Args[ArgName] := TString.Create(ArgValue);
   end; // .while
   // * * * * * //
   SysUtils.FreeAndNil(Scanner);
@@ -135,12 +135,12 @@ end; // .procedure ProcessArgs
 
 function RunProcess (const ExeFilePath, ExeArgs, ExeCurrentDir: string; WaitEnd: boolean): boolean;
 const
-  NO_APPLICATION_NAME         = nil;
-  DEFAULT_PROCESS_ATTRIBUTES  = nil;
-  DEFAULT_THREAD_ATTRIBUTES   = nil;
-  INHERIT_HANDLES             = TRUE;
-  NO_CREATION_FLAGS           = 0;
-  INHERIT_ENVIROMENT          = nil;
+  NO_APPLICATION_NAME        = nil;
+  DEFAULT_PROCESS_ATTRIBUTES = nil;
+  DEFAULT_THREAD_ATTRIBUTES  = nil;
+  INHERIT_HANDLES            = TRUE;
+  NO_CREATION_FLAGS          = 0;
+  INHERIT_ENVIROMENT         = nil;
 
 var
   StartupInfo:  Windows.TStartupInfo;

@@ -138,6 +138,61 @@ type
     procedure AfterConstruction; override;
   end;
 
+  (* Set of bits/flags, stored in integer. Fast wrapper with easy to write and understand methods *)
+  TFlags = record
+   private
+    Flags: integer;
+
+   public
+    (* Check if all bits from CombinedFlag are set in flags *)
+    function Have (CombinedFlag: integer): boolean; inline;
+
+    (* Check if any bit from CombinedFlag is set in flags *)
+    function HaveAny (CombinedFlag: integer): boolean; inline;
+
+    (* Check if at least single bit from CombinedFlag is not set in flags *)
+    function DontHave (CombinedFlag: integer): boolean; inline;
+
+    (* Check if at all bits from CombinedFlag are not set in flags *)
+    function DontHaveAny (CombinedFlag: integer): boolean; inline;
+
+    (* If all bits from WhatCombinedFlag are set, unsets them, sets all bits from WithCombinedFlag. Returns new TFlags structure *)
+    function Replace (WhatCombinedFlag, WithCombinedFlag: integer): TFlags; inline;
+
+    (* Sets all bits from CombinedFlag. Same as OR operator. Returns new TFlags structure *)
+    function Include (CombinedFlag: integer): TFlags; inline;
+
+    (* Unsets all bits from CombinedFlag. Same as AND NOT operator. Returns new TFlags structure *)
+    function Exclude (CombinedFlag: integer): TFlags; inline;
+
+    (* Return flags value as integer *)
+    function GetValue: integer; inline;
+  end; // TFlags
+
+  (* Fast wrapper over bit-flags integer, allowing to modify integer in place, unlike TFlags*)
+  TFlagsChanger = record
+   private
+    FlagsPtr: pinteger;
+
+   public
+    (* If all bits from WhatCombinedFlag are set, unsets them, sets all bits from WithCombinedFlag. Returns self *)
+    function Replace (WhatCombinedFlag, WithCombinedFlag: integer): TFlagsChanger; inline;
+
+    (* Sets all bits from CombinedFlag. Same as OR operator. Returns self *)
+    function Include (CombinedFlag: integer): TFlagsChanger; inline;
+
+    (* Unsets all bits from CombinedFlag. Same as AND NOT operator. Returns self *)
+    function Exclude (CombinedFlag: integer): TFlagsChanger; inline;
+
+    (* Changes whole flags value and returns self *)
+    function SetValue (Value: integer): TFlagsChanger; inline;
+  end;
+
+(* Wraps integer in TFlags structure *)
+function Flags (Value: integer): TFlags; inline;
+
+(* Wraps integer in TFlagsChanger structure *)
+function ChangeFlags (var Value: integer): TFlagsChanger; inline;
 
 (* Low level functions *)
 function  PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer; inline;
@@ -176,6 +231,87 @@ function ToObject (Intf: System.IInterface): {n} TObject;
 
 (***)  implementation  (***)
 
+
+function Flags (Value: integer): TFlags;
+begin
+  result.Flags := Value;
+end;
+
+function ChangeFlags (var Value: integer): TFlagsChanger;
+begin
+  result.FlagsPtr := @Value;
+end;
+
+function TFlags.Have (CombinedFlag: integer): boolean;
+begin
+  result := (Self.Flags and CombinedFlag) = CombinedFlag;
+end;
+
+function TFlags.HaveAny (CombinedFlag: integer): boolean;
+begin
+  result := (Self.Flags and CombinedFlag) <> 0;
+end;
+
+function TFlags.DontHave (CombinedFlag: integer): boolean;
+begin
+  result := (Self.Flags and CombinedFlag) <> CombinedFlag;
+end;
+
+function TFlags.DontHaveAny (CombinedFlag: integer): boolean;
+begin
+  result := (Self.Flags and CombinedFlag) = 0;
+end;
+
+function TFlags.Replace (WhatCombinedFlag, WithCombinedFlag: integer): TFlags;
+begin
+  if Self.Have(WhatCombinedFlag) then begin
+    result.Flags := (Self.Flags and not WhatCombinedFlag) or WithCombinedFlag;
+  end else begin
+    result.Flags := Self.Flags;
+  end;
+end;
+
+function TFlags.Include (CombinedFlag: integer): TFlags;
+begin
+  result.Flags := Self.Flags or CombinedFlag;
+end;
+
+function TFlags.Exclude (CombinedFlag: integer): TFlags;
+begin
+  result.Flags := Self.Flags and not CombinedFlag;
+end;
+
+function TFlags.GetValue: integer;
+begin
+  result := Self.Flags;
+end;
+
+function TFlagsChanger.Replace (WhatCombinedFlag, WithCombinedFlag: integer): TFlagsChanger;
+begin
+  if (Self.FlagsPtr^ and WhatCombinedFlag) = WhatCombinedFlag then begin
+    Self.FlagsPtr^ := (Self.FlagsPtr^ and not WhatCombinedFlag) or WithCombinedFlag;
+  end;
+
+  result := Self;
+end;
+
+function TFlagsChanger.Include (CombinedFlag: integer): TFlagsChanger;
+begin
+  Self.FlagsPtr^ := Self.FlagsPtr^ or CombinedFlag;
+  result         := Self;
+end;
+
+function TFlagsChanger.Exclude (CombinedFlag: integer): TFlagsChanger;
+begin
+  Self.FlagsPtr^ := Self.FlagsPtr^ and not CombinedFlag;
+  result         := Self;
+end;
+
+function TFlagsChanger.SetValue (Value: integer): TFlagsChanger;
+begin
+  Self.FlagsPtr^ := Value;
+  result         := Self;
+end;
 
 function PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer;
 begin

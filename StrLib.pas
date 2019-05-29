@@ -199,6 +199,9 @@ function  Utf8ToAnsi (const Str: string): string;
 (* Returns empty string on failure *)
 function  Utf8ToWide (const Str: string; FailOnError: boolean = false): WideString;
 
+(* Returns empty string on failure *)
+function  WideToUtf8 (const Str: WideString): AnsiString;
+
 function  PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
 
 (* Converts null-terminated WideString to AnsiString, substituting invalid characters with special character *)
@@ -1548,6 +1551,28 @@ begin
     end;
   end; // .if
 end; // .function Utf8ToWide
+
+function WideToUtf8 (const Str: WideString): AnsiString;
+const
+  MAX_UTF8_CHARS_PER_WIDE_CHAR = 4;
+
+var
+  ResBufLen: integer;
+
+begin
+  result := '';
+
+  if Str <> '' then begin
+    SetLength(result, Length(Str) * MAX_UTF8_CHARS_PER_WIDE_CHAR);
+    ResBufLen := Windows.WideCharToMultiByte(Windows.CP_UTF8, 0, PWideChar(Str), Length(Str), pointer(result), Length(result), nil, nil);
+    
+    if ResBufLen > 0 then begin
+      SetLength(result, ResBufLen);  
+    end else begin
+      result := '';
+    end;
+  end; // .if
+end; // .function WideToUtf8
 
 function PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
 const
