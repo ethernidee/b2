@@ -137,7 +137,7 @@ function  Locate (const MaskedPath: string; SearchSubj: TSearchSubj): ILocator;
 uses StrLib;
 
 const
-  FILES_EXTRA_DEBUG = FALSE;
+  FILES_EXTRA_DEBUG = false;
 
 
 type
@@ -183,7 +183,7 @@ begin
   Self.fPos          := 0;
   Self.fEOF          := BufSize = 0;
   Self.fBuf          := Buf;
-  Self.fOwnsMem      := FALSE;
+  Self.fOwnsMem      := false;
 end; // .procedure TFixedBuf.Open
 
 procedure TFixedBuf.Close;
@@ -277,7 +277,7 @@ begin
     Self.fEOF          := Self.Pos = Self.Size;
     Self.fFilePath     := FilePath;
     Self.fHasKnownSize := true;
-    Self.fSizeIsConst  := FALSE;
+    Self.fSizeIsConst  := false;
   end;
   // * * * * * //
   if (not result) and (Self.hFile <> WinWrappers.INVALID_HANDLE) then begin
@@ -331,7 +331,7 @@ begin
     Self.fEOF          := true;
     Self.fFilePath     := FilePath;
     Self.fHasKnownSize := true;
-    Self.fSizeIsConst  := FALSE;
+    Self.fSizeIsConst  := false;
   end;
 end; // .function TFile.CreateNew
 
@@ -387,7 +387,7 @@ procedure TFileLocator.FinitSearch;
 begin
   if Self.fOpened then begin
     Windows.FindClose(Self.fSearchHandle);
-    Self.fOpened := FALSE;
+    Self.fOpened := false;
   end;
 end;
 
@@ -661,7 +661,7 @@ procedure TLocator.FindClose;
 begin
   if Self.fSearchStarted then begin
     SysUtils.FindClose(Self.fFoundRec);
-    Self.fSearchStarted :=  FALSE;
+    Self.fSearchStarted :=  false;
   end;
 end;
 
@@ -694,14 +694,14 @@ function TLocator.MatchResult: boolean;
 
 begin
   {!} Assert(Self.fSearchStarted and Self.fLastOperRes);
-  result  :=  FALSE;
+  result  :=  false;
   
   case Self.fSearchSubj of 
     ONLY_FILES:     result  :=  (Self.fFoundRec.Attr and SysUtils.faDirectory) = 0;
     ONLY_DIRS:      result  :=  (Self.fFoundRec.Attr and SysUtils.faDirectory) <> 0;
     FILES_AND_DIRS: result  :=  true;
   else
-    {!} Assert(FALSE);
+    {!} Assert(false);
   end; // .SWITCH 
   
   result  :=  result and StrLib.Match(CanonicName(SysUtils.AnsiLowercase(Self.fFoundRec.Name)),
@@ -716,22 +716,20 @@ end; // .function TLocator.MatchResult
 function TLocator.FindNext: boolean;
 begin
   {!} Assert(Self.fLastOperRes);
-  result  :=  FALSE;
+  result := false;
   
   if not Self.fSearchStarted then begin
-    Self.fLastOperRes :=
-      SysUtils.FindFirst(Self.fDir + '\*', SysUtils.faAnyFile, Self.fFoundRec) = 0;
-    
-    Self.fSearchStarted :=  Self.fLastOperRes;
-    result              :=  Self.fSearchStarted and Self.MatchResult;
+    Self.fLastOperRes   := SysUtils.FindFirst(Self.fDir + '\*', SysUtils.faAnyFile, Self.fFoundRec) = 0;
+    Self.fSearchStarted := Self.fLastOperRes;
+    result              := Self.fSearchStarted and Self.MatchResult;
   end;
 
   if not result and Self.fSearchStarted then begin
     while not result and (SysUtils.FindNext(Self.fFoundRec) = 0) do begin
-      result  :=  Self.MatchResult;
+      result := Self.MatchResult;
     end;
     
-    Self.fLastOperRes :=  result;
+    Self.fLastOperRes := result;
   end;
 end; // .function TLocator.FindNext
 

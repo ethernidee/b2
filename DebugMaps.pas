@@ -8,7 +8,7 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 interface
 
 uses
-  SysUtils, Utils;
+  SysUtils, Utils, Math;
 
 const
   MIN_DBGMAP_FILE_SIZE = 12;
@@ -106,7 +106,7 @@ begin
     SetLength(Self.Modules, NumModules);
 
     for i := 0 to NumModules - 1 do begin
-      Self.Modules[i].Name   := ReadStr();
+      Self.Modules[i].Name := ReadStr();
     end;
 
     (* Read Line Numbers section *)
@@ -143,21 +143,21 @@ begin
       MiddleInd   := Left + (Right - Left) div 2;
       MiddleLabel := Self.Labels[MiddleInd];
 
-      if Offset < MiddleLabel.Offset then begin
+      if uint(Offset) < uint(MiddleLabel.Offset) then begin
         Right := MiddleInd - 1;
-      end else if (Offset > MiddleLabel.Offset) then begin
+      end else if uint(Offset) > uint(MiddleLabel.Offset) then begin
         Left  := MiddleInd + 1;
       end else begin
         break;
       end;
     end; // .while
     
-    if (Left <= Right) or (Left > MiddleInd) then begin
-      LabelOffset := Offset - MiddleLabel.Offset;
-      result      := MiddleLabel.Name;
+    if (Left <= Right) or (Right >= 0) then begin
+      LabelOffset := Offset - Self.Labels[Right].Offset;
+      result      := Self.Labels[Right].Name;
 
       if LabelOffset > 0 then begin
-        result := result + ' + ' + SysUtils.IntToStr(LabelOffset);
+        result := result + ' + ' + SysUtils.IntToStr(uint(LabelOffset));
       end;
     end;
   end; // .if
@@ -171,26 +171,26 @@ begin
       MiddleInd     := Left + (Right - Left) div 2;
       MiddleLineRec := Self.LineInfos[MiddleInd];
 
-      if Offset < MiddleLineRec.Offset then begin
+      if uint(Offset) < uint(MiddleLineRec.Offset) then begin
         Right := MiddleInd - 1;
-      end else if (Offset > MiddleLineRec.Offset) then begin
+      end else if uint(Offset) > uint(MiddleLineRec.Offset) then begin
         Left  := MiddleInd + 1;
       end else begin
         break;
       end;
     end; // .while
     
-    if ((Left <= Right) or (Left > MiddleInd)) and (MiddleLineRec.ModuleInd < length(Self.Modules)) then begin
-      LineOffset := Offset - MiddleLineRec.Offset;
+    if ((Left <= Right) or (Right >= 0)) and Math.InRange(Self.LineInfos[Right].ModuleInd, 0, length(Self.Modules) - 1) then begin
+      LineOffset := Offset - Self.LineInfos[Right].Offset;
 
       if result <> '' then begin
         result := result + ' ';
       end;
       
-      result := result + 'in ' + Self.Modules[MiddleLineRec.ModuleInd].Name + ' on line ' + SysUtils.IntToStr(MiddleLineRec.Line);
+      result := result + 'in ' + Self.Modules[Self.LineInfos[Right].ModuleInd].Name + ' on line ' + SysUtils.IntToStr(uint(Self.LineInfos[Right].Line));
 
       if LineOffset > 0 then begin
-        result := result + ' offset ' + SysUtils.IntToStr(LineOffset);
+        result := result + ' offset ' + SysUtils.IntToStr(uint(LineOffset));
       end;
     end; // .if
   end; // .if

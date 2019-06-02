@@ -25,6 +25,7 @@ const
 type
   char = System.AnsiChar;
   int  = integer;
+  uint = cardinal;
 
   (* Item pointers *)
   pobject   = ^TObject;

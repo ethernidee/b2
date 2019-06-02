@@ -610,6 +610,16 @@ const
   FILE_GENERIC_WRITE   = STANDARD_RIGHTS_WRITE or FILE_WRITE_DATA or FILE_WRITE_ATTRIBUTES or FILE_WRITE_EA or FILE_APPEND_DATA or SYNCHRONIZE;
   FILE_GENERIC_EXECUTE = STANDARD_RIGHTS_EXECUTE or FILE_READ_ATTRIBUTES or FILE_EXECUTE or SYNCHRONIZE;
 
+  //
+  // New Win10+ NtQueryDirectoryFileEx query flags
+  //
+  SL_RESTART_SCAN                = $01;
+  SL_RETURN_SINGLE_ENTRY         = $02;
+  SL_INDEX_SPECIFIED             = $04;
+  SL_RETURN_ON_DISK_ENTRIES_ONLY = $08;
+  SL_QUERY_DIRECTORY_MASK        = $0B;
+  SL_NO_CURSOR_UPDATE_QUERY      = $10;
+
 //
 //  Define the generic mapping array.  This is used to denote the
 //  mapping of each generic access right to a specific access mask.
@@ -867,6 +877,8 @@ type
   TNtQueryInformationFile    = function (FileHandle: HANDLE; PIO_STATUS_BLOCK: PIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: integer (* FILE_INFORMATION_CLASS *)): NTSTATUS; stdcall;
   TNtQueryDirectoryFile      = function (FileHandle: HANDLE; Event: HANDLE; ApcRoutine: POINTER; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID; BufLength: ULONG;
                                          InfoClass: integer (* FILE_INFORMATION_CLASS *); SingleEntry: BOOLEAN; Mask: PUNICODE_STRING; RestartScan: BOOLEAN): NTSTATUS; stdcall;
+  TNtQueryDirectoryFileEx    = function (FileHandle: HANDLE; Event: HANDLE; ApcRoutine: pointer; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID; BufLength: ULONG;
+                                         InfoClass: integer (* FILE_INFORMATION_CLASS *); QueryFlags: integer; Mask: PUNICODE_STRING): NTSTATUS; stdcall;
   TNtQueryAttributesFile     = function (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_BASIC_INFORMATION): NTSTATUS; stdcall;
   TNtQueryFullAttributesFile = function (ObjectAttributes: POBJECT_ATTRIBUTES; FileInformation: PFILE_NETWORK_OPEN_INFORMATION): NTSTATUS; stdcall;
   TNtDeleteFile              = function (ObjectAttributes: POBJECT_ATTRIBUTES): NTSTATUS; stdcall;
@@ -882,6 +894,8 @@ type
   function  NtQueryInformationFile (FileHandle: HANDLE; PIO_STATUS_BLOCK: PIoStatusBlock; FileInformation: PVOID; Length: ULONG; FileInformationClass: integer (* FILE_INFORMATION_CLASS *)): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtQueryDirectoryFile (FileHandle: HANDLE; Event: HANDLE; ApcRoutine: pointer; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID; BufLength: ULONG; InfoClass: integer (* FILE_INFORMATION_CLASS *);
                                   SingleEntry: BOOLEAN; Mask: PUNICODE_STRING; RestartScan: BOOLEAN): NTSTATUS; stdcall; external 'ntdll.dll';
+  function  NtQueryDirectoryFileEx (FileHandle: HANDLE; Event: HANDLE; ApcRoutine: pointer; ApcContext: PVOID; Io: PIO_STATUS_BLOCK; Buffer: PVOID; BufLength: ULONG; InfoClass: integer (* FILE_INFORMATION_CLASS *);
+                                    QueryFlags: integer; Mask: PUNICODE_STRING): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtCreateFile (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; AllocationSize: PLARGE_INTEGER;
                           FileAttributes: ULONG; ShareAccess: ULONG; CreateDisposition: ULONG; CreateOptions: ULONG; EaBuffer: PVOID; EaLength: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
   function  NtOpenFile (FileHandle: PHANDLE; DesiredAccess: ACCESS_MASK; ObjectAttributes: POBJECT_ATTRIBUTES; IoStatusBlock: PIO_STATUS_BLOCK; ShareAccess: ULONG; OpenOptions: ULONG): NTSTATUS; stdcall; external 'ntdll.dll';
