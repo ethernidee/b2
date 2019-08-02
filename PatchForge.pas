@@ -342,6 +342,7 @@ type
     
     function WriteBytes (NumBytes: integer; {n} Buf: pointer): TPatchHelper; inline;
     function Write (const Args: array of const): TPatchHelper;
+    function WriteHex (const HexStr: string): TPatchHelper;
     function Seek (Pos: integer): TPatchHelper; inline;
 
     (* Seeks to relative position from the current one. Returns self. *)
@@ -1035,6 +1036,42 @@ begin
   result := Self;
   Self.PatchMaker.Write(Args);
 end;
+
+function TPatchHelper.WriteHex (const HexStr: string): TPatchHelper;
+const
+  HEX_CHAR      = ['0'..'9', 'a'..'f', 'A'..'F'];
+  HEX_CHAR_SIZE = 2;
+
+var
+{n} Buf:      pbyte;
+    StrLen:   integer;
+    i:        integer;
+    LoChar:   char;
+    HiChar:   char;
+    CharVal:  byte;
+    HexToVal: array [0..2] of integer;
+
+begin
+  {!} Assert((Length(HexStr) and 1) = 0);
+  result := Self;
+  i      := 1;
+  StrLen := Length(HexStr);
+  Buf    := Self.AllocAndSkip(StrLen div HEX_CHAR_SIZE);
+
+  HexToVal[0] := 48;
+  HexToVal[1] := 55;
+  HexToVal[2] := 87;
+
+  while i <= StrLen do begin
+    HiChar := HexStr[i];
+    LoChar := HexStr[i + 1];
+    {!} Assert((LoChar in HEX_CHAR) and (HiChar in HEX_CHAR), Format('Invalid hex char "%s" at position %d', [Copy(HexStr, i, 2), i]));
+
+    Buf^ := ((ord(HiChar) - HexToVal[ord(HiChar) shr 5 - 1]) shl 4) or (ord(LoChar) - HexToVal[ord(LoChar) shr 5 - 1]);
+    Inc(i, HEX_CHAR_SIZE);
+    Inc(Buf);
+  end;
+end; // .function WriteHex
 
 function TPatchHelper.Seek (Pos: integer): TPatchHelper;
 begin
