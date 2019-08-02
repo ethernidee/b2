@@ -1,192 +1,112 @@
 ﻿unit ApiJack;
 (*
-  Code/data patching utilities and API hooking.
-  Unit without third-party dependencies.
-
-  Tags: #FROZEN, #DEPRECATED, #NEEDS_REWRITING
-  TODO: Write PatchMan unit, implementing PatchApi functionality using PatchForge.
+  Description: Code/data patching utilities and API hooking.
+               All hooks are thread-safe.
 *)
 
 (***)  interface  (***)
 
 uses
-  Windows, SysUtils, hde32, Utils, Math, Alg, DataLib, PatchForge;
-
-const
-  // Function argument. Size must be detected automatically.
-  AUTO_SIZE = -1;
+  Windows, SysUtils, Math,
+  Utils, PatchForge;
 
 type
-  (* Safely writes patch at any code/data section, preserving attributes of memory pages *)
-  TMemPatchingFunc = function (NumBytes: integer; {n} Src, {n} Dst: pointer): boolean;
+  TCallingConv = (
+    CONV_LAST = -101,
 
-  (* Possible flags for {Splice} function: *)
-  TSpliceFlag = (
-    PASS_ORIG_FUNC_AS_ARG // Pass address of bridge to original function as the last extra argument in stack
-  );
-  
-  TSpliceFlags = set of TSpliceFlag;
+    // Left-to-right
+    CONV_PASCAL = CONV_LAST,
 
-  PSpliceInternalInfo = ^TSpliceInternalInfo;
-  TSpliceInternalInfo = packed record
-    fOrigCodeSize:  integer;
-    fHookedCodePtr: pointer;
-    fHookerCodePtr: pointer;
-    Reserved:       integer;
+    // Left-to-right, first three arguments in EAX, EDX, ECX
+    CONV_REGISTER = -102,
+
+    // Right-to-left, caller clean-up
+    CONV_CDECL = -103,
+
+    // Right-to-left
+    CONV_STDCALL = -104,
+
+    // Right-to-left, first argument in ECX
+    CONV_THISCALL = -105,
+
+    // Right-to-left, first two arguments in ECX, EDX
+    CONV_FASTCALL = -106,
+
+    CONV_FIRST = CONV_FASTCALL
+  ); // TCallingConv
+
+  PAppliedPatch = ^TAppliedPatch;
+  TAppliedPatch = record
+         Addr:   pointer;
+         Bytes:  Utils.TArrayOfByte;
+    {OU} AuxBuf: pointer;
+
+    procedure Rollback;
   end;
 
-  PSpliceResult = ^TSpliceResult;
-  TSpliceResult = packed record
-   private
-    (* Pointer to original function prolog + jump to continuation point. Internal info is stored in record, located right before this field.
-       Memory is allocated via GetMem at internal record address. *)
-    {O} fOrigFunc: pointer;
+  PHookContext = ^THookContext;
 
-    function GetInfo: PSpliceInternalInfo;
-
-   public
-    property OrigFunc: pointer read fOrigFunc;
+  THookContext = packed record
+    EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX: integer;
+    RetAddr:                                pointer;
   end;
 
-  TPatchMaker = class
-   private
-    fBuf:            Utils.TArrayOfByte;
-    fPos:            integer;
-    fSize:           integer;
-    fRealMemOffsets: DataLib.TList {OF BufPos: integer};
+  THookHandler = function (Context: PHookContext): LONGBOOL;
 
-    procedure SetPos (NewPos: integer); inline;
-    procedure Grow (NewSize: integer);
+  (* Writes arbitrary data to any write-protected section *)
+  TWriteAtCode = function (NumBytes: integer; {n} Src, {n} Dst: pointer): boolean; stdcall;
 
-   protected
-    (* Returns true if given position is valid position *)
-    function IsValidPos (Pos: integer): boolean; inline;
 
-    (* Handles specified command, including command arguments. Adjusts argument index. Raises error on unsupported command.
-       Arguments index must point to the last used argument or command itself on exit. *)
-    procedure HandleCmd (Cmd: TClass; ArgPtr: System.PVarRec; var i: integer; NumArgs: integer); virtual;
+(* Replaces original function with the new one with the same prototype and 1-2 extra arguments.
+   Calling convention is changed to STDCALL. The new argument is callable pointer, which can be used to
+   execute original function. The pointer is passed as THE FIRST argument. If custom parameter address
+   is given, the value of custom parameter will be passed to handler as THE SECOND argument. If AppliedPatch
+   pointer is given, it will be assigned an opaque pointer to applied patch data structure. This
+   pointer can be used to rollback the patch (remove splicing).
+   Returns address of the bridge to original function *)
+function StdSplice (OrigFunc, HandlerFunc: pointer; CallingConv: TCallingConv; NumArgs: integer; {n} CustomParam: pinteger = nil; {n} AppliedPatch: PAppliedPatch = nil): pointer;
 
-   public
-    constructor Create;
-    destructor Destroy; override;
+(* Writes call to user handler at specified location. If handler returns true, overwritten commands are executed
+   in original way. Otherwise they are skipped and Context.RetAddr is used to determine return address. *)
+function HookCode (Addr: pointer; HandlerFunc: THookHandler; {n} AppliedPatch: PAppliedPatch = nil): pointer;
 
-    (* Writes NumBytes bytes from buffer. Increases position pointer. Returns self. *)
-    function WriteBytes (NumBytes: integer; {n} Buf: pointer): {U} TPatchMaker;
-
-    (* Writes list of [int32/int64/float32/AnsiString without #0/WideString without #0/any pointer, object, interface, PChar, PWideChar as pointer/boolean/AnsiChar/WideChar]
-       and increases position pointer. Returns self.
-       Class arguments are treated specially as commands. A few arguments, following the command, are treated as command arguments. For a list of supported commands see CMD_XXX constants *)
-    function Write (const Args: array of const): {U} TPatchMaker;
-
-    (* Seeks to specified existing position or raises error. Returns self. *)
-    function Seek (Pos: integer): {U} TPatchMaker;
-
-    (* Ensures, that there is enough soace from current position and returns real temporary pointer to buffer part.
-       Existing data is preserved. Calling any class method (except property getters) may invalid the pointer. *)
-    function Alloc (NumBytes: integer): {Un} pointer;
-
-    (* Returns real temporary pointer for existing position in buffer. Calling any class method (except property getters) may invalid the pointer. *)
-    function GetAddrByPos (Pos: integer): {Un} pointer;
-
-    (* Marks specified position. During patch application real address of that dword will be substracted from dword value.
-       Default position is current position. Returns self. *)
-    function MarkDwordAsMemOffset (Pos: integer = -1): {U} TPatchMaker;
-
-    (* Returns not applied path in the form of raw bytes array of capacity, greater or equal to patch size. Internal buffer is cleared afterwards. *)
-    function GetPatch: {O} Utils.TArrayOfByte;
-
-    (* Applies patch at specified address. Automatically fixes marked offsets. Returns pointer to memory location right after the patch.
-       Memory must be writable. *)
-    function ApplyPatch ({n} TargetAddr: pointer): {n} pointer;
-
-    property Pos:  integer read fPos write SetPos;
-    property Size: integer read fSize;
-  end; // .class TPatchMaker
-
-  CMD_MEM_OFFSET = class end;
-
-(* Safely writes patch at any code/data section, preserving attributes of memory pages *)
-function WritePatch (NumBytes: integer; {n} Src, {n} Dst: pointer): boolean;
-
-(* Installs new function to be used for all memory patchings. Returns the previous one or nil *)
-function InstallMemPatchingFunc (NewMemPatchingFunc: TMemPatchingFunc): {n} TMemPatchingFunc;
-
-(* Replaces original function with the new one with the same prototype and  *)
-function Splice (OrigCodePtr, HookCodePtr: pointer; MinPatchSize: integer = AUTO_SIZE; Flags: TSpliceFlags = [PASS_ORIG_FUNC_AS_ARG]): {On} TSpliceResult;
+(* Installs new code writing routine. Returns the previous one or nil *)
+function SetCodeWriter (CodeWriter: TWriteAtCode): {n} TWriteAtCode;
 
 
 (***)  implementation  (***)
 
 
-const
-  OPCODE_JUMP_CONST32 = $E9;
-  OPCODE_CALL_CONST32 = $E8;
-  OPCODE_PUSH_CONST32 = $68;
-
 type
-  (* Hook code caller *)
-  PHookRec = ^THookRec;
-  THookRec = packed record
-    Opcode: byte;
-    Offset: integer;
-
-    (* Changes relative offset of hook opcode so, that it point to specified address *)
-    procedure PointTo (Addr: pointer);
-  end;
+  (* Import *)
+  TPatchMaker  = PatchForge.TPatchMaker;
+  TPatchHelper = PatchForge.TPatchHelper;
 
 
 var
-  MemPatchingFunc: TMemPatchingFunc;
+  WriteAtCode: TWriteAtCode = nil;
 
-
-type
-  PBridgeCodePart1 = ^TBridgeCodePart1;
-  TBridgeCodePart1 = packed record
-    Pushad:               byte;
-    PushEsp:              byte;
-    MovEaxConst32:        byte;
-    HandlerAddr:          pointer;
-    CallEax:              word;
-    TestEaxEax:           word;
-    JzOffset8:            byte;
-    OffsetToAfterDefCode: byte;
-    Label_ExecDefCode:    Utils.TEmptyRec;
-    Popad:                byte;
-    AddEsp4:              array [0..2] of byte;
-    // < Default code > //
-  end; // .record TBridgeCodePart1
-
-  PBridgeCodePart2 = ^TBridgeCodePart2;
-  TBridgeCodePart2 = packed record
-    PushConst32:           byte;
-    RetAddr:               pointer;
-    Ret_1:                 byte;
-    Label_DontExecDefCode: Utils.TEmptyRec;
-    Popad:                 byte;
-    Ret_2:                 byte;
-  end; // .record TBridgeCodePart2
-
-function GetExecutableMem (Size: integer): {n} pointer;
+procedure AllocMem (var Addr; Size: integer);
 begin
+  {!} Assert(@Addr <> nil);
   {!} Assert(Size >= 0);
-  result := nil;
-
-  if Size > 0 then begin
-    GetMem(result, Size);
-  end;
+  GetMem(pointer(Addr), Size);
 end;
 
-procedure FreeExecutableMem ({n} Ptr: pointer);
+procedure ReleaseMem (Addr: pointer);
 begin
-  FreeMem(Ptr);
+  FreeMem(Addr);
 end;
 
-function WritePatch (NumBytes: integer; {n} Src, {n} Dst: pointer): boolean;
+function SetCodeWriter (CodeWriter: TWriteAtCode): {n} TWriteAtCode;
 begin
-  result := MemPatchingFunc(NumBytes, Src, Dst);
+  {!} Assert(@CodeWriter <> nil);
+  result      := WriteAtCode;
+  WriteAtCode := CodeWriter;
 end;
 
-function StdWritePatch (NumBytes: integer; {n} Src, {n} Dst: pointer): boolean;
+(* Writes arbitrary data to any write-protected section *)
+function StdWriteAtCode (NumBytes: integer; {n} Src, {n} Dst: pointer): boolean; stdcall;
 var
   OldPageProtect: integer;
 
@@ -207,181 +127,292 @@ begin
       result := false;
     end;
   end; // .if
-end; // .function StdWritePatch
+end; // .function StdWriteAtCode
 
-function InstallMemPatchingFunc (NewMemPatchingFunc: TMemPatchingFunc): {n} TMemPatchingFunc;
+(* Writes patch to any write-protected section *)
+function WritePatchAtCode (PatchMaker: TPatchMaker; {n} Dst: pointer): boolean;
+var
+  Buf: Utils.TArrayOfByte;
+
 begin
-  {!} Assert(@NewMemPatchingFunc <> nil);
-  result          := @MemPatchingFunc;
-  MemPatchingFunc := @NewMemPatchingFunc;
+  {!} Assert(PatchMaker <> nil);
+  {!} Assert((Dst <> nil) or (PatchMaker.Size = 0));
+  // * * * * * //
+  result := true;
+
+  if PatchMaker.Size > 0 then begin
+    SetLength(Buf, PatchMaker.Size);
+    PatchMaker.ApplyPatch(pointer(Buf), Dst);
+    result := WriteAtCode(Length(Buf), pointer(Buf), Dst);
+  end;
+end; // .function WritePatchAtCode
+
+function StdSplice (OrigFunc, HandlerFunc: pointer; CallingConv: TCallingConv; NumArgs: integer; {n} CustomParam: pinteger = nil; {n} AppliedPatch: PAppliedPatch = nil): pointer;
+const
+  CODE_ADDR_ALIGNMENT = 8;
+
+var
+{O}  p:                      PatchForge.TPatchHelper;
+{OI} SpliceBridge:           pbyte; // Memory is owned by AppliedPatch or never freed
+     NumStackArgs:           integer;
+     ShouldDuplicateArgs:    boolean;
+     OrigCodeBridgeStartPos: integer;
+     OverwrittenCodeSize:    integer;
+
+begin
+  {!} Assert(OrigFunc <> nil);
+  {!} Assert(HandlerFunc <> nil);
+  {!} Assert(NumArgs >= 0);
+  p            := TPatchHelper.Wrap(TPatchMaker.Create);
+  SpliceBridge := nil;
+  result       := nil;
+  // * * * * * //
+  if NumArgs = 0 then begin
+    CallingConv := CONV_STDCALL;
+  end;
+
+  if (NumArgs = 1) and (CallingConv = CONV_FASTCALL) then begin
+    CallingConv := CONV_THISCALL;
+  end;
+
+  NumStackArgs := NumArgs;
+
+  if CallingConv = CONV_FASTCALL then begin
+    Dec(NumStackArgs, 2);
+  end else if CallingConv = CONV_THISCALL then begin
+    Dec(NumStackArgs);
+  end else if CallingConv = CONV_REGISTER then begin
+    Dec(NumStackArgs, Min(3, NumArgs));
+  end;
+
+  ShouldDuplicateArgs := (NumStackArgs > 0) and ((CallingConv = CONV_PASCAL) or (CallingConv = CONV_REGISTER) or (CallingConv = CONV_CDECL));
+
+  // === BEGIN generating SpliceBridge ===
+  if ShouldDuplicateArgs then begin
+    (* Prepare to duplicate arguments *) 
+    //   PUSH ESI
+    //   PUSH EDI
+    //   LEA ESI, [ESP + 12.]
+    //   MOV EDI, ESI
+    //   ADD ESI, NumStackArgs * 4
+    p.WriteHex('56578D74E40C89F781C6').WriteInt(NumStackArgs * sizeof(integer));
+  end;
+  
+  (* Push pascal/delphi register arguments and extra arguments *)
+  if (CallingConv = CONV_PASCAL) or (CallingConv = CONV_REGISTER) then begin
+    // PUSH OrigFuncBridge
+    p.WriteByte($68).ExecActionOnApply(PatchForge.TAddLabelRealAddrAction.Create('OrigFuncBridge')).WriteInt(0);
+
+    if CustomParam <> nil then begin
+      // PUSH CustomParam
+      p.WriteByte($68).WriteInt(CustomParam^);
+    end;
+
+    if CallingConv = CONV_REGISTER then begin
+      // PUSH EAX
+      p.WriteByte($50);
+
+      if NumArgs >= 2 then begin
+        // PUSH EDX
+        p.WriteByte($52);
+      end;
+
+      if NumArgs >= 3 then begin
+        // PUSH ECX
+        p.WriteByte($51);
+      end;
+    end; // .if
+  end; // .if
+  
+  if ShouldDuplicateArgs then begin
+    (* Duplicate stack arguments *) 
+    // @Loop:
+    //   SUB ESI, 4
+    //   PUSH [DWORD ESI]
+    //   CMP ESI, EDI
+    //   JNE @Loop
+    p.PutLabel('LoopCopyArgs').WriteHex('83EE04FF3639FE');
+    p.JumpLabel(PatchForge.JNE, 'LoopCopyArgs');
+  end;
+  
+  if not ShouldDuplicateArgs then begin
+    // POP EAX; remember return address
+    p.WriteByte($58);
+  end;
+
+  (* Push register arguments and extra parameters for right-to-left conventions *)
+  if CallingConv = CONV_THISCALL then begin
+    // PUSH ECX
+    p.WriteByte($51);
+  end else if CallingConv = CONV_FASTCALL then begin
+    // PUSH EDX
+    p.WriteByte($52);
+    // PUSH ECX
+    p.WriteByte($51);
+  end;
+
+  if (CallingConv <> CONV_PASCAL) and (CallingConv <> CONV_REGISTER) then begin
+    if CustomParam <> nil then begin
+      // PUSH CustomParam
+      p.WriteByte($68).WriteInt(CustomParam^);
+    end;
+
+    // PUSH OrigFuncBridge
+    p.WriteByte($68).ExecActionOnApply(PatchForge.TAddLabelRealAddrAction.Create('OrigFuncBridge')).WriteInt(0);
+  end;
+
+  if ShouldDuplicateArgs then begin
+    // Call new handler
+    p.Call(HandlerFunc);
+
+    // POP EDI
+    // POP ESI
+    p.WriteWord($5E5F);
+
+    // Perform stack cleanup for non-cdecl
+    if CallingConv <> CONV_CDECL then begin
+      // RET NumStackArgs * 4
+      {!} Assert(NumStackArgs <= high(word), 'Too big number of stack arguments');
+      p.WriteByte($C2).WriteWord(NumStackArgs * 4);
+    end else begin
+      // RET; original function will perform stack cleanup manually
+      p.WriteByte($C3);
+    end;
+  end else begin
+    // PUSH EAX; push return address
+    p.WriteByte($50);
+
+    // Jump to new handler, the return will lead to original calling function
+    p.Jump(PatchForge.JMP, HandlerFunc);
+  end; // .else
+  
+  // Ensure original code bridge is aligned
+  p.Nop(p.Pos mod CODE_ADDR_ALIGNMENT);
+
+  // Set result to offset from splice bridge start to original function bridge
+  result := pointer(p.Pos);
+  
+  // Write original function bridge
+  p.PutLabel('OrigFuncBridge');
+  OrigCodeBridgeStartPos := p.Pos;
+  p.WriteCode(OrigFunc, PatchForge.TMinCodeSizeDetector.Create(sizeof(PatchForge.TJumpCall32Rec)));
+  OverwrittenCodeSize := p.Pos - OrigCodeBridgeStartPos;
+  p.Jump(PatchForge.JMP, Utils.PtrOfs(OrigFunc, OverwrittenCodeSize));
+  // === END generating SpliceBridge ===
+
+  // Persist splice bridge
+  AllocMem(SpliceBridge, p.Size);
+  WritePatchAtCode(p.PatchMaker, SpliceBridge);
+
+  // Turn result from offset to absolute address
+  result := Ptr(integer(SpliceBridge) + integer(result));
+
+  // Create and apply hook at target function start
+  p.Clear();
+  p.Jump(PatchForge.JMP, SpliceBridge);
+  p.Nop(OverwrittenCodeSize - p.Pos);
+
+  if AppliedPatch <> nil then begin
+    AppliedPatch.Addr := OrigFunc;
+    SetLength(AppliedPatch.Bytes, p.Size);
+    Utils.CopyMem(p.Size, OrigFunc, @AppliedPatch.Bytes[0]);
+    AppliedPatch.AuxBuf := SpliceBridge;
+  end;
+
+  WritePatchAtCode(p.PatchMaker, OrigFunc);
+  // * * * * * //
+  p.Release;
+end; // .function StdSplice
+
+function HookCode (Addr: pointer; HandlerFunc: THookHandler; {n} AppliedPatch: PAppliedPatch = nil): pointer;
+const
+  INSTR_PUSHAD       = $60;
+  INSTR_PUSH_ESP     = $54;
+  INSTR_TEST_EAX_EAX = $C085;
+  INSTR_POPAD        = $61;
+  INSTR_ADD_ESP_4    = $04C483;
+
+
+var
+{O}  p:                      PatchForge.TPatchHelper;
+{OI} HandlerBridge:          pbyte; // Memory is owned by AppliedPatch or never freed
+     DontExecOrigCodeLabel:  string;
+     OrigCodeBridgeStartPos: integer;
+     OverwrittenCodeSize:    integer;
+
+begin
+  {!} Assert(Addr <> nil);
+  {!} Assert(@HandlerFunc <> nil);
+  p             := TPatchHelper.Wrap(TPatchMaker.Create);
+  HandlerBridge := nil;
+  result        := nil;
+  // * * * * * //
+
+  // === BEGIN generating HandlerBridge ===
+  // Preserve registers and Push registers context as the only argument
+  p.WriteByte(INSTR_PUSHAD);
+  p.WriteByte(INSTR_PUSH_ESP);
+
+  // Call new handler
+  p.Call(@HandlerFunc);
+
+  // If result is TRUE then restore registers and execute default code
+  p.WriteWord(INSTR_TEST_EAX_EAX);
+  p.JumpLabel(PatchForge.JE, p.NewAutoLabel(DontExecOrigCodeLabel));
+  p.WriteByte(INSTR_POPAD);
+  p.WriteTribyte(INSTR_ADD_ESP_4);
+
+  // Set result to offset from handler bridge start to original code bridge
+  result := pointer(p.Pos);
+
+  // Write original code bridge
+  OrigCodeBridgeStartPos := p.Pos;
+  p.WriteCode(Addr, PatchForge.TMinCodeSizeDetector.Create(sizeof(PatchForge.TJumpCall32Rec)));
+  OverwrittenCodeSize    := p.Pos - OrigCodeBridgeStartPos;
+  p.Jump(PatchForge.JMP, Utils.PtrOfs(Addr, OverwrittenCodeSize));
+
+  // :DontExecOrigCodeLabel
+  p.PutLabel(DontExecOrigCodeLabel);
+  p.WriteByte(INSTR_POPAD);
+  p.WriteByte(PatchForge.OPCODE_RET);
+  // === END generating HandlerBridge ===  
+
+  // Persist handler bridge
+  AllocMem(HandlerBridge, p.Size);
+  WritePatchAtCode(p.PatchMaker, HandlerBridge);
+
+  // Turn result from offset to absolute address
+  result := Ptr(integer(HandlerBridge) + integer(result));
+
+  // Create and apply hook at target address
+  p.Clear();
+  p.Call(HandlerBridge);
+  p.Nop(OverwrittenCodeSize - p.Pos);
+
+  if AppliedPatch <> nil then begin
+    AppliedPatch.Addr   := Addr;
+    SetLength(AppliedPatch.Bytes, p.Size);
+    Utils.CopyMem(p.Size, Addr, @AppliedPatch.Bytes[0]);
+    AppliedPatch.AuxBuf := HandlerBridge;
+  end;
+
+  WritePatchAtCode(p.PatchMaker, Addr);
+  // * * * * * //
+  p.Release;
+end; // .function HookCode
+
+procedure TAppliedPatch.Rollback;
+begin
+  if Self.Bytes <> nil then begin
+    WriteAtCode(Length(Self.Bytes), @Self.Bytes[0], Self.Addr);
+    Self.Bytes := nil;
+
+    if Self.AuxBuf <> nil then begin
+      ReleaseMem(Self.AuxBuf); Self.AuxBuf := nil;
+    end;
+  end;
 end;
 
-(* Calculates minimal hook size. It's assumed, that hook must nop the last partially overwritten instruction *)
-function CalcHookSize (Code: pointer): integer;
-var
-  InstrPtr: pbyte;
-  Disasm:   hde32.TDisasm;
-
 begin
-  {!} Assert(Code <> nil);
-  InstrPtr := Code;
-  // * * * * * //
-  result := 0;
-
-  while result < sizeof(THookRec) do begin
-    hde32.hde32_disasm(InstrPtr, Disasm);
-    {!} Assert((Disasm.Len >= 1) and (Disasm.Len <= 100), Format('Failed to disassemble code at %x', [integer(InstrPtr)]));
-    
-    result := result + Disasm.Len;
-    Inc(InstrPtr, Disasm.len);
-  end;
-end; // .function CalcHookSize
-
-(* Fixes long calls/jumps with relative offsets for code, that was moved to another location *)
-procedure FixRelativeOffsetsInMovedCode (CodeAddr, OldCodeAddr: pointer; CodeSize: integer);
-var
-  Delta:  integer;
-  CmdPtr: PAnsiChar;
-  EndPtr: PAnsiChar;
-  Disasm: hde32.TDisasm;
-
-begin
-  {!} Assert(OldCodeAddr <> nil);
-  {!} Assert(CodeAddr <> nil);
-  {!} Assert(CodeSize >= 0);
-  CmdPtr := CodeAddr;
-  EndPtr := Utils.PtrOfs(CmdPtr, CodeSize);
-  // * * * * * //
-  if CodeSize >= sizeof(THookRec) then begin
-    Delta := integer(CodeAddr) - integer(OldCodeAddr);
-
-    while CmdPtr < EndPtr do begin
-      hde32.hde32_disasm(CmdPtr, Disasm);
-      
-      if (Disasm.Len = sizeof(THookRec)) and (Disasm.Opcode in [OPCODE_JUMP_CONST32, OPCODE_CALL_CONST32]) then begin
-        Dec(PHookRec(CmdPtr).Offset, Delta);
-      end;
-      
-      Inc(CmdPtr, Disasm.Len);
-    end;
-  end; // .if
-end; // .procedure FixRelativeOffsetsInMovedCode
-
-function Splice (OrigCodePtr, HookCodePtr: pointer; MinPatchSize: integer = AUTO_SIZE; Flags: TSpliceFlags = [PASS_ORIG_FUNC_AS_ARG]): {On} TSpliceResult;
-type
-  TPushOrigFuncAsArg = packed record
-
-  end;
-
-  add custom data as optional parameter
-
-const
-  BRIDGE_TO_HOOK_SIZE              = 24;
-  BRIDGE_TO_HOOK                   = #$8F#$44#$E4#$F8#$68#$44#$33#$22#$11#$83#$EC#$04#$E9#$90#$90#$90#$90#$90#$90#$90#$90#$90#$90#$90;
-  ORIG_FUNC_ADDR_IN_BRIDGE_TO_HOOK = 5;
-
-var
-{O} SpliceInfo:       PSpliceInternalInfo;
-{n} BridgeToHook:     pbyte;
-{n} BridgeToOrigFunc: pbyte;
-    OrigCodeSize:     integer;
-    Transport:        string;
-
-begin
-  {!} Assert(OrigCodePtr <> nil);
-  {!} Assert(HookCodePtr <> nil);
-  {!} Assert(HookCodePtr <> OrigCodePtr);
-  SpliceInfo         := nil;
-  BridgeToHook       := nil;
-  BridgeToOrigFunc   := nil;
-  ppointer(@result)^ := nil;
-  // * * * * * //
-  // Scan original code and determine optimal hook size
-  OrigCodeSize := CalcHookSize(OrigCodePtr);
-
-  p := TPatchMaker.Create();
-
-  with PSpliceInfo(p.Alloc(sizeof(TSpliceInternalInfo), ALLOC_SKIP))^ do begin
-    fOrigCodeSize  := OrigCodeSize;
-    fHookedCodePtr := OrigCodePtr;
-    fHookerCodePtr := HookCodePtr;
-  end;
-
-  if PASS_ORIG_FUNC_AS_ARG in Flags then begin
-    p.Write(#$8F#$44#$E4#$F8#$68);
-    OrigFuncBridgePlaceholder := p.Pos;
-    p.MarkOffset();
-    p.Skip(sizeof(integer));
-  end;
-
-  p.AsmJump(HookCodePtr);
-  p.FillBytes(p.Pos mod 8, $90);
-
-  if PASS_ORIG_FUNC_AS_ARG in Flags then begin
-    p.WriteAt(p.Pos, OrigFuncBridgePlaceholder);
-  end;
-
-  p.CopyCode(OrigCodeSize, OrigCodePtr);
-  p.AsmJump(Utils.PtrOfs(OrigCodePtr, OrigCodeSize));
-  
-  SpliceInfo := GetExecutableMem(p.Size);
-  p.Apply(SpliceInfo);
-  p.Clear();
-
-  if PASS_ORIG_FUNC_AS_ARG in Flags then begin
-
-  end else begin
-    
-  end;
-
-
-
-  ------------------------------------------------------------------------------------
-  
-  // Allocate executable memory for splice, initialize info block
-  SpliceInfo                := GetExecutableMem(sizeof(TSpliceInternalInfo) + BRIDGE_TO_HOOK_SIZE + OrigCodeSize + sizeof(THookRec));
-  SpliceInfo.fOrigCodeSize  := OrigCodeSize;
-  SpliceInfo.fHookedCodePtr := OrigCodePtr;
-  SpliceInfo.fHookerCodePtr := HookCodePtr;
-  
-  // Write bridge to hook function
-  BridgeToHook     := PtrOfs(SpliceInfo, sizeof(SpliceInfo^));
-  Transport        := BRIDGE_TO_HOOK;
-  Utils.CopyMem(Length(Transport), pointer(Transport), BridgeToHook);
-  BridgeToOrigFunc := Utils.PtrOfs(BridgeToHook, Length(Transport));
-  ppointer(Utils.PtrOfs(BridgeToHook, ORIG_FUNC_ADDR_IN_BRIDGE_TO_HOOK))^ := BridgeToOrigFunc;
-
-  // Write bridge to original function
-  Utils.CopyMem(OrigCodeSize, OrigCodePtr, BridgeToOrigFunc);
-  FixRelativeOffsetsInMovedCode(BridgeToOrigFunc, OrigCodePtr, OrigCodeSize);
-  Inc(BridgeToOrigFunc, OrigCodeSize);
- 
-  with PHookRec(BridgeToOrigFunc)^ do begin
-    Opcode := OPCODE_JUMP_CONST32;
-    PointTo(Utils.PtrOfs(OrigCodePtr, OrigCodeSize));
-  end;
-
-  // Write the hook and nops
-  Transport := '';
-  SetLength(Transport, OrigCodeSize);
-
-  with PHookRec(Transport)^ do begin
-    Opcode := OPCODE_JUMP_CONST32;
-    Offset := integer(BridgeToHook) - integer(OrigCodePtr) - sizeof(THookRec);
-  end;
-
-  if OrigCodeSize > sizeof(THookRec) then begin
-    FillChar(pbyte(@Transport[sizeof(THookRec) + 1])^, OrigCodeSize - sizeof(THookRec), #$90);
-  end;
-
-  if WritePatch(Length(Transport), pointer(Transport), OrigCodePtr) then begin
-    ppointer(@result)^ := PtrOfs(SpliceInfo, sizeof(SpliceInfo^)); SpliceInfo := nil;
-  end;
-
-  // * * * * * //
-  FreeMem(SpliceInfo); SpliceInfo := nil;
-end; // .function Splice
-
-begin
-  InstallMemPatchingFunc(@StdWritePatch);
+  WriteAtCode := StdWriteAtCode;
 end.
