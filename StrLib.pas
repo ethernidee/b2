@@ -185,6 +185,7 @@ function  TrimW (const Str: WideString): WideString;
 function  TrimExW (const Str: WideString; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): WideString;
 
 function  ExtractBaseFileName (const FilePath: string): string;
+function  ExtractExt (const FilePath: string): string;
 function  SubstrBeforeChar (const Str: string; Ch: char): string;
 function  Match (const Str, Pattern: string): boolean;
 function  MatchW (const Str, Pattern: WideString): boolean;
@@ -1191,6 +1192,23 @@ begin
     SetLength(result, DotPos - 1);
   end;
 end; // .function ExtractBaseFileName
+
+function ExtractExt (const FilePath: string): string;
+var
+  DotPos: integer;
+
+begin
+  result := '';
+  DotPos := Length(FilePath);
+
+  while (DotPos > 0) and not (FilePath[DotPos] in ['.', '/', '\']) do begin
+    Dec(DotPos);
+  end;
+
+  if (DotPos > 0) and (FilePath[DotPos] = '.') then begin
+    result := Copy(FilePath, DotPos + 1);
+  end;
+end;
 
 function SubstrBeforeChar (const Str: string; Ch: char): string;
 var
