@@ -176,7 +176,7 @@ function  Bb2011Decode (Encoded: integer): integer;
 (***)  implementation  (***)
 
 
-function CRC32 (PStr: pchar; StrLen: integer): integer;
+function Crc32 (PStr: pchar; StrLen: integer): integer;
 var
   i: integer;
 
@@ -190,9 +190,9 @@ begin
   end;
   
   result  :=  result xor -1;
-end; // .function CRC32
+end; // .function Crc32
 
-function AnsiCRC32 (const Str: string): integer;
+function AnsiCrc32 (const Str: string): integer;
 begin
   result  :=  CRC32(pointer(Str), Length(Str));
 end;
