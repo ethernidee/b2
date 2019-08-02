@@ -7,7 +7,7 @@ AUTHOR:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 (***)  interface  (***)
 uses
   Windows, PsApi, Math, StrUtils, SysUtils,
-  hde32, PatchApi,
+  hde32, PatchApi, ApiJack,
   Utils, Alg, WinWrappers, DlgMes, CFiles, Files, DataLib, StrLib, Concur,
   DebugMaps;
 
@@ -409,7 +409,7 @@ begin
   end; // .if
 end; // .function TModuleContext.AddrToStr
 
-function WriteAtCode (Count: integer; Src, Dst: pointer): boolean;
+function WriteAtCode (Count: integer; Src, Dst: pointer): boolean; stdcall;
 begin
   {!} Assert(Utils.IsValidBuf(Dst, Count));
   {!} Assert((Src <> nil) or (Count = 0));
@@ -547,7 +547,11 @@ end; // .function CalcHookSize
 
 function ApiHook (HandlerAddr: pointer; HookType: integer; CodeAddr: pointer): {n} pointer;
 begin
-  result := Hook(HandlerAddr, HookType, CalcHookSize(CodeAddr), CodeAddr);
+  if HookType = HOOKTYPE_BRIDGE then begin
+    result := ApiJack.HookCode(CodeAddr, HandlerAddr);
+  end else begin
+    result := Hook(HandlerAddr, HookType, CalcHookSize(CodeAddr), CodeAddr);
+  end;
 end;
 
 function GetStdcallArg (Context: PHookContext; ArgN: integer): pinteger;
@@ -710,6 +714,7 @@ begin
 end; // .function FindModuleByAddr
 
 begin
+  ApiJack.SetCodeWriter(WriteAtCode);
   GlobalPatcher := PatchApi.GetPatcher;
   p             := GlobalPatcher.CreateInstance(pchar(WinWrappers.GetModuleFileName(hInstance)));
   ModuleContext := TModuleContext.Create;
