@@ -7,7 +7,7 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 {$ASSERTIONS ON}
 
 (***)  interface  (***)
-uses Math, SysUtils;
+uses Math, SysUtils, Windows;
 
 const
   (* Relations between containers and their items *)
@@ -200,7 +200,9 @@ function  PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer; inline;
 function  IsValidBuf ({n} Buf: pointer; BufSize: integer): boolean;
 procedure CopyMem (Count: integer; {n} Source, Destination: pointer);
 procedure Exchange (var A, B: integer);
-procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer);
+procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer); overload;
+procedure SetPcharValue (What: pchar; {n} Value: pchar; BufSize: integer); overload;
+function  GetPcharValue (Str: pchar; MaxLen: integer = -1): string;
 
 (* Returns true if simple or complex bit flag is set *)
 function  HasFlag (Flag, Flags: integer): boolean; inline;
@@ -342,7 +344,7 @@ begin
   B :=  C;
 end;
 
-procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer);
+procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer); overload;
 var
   NumBytesToCopy: integer;
    
@@ -352,11 +354,45 @@ begin
   NumBytesToCopy := Math.Min(Length(Value), BufSize - 1);
   
   if NumBytesToCopy > 0 then begin
-    CopyMem(Length(Value), pchar(Value), What);
+    CopyMem(NumBytesToCopy, pchar(Value), What);
   end;
   
   PCharByte(PtrOfs(What, NumBytesToCopy))^ := #0;
 end; // .procedure SetPcharValue
+
+procedure SetPcharValue (What: pchar; {n} Value: pchar; BufSize: integer); overload;
+var
+  NumBytesToCopy: integer;
+   
+begin
+  {!} Assert(What <> nil);
+  {!} Assert(BufSize > 0);
+  if Value = nil then begin
+    What^ := #0;
+  end else begin
+    NumBytesToCopy := Math.Min(Windows.LStrLen(Value), BufSize - 1);
+    
+    if NumBytesToCopy > 0 then begin
+      CopyMem(NumBytesToCopy, Value, What);
+    end;
+    
+    PCharByte(PtrOfs(What, NumBytesToCopy))^ := #0;
+  end;
+end; // .procedure SetPcharValue
+
+function GetPcharValue (Str: pchar; MaxLen: integer = -1): string;
+var
+  NumBytesToCopy: integer;
+
+begin
+  if MaxLen < 0 then begin
+    result := Str;
+  end else begin
+    NumBytesToCopy := Math.Min(Windows.LStrLen(Str), MaxLen);
+    SetLength(result, NumBytesToCopy);
+    CopyMem(NumBytesToCopy, Str, pointer(result));
+  end;
+end;
 
 function HasFlag (Flag, Flags: integer): boolean;
 begin
