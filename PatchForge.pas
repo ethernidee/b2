@@ -767,7 +767,11 @@ end;
 
 function TMinCodeSizeDetector.GetCodeSize ({n} CodePtr: pbyte): integer;
 begin
-  result := Utils.IfThen((CodePtr <> nil) and (Self.fMinCodeSize > 0), PatchForge.GetCodeSize(CodePtr, Self.fMinCodeSize), 0);
+  result := 0;
+
+  if (CodePtr <> nil) and (Self.fMinCodeSize > 0) then begin
+    result := PatchForge.GetCodeSize(CodePtr, Self.fMinCodeSize);
+  end;
 end;
 
 constructor TFuncCodeSizeDetector.Create (MaxCodeSize: integer = 1000000);

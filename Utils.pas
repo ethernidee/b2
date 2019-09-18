@@ -223,10 +223,14 @@ procedure CastOrFree ({On} Obj: TObject; CastToType: TClass; out {O} Res);
 function ObjFromMethod (Method: TObjProcedure): TObject; inline;
 function ClassFromMethod (Method: TObjProcedure): TClass; inline;
 
-(* Ternary operator *)
-function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; inline; overload;
-function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; inline; overload;
-function IfThen (Condition: boolean; SuccessResult: pointer; FailureResult: pointer): pointer; inline; overload;
+(*
+  Ternary operator.
+  WARNING. If compiler decides, that expression has side effects, evaluation will NOT be lazy.
+  Future compiler versions must be checked carefully. Use in simple expressions without side effects.
+ *)
+function IfThen (const Condition: boolean; const SuccessResult, FailureResult: string): string; inline; overload;
+function IfThen (const Condition: boolean; const SuccessResult, FailureResult: integer): integer; inline; overload;
+function IfThen (const Condition: boolean; const SuccessResult, FailureResult: pointer): pointer; inline; overload;
 
 (* Attemps to convert interface to TObject. Currently object MUST implement IGetSelf for success *)
 function ToObject (Intf: System.IInterface): {n} TObject;
@@ -470,9 +474,9 @@ begin
   result := TClass(TMethod(Method).Data);
 end;
 
-function IfThen (Condition: boolean; SuccessResult: string; FailureResult: string): string; overload;    begin if Condition then result := SuccessResult else result := FailureResult; end;
-function IfThen (Condition: boolean; SuccessResult: integer; FailureResult: integer): integer; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
-function IfThen (Condition: boolean; SuccessResult: pointer; FailureResult: pointer): pointer; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (const Condition: boolean; const SuccessResult, FailureResult: string): string; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (const Condition: boolean; const SuccessResult, FailureResult: integer): integer; inline; overload;     begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (const Condition: boolean; const SuccessResult, FailureResult: pointer): pointer; inline; overload;     begin if Condition then result := SuccessResult else result := FailureResult; end;
 
 function InterlockedCompareExchange (var Destination: integer; NewValue, Comperand: integer): integer; stdcall; external 'kernel32' name 'InterlockedCompareExchange';
 function InterlockedIncrement       (var Value: integer): integer; stdcall; external 'kernel32' name 'InterlockedIncrement';

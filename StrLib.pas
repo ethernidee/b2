@@ -134,28 +134,28 @@ function  MapBytes (ByteSource: IByteSource): IByteMapper;
 function  InStrBounds (Pos: integer; const Str: string): boolean;
 function  BytesToAnsiString (PBytes: PBYTE; NumBytes: integer): AnsiString;
 function  BytesToWideString (PBytes: PBYTE; NumBytes: integer): WideString;
-function  FindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
-function  FindCharEx (Ch: char; const Str: string; StartPos: integer; out CharPos: integer): boolean;
-function  ReverseFindCharEx (Ch: char; const Str: string; StartPos: integer; out CharPos: integer): boolean;
-function  ReverseFindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
-function  FindCharW (Ch: WideChar; const Str: WideString; out CharPos: integer): boolean;
-function  FindCharExW (Ch: WideChar; const Str: WideString; StartPos: integer; out CharPos: integer): boolean;
-function  FindCharsetEx (Charset:  Utils.TCharSet; const Str: string; StartPos: integer; out CharPos: integer): boolean;
-function  FindCharset (Charset: Utils.TCharSet; const Str: string; out CharPos: integer): boolean;
+function  FindChar (Ch: char; const Str: string; var {out} CharPos: integer): boolean;
+function  FindCharEx (Ch: char; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
+function  ReverseFindCharEx (Ch: char; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
+function  ReverseFindChar (Ch: char; const Str: string; var {out} CharPos: integer): boolean;
+function  FindCharW (Ch: WideChar; const Str: WideString; var {out} CharPos: integer): boolean;
+function  FindCharExW (Ch: WideChar; const Str: WideString; StartPos: integer; var {out} CharPos: integer): boolean;
+function  FindCharsetEx (Charset:  Utils.TCharSet; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
+function  FindCharset (Charset: Utils.TCharSet; const Str: string; var {out} CharPos: integer): boolean;
 
 (* Both FindSubstr routines are wrappers around Delphi Pos function *)
-function  FindSubstrEx (const Substr, Str: string; StartPos: integer; out SubstrPos: integer): boolean;
+function  FindSubstrEx (const Substr, Str: string; StartPos: integer; var {out} SubstrPos: integer): boolean;
 
-function  FindSubstr (const Substr, Str: string; out SubstrPos: integer): boolean;
+function  FindSubstr (const Substr, Str: string; var {out} SubstrPos: integer): boolean;
 
 (*
   Knuth-Morris-Pratt stable speed fast search algorithm.
   F('', Haystack, StartPos in range of Haystack) => true, StartPos
   F('', Haystack, StartPos out of range of Haystack) => false
 *)
-function  FindStr (const Needle, Haystack: string; out FoundPos: integer): boolean;
+function  FindStr (const Needle, Haystack: string; var {out} FoundPos: integer): boolean;
 
-function  FindStrEx (const Needle, Haystack: string; Pos: integer; out FoundPos: integer): boolean;
+function  FindStrEx (const Needle, Haystack: string; Pos: integer; var {out} FoundPos: integer): boolean;
 
 (*
   f('') => NIL
@@ -216,6 +216,7 @@ function  ExcludeTrailingBackslashW (const Str: WideString; {n} HadTrailingBacks
 function  TrimBackslashesW (const Str: WideString): WideString;
 function  ExtractDirPathW (const Path: WideString): WideString;
 function  ExtractFileNameW (const Path: WideString): WideString;
+function  ComparePchars (Str1Ptr, Str2Ptr: pchar): integer;
 function  CompareWideChars (Str1Ptr, Str2Ptr: PWideChar; Len: integer = -1): integer;
 function  CompareBinStringsW (const Str1, Str2: WideString): integer;
 
@@ -501,7 +502,7 @@ begin
   Utils.CopyMem(NumBytes, PBytes, pointer(result));
 end;
 
-function FindCharEx (Ch: char; const Str: string; StartPos: integer; out CharPos: integer): boolean;
+function FindCharEx (Ch: char; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
 var
   StrLen: integer;
   i:      integer;
@@ -525,14 +526,7 @@ begin
   end;
 end; // .function FindCharEx
 
-function ReverseFindCharEx
-(
-        Ch:       char;
-  const Str:      string;
-        StartPos: integer;
-  out   CharPos:  integer
-): boolean;
-
+function ReverseFindCharEx (Ch: char; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
 var
   StrLen: integer;
   i:      integer;
@@ -556,17 +550,17 @@ begin
   end;
 end; // .function ReverseFindCharEx
 
-function FindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
+function FindChar (Ch: char; const Str: string; var {out} CharPos: integer): boolean;
 begin
   result := FindCharEx(Ch, Str, 1, CharPos);
 end;
 
-function ReverseFindChar (Ch: char; const Str: string; out CharPos: integer): boolean;
+function ReverseFindChar (Ch: char; const Str: string; var {out} CharPos: integer): boolean;
 begin
   result := ReverseFindCharEx(Ch, Str, Length(Str), CharPos);
 end;
 
-function FindCharExW (Ch: WideChar; const Str: WideString; StartPos: integer; out CharPos: integer): boolean;
+function FindCharExW (Ch: WideChar; const Str: WideString; StartPos: integer; var {out} CharPos: integer): boolean;
 var
   CharPtr: PWideChar;
   StrLen:  integer;
@@ -592,12 +586,12 @@ begin
   end; // .if
 end; // .function FindCharExW
 
-function FindCharW (Ch: WideChar; const Str: WideString; out CharPos: integer): boolean;
+function FindCharW (Ch: WideChar; const Str: WideString; var {out} CharPos: integer): boolean;
 begin
   result := FindCharExW(Ch, Str, 1, CharPos);
 end;
 
-function FindCharsetEx (Charset: Utils.TCharSet; const Str: string; StartPos: integer; out CharPos: integer): boolean;
+function FindCharsetEx (Charset: Utils.TCharSet; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
 var
   StrLen: integer;
   i:      integer;
@@ -606,24 +600,28 @@ begin
   {!} Assert(StartPos >= 1);
   StrLen := Length(Str);
   result := StartPos <= StrLen;
+  
   if result then begin
     i :=  StartPos;
+    
     while (i <= StrLen) and not (Str[i] in Charset) do begin
       Inc(i);
     end;
+    
     result := i <= StrLen;
+    
     if result then begin
       CharPos :=  i;
     end;
   end;
 end; // .function FindCharsetEx
 
-function FindCharset (Charset: Utils.TCharSet; const Str: string; out CharPos: integer): boolean;
+function FindCharset (Charset: Utils.TCharSet; const Str: string; var {out} CharPos: integer): boolean;
 begin
   result := FindCharsetEx(Charset, Str, 1, CharPos);
 end;
 
-function FindSubstrEx (const Substr, Str: string; StartPos: integer; out SubstrPos: integer): boolean;
+function FindSubstrEx (const Substr, Str: string; StartPos: integer; var {out} SubstrPos: integer): boolean;
 var
   Pos: integer;
 
@@ -638,12 +636,12 @@ begin
   end;
 end; // .function FindSubstrEx
 
-function FindSubstr (const Substr, Str: string; out SubstrPos: integer): boolean;
+function FindSubstr (const Substr, Str: string; var {out} SubstrPos: integer): boolean;
 begin
   result := FindSubstrEx(Substr, Str, 1, SubstrPos);
 end;
 
-function FindStrEx (const Needle, Haystack: string; Pos: integer; out FoundPos: integer): boolean;
+function FindStrEx (const Needle, Haystack: string; Pos: integer; var {out} FoundPos: integer): boolean;
 const
   MAX_STATIC_FALLBACK_TABLE_LEN = 255;
   START_STRING_POS              = 1;
@@ -777,7 +775,7 @@ begin
   FreeMem(FallbackTableBuf);
 end; // .function FindStrEx
 
-function FindStr (const Needle, Haystack: string; out FoundPos: integer): boolean;
+function FindStr (const Needle, Haystack: string; var {out} FoundPos: integer): boolean;
 begin
   result := FindStrEx(Needle, Haystack, 1, FoundPos);
 end;
@@ -1816,6 +1814,84 @@ begin
     Utils.CopyMem((EndPtr - CharPtr) * sizeof(CharPtr^), CharPtr, @result[1]);
   end;
 end; // .function ExtractFileNameW
+
+function CompareUnalignedPchars (Str1Ptr, Str2Ptr: pchar): integer;
+begin
+  while (Str1Ptr^ <> #0) and (Str1Ptr^ = Str2Ptr^) do begin
+    Inc(Str1Ptr);
+    Inc(Str2Ptr);
+  end;
+
+  result := ord(Str1Ptr^) - ord(Str2Ptr^);
+end;
+
+function CompareAlignedPchars (Str1Ptr, Str2Ptr: pchar): integer; assembler;
+const
+  LO_MAGIC = $01010101;
+  HI_MAGIC = $80808080;
+
+asm
+  push esi
+  push edi
+@loop:
+  mov esi, [eax]
+  mov edi, [edx]
+  cmp esi, edi
+  jnz @perbyte_checking
+  mov ecx, esi
+  and ecx, HI_MAGIC
+  not ecx
+  sub esi, LO_MAGIC
+  and esi, HI_MAGIC
+  and esi, ecx
+  jnz @perbyte_checking
+  mov ecx, edi
+  and ecx, HI_MAGIC
+  not ecx
+  sub edi, LO_MAGIC
+  and edi, HI_MAGIC
+  and edi, ecx
+  jnz @perbyte_checking
+  add eax, 4
+  add edx, 4
+  jmp @loop
+@perbyte_checking:
+  mov ecx, eax
+  xor eax, eax
+@perbyte_checking_loop:
+  movzx eax, [byte ptr ecx]
+  mov esi, eax
+  movzx edi, [byte ptr edx]
+  sub eax, edi
+  jnz @ret
+  test esi, esi
+  jz @ret
+  inc ecx
+  inc edx
+  jmp @perbyte_checking_loop
+@ret:
+  pop edi
+  pop esi
+end; // .function CompareAlignedPchars
+
+function ComparePchars (Str1Ptr, Str2Ptr: pchar): integer;
+const
+  ALIGNMENT_MASK = sizeof(integer) - 1;
+
+begin
+  {!} Assert(Str1Ptr <> nil);
+  {!} Assert(Str2Ptr <> nil);
+  // Fast check for Str1Ptr = Str2Ptr or first unequal character
+  result := ord(Str1Ptr^) - ord(Str2Ptr^);
+
+  if result = 0 then begin
+    if ((integer(Str1Ptr) and ALIGNMENT_MASK) or (integer(Str2Ptr) and ALIGNMENT_MASK)) = 0 then begin
+      result := CompareAlignedPchars(Str1Ptr, Str2Ptr);
+    end else begin
+      result := CompareUnalignedPchars(Str1Ptr, Str2Ptr);
+    end;
+  end;
+end;
 
 function CompareWideChars (Str1Ptr, Str2Ptr: PWideChar; Len: integer = -1): integer;
 var

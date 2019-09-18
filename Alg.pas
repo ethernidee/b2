@@ -18,7 +18,7 @@ type
     procedure SwapItems (Ind1, Ind2: integer); virtual; abstract;
     procedure SavePivotItem (PivotItemInd: integer); virtual; abstract;
     function  CompareToPivot (Ind: integer): integer; virtual; abstract;
-  end; // .class TQuickSortAdapter
+  end;
 
 
 (* Rounds integer to given boundary. If ceil is true, rounding is performed to higher value, otherwise to lower one.
@@ -26,6 +26,8 @@ type
 function IntRoundToBoundary (Value, Boundary: integer; Ceil: boolean = true): integer;
 
 function  ToRange (Value, MinValue, MaxValue: integer; OnRangeMinMaxConflict: TOnRangeMinMaxConflict = FORCE_MIN_VALUE): integer;
+function  InRange (Value, MinValue, MaxValue: cardinal): boolean; overload; inline;
+function  InRange (Value, MinValue, MaxValue: integer): boolean; overload; inline;
 function  IntLog2 (Num: integer): integer; {=> Ceil(Log2(N)), N > 0}
 function  IntCompare (Int1, Int2: integer): integer;
 function  CardCompare (Card1, Card2: cardinal): integer;
@@ -80,6 +82,16 @@ begin
     end;
   end; // .else
 end; // .function ToRange
+
+function InRange (Value, MinValue, MaxValue: cardinal): boolean; overload;
+begin
+  result := (Value >= MinValue) and (Value <= MaxValue);
+end;
+
+function InRange (Value, MinValue, MaxValue: integer): boolean; overload;
+begin
+  result := (Value >= MinValue) and (Value <= MaxValue);
+end;
 
 function IntLog2 (Num: integer): integer;
 var

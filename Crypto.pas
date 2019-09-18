@@ -182,35 +182,35 @@ var
 
 begin
   {!} Assert((StrLen >= 0) and ((PStr <> nil) or (StrLen = 0)));
-  result  :=  -1;
+  result := -1;
   
   for i := 1 to StrLen do begin
-    result  :=  (result shr 8) xor integer(Crc32Table[(result xor ORD(PStr^)) and $FF]);
+    result := (result shr 8) xor integer(Crc32Table[(result xor ord(PStr^)) and $FF]);
     Inc(PStr);
   end;
   
-  result  :=  result xor -1;
+  result := result xor -1;
 end; // .function Crc32
 
 function AnsiCrc32 (const Str: string): integer;
 begin
-  result  :=  CRC32(pointer(Str), Length(Str));
+  result := Crc32(pointer(Str), Length(Str));
 end;
 
 function Bb2011Encode (Value: integer): integer;
 begin
-  TInt32(result)[3] :=  ByteRedirTable[TInt32(Value)[0]];
-  TInt32(result)[0] :=  ByteRedirTable[TInt32(Value)[3]];
-  TInt32(result)[1] :=  ByteRedirTable[TInt32(Value)[2]];
-  TInt32(result)[2] :=  ByteRedirTable[TInt32(Value)[1]];
+  TInt32(result)[3] := ByteRedirTable[TInt32(Value)[0]];
+  TInt32(result)[0] := ByteRedirTable[TInt32(Value)[3]];
+  TInt32(result)[1] := ByteRedirTable[TInt32(Value)[2]];
+  TInt32(result)[2] := ByteRedirTable[TInt32(Value)[1]];
 end;
 
 function Bb2011Decode (Encoded: integer): integer;
 begin
-  TInt32(result)[0] :=  RevByteRedirTable[TInt32(Encoded)[3]];
-  TInt32(result)[3] :=  RevByteRedirTable[TInt32(Encoded)[0]];
-  TInt32(result)[2] :=  RevByteRedirTable[TInt32(Encoded)[1]];
-  TInt32(result)[1] :=  RevByteRedirTable[TInt32(Encoded)[2]];
+  TInt32(result)[0] := RevByteRedirTable[TInt32(Encoded)[3]];
+  TInt32(result)[3] := RevByteRedirTable[TInt32(Encoded)[0]];
+  TInt32(result)[2] := RevByteRedirTable[TInt32(Encoded)[1]];
+  TInt32(result)[1] := RevByteRedirTable[TInt32(Encoded)[2]];
 end;
 
 end.
