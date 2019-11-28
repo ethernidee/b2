@@ -189,6 +189,8 @@ function  ExtractExt (const FilePath: string): string;
 function  SubstrBeforeChar (const Str: string; Ch: char): string;
 function  Match (const Str, Pattern: string): boolean;
 function  MatchW (const Str, Pattern: WideString): boolean;
+
+(* Consider using SetString (string, pchar, length) *)
 function  ExtractFromPchar (Str: pchar; Count: integer): string;
 function  BufToStr ({n} Buf: pointer; BufSize: integer): string;
 
