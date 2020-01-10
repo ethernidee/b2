@@ -65,20 +65,20 @@ begin
   result := Value;
 
   if OnRangeMinMaxConflict = FORCE_MIN_VALUE then begin
-    if Value > MaxValue then begin
-      Value := MaxValue;
+    if result > MaxValue then begin
+      result := MaxValue;
     end;
 
-    if Value < MinValue then begin
-      Value := MinValue;
+    if result < MinValue then begin
+      result := MinValue;
     end;
   end else begin
-    if Value < MinValue then begin
-      Value := MinValue;
+    if result < MinValue then begin
+      result := MinValue;
     end;
 
-    if Value > MaxValue then begin
-      Value := MaxValue;
+    if result > MaxValue then begin
+      result := MaxValue;
     end;
   end; // .else
 end; // .function ToRange
