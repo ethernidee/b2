@@ -178,7 +178,11 @@ function  CharToUpper (c: char): char;
 function  Capitalize (const Str: string): string;
 function  HexCharToByte (HexChar: char): byte;
 function  ByteToHexChar (ByteValue: byte): char;
-function  Concat (const Strings: array of string): string;
+function  Concat (const Strings: array of string): string; overload;
+
+(* Routine can safely copy two pchars to buffer or concat existing pchar with another one (if Buf = Str1, i.e).
+   Pass -1 for autodetecting null-terminating string lengths. Returns length of final string without null char *)
+function  Concat ({n} Buf: pchar; BufSize: integer; {n} Str1: pchar; StrLen1: integer; {n} Str2: pchar; StrLen2: integer = -1): integer; overload;
 
 function  TrimEx (const Str: string; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): string;
 function  TrimW (const Str: WideString): WideString;
@@ -189,9 +193,9 @@ function  ExtractExt (const FilePath: string): string;
 function  SubstrBeforeChar (const Str: string; Ch: char): string;
 function  Match (const Str, Pattern: string): boolean;
 function  MatchW (const Str, Pattern: WideString): boolean;
+function  ExtractFromPchar (Str: pchar; Count: integer): string;
 
 (* Consider using SetString (string, pchar, length) *)
-function  ExtractFromPchar (Str: pchar; Count: integer): string;
 function  BufToStr ({n} Buf: pointer; BufSize: integer): string;
 
 (*) Detects characters in the BINARY_CHARACTERS set *)
@@ -1084,7 +1088,7 @@ begin
   end;
 end;
 
-function Concat (const Strings: array of string): string;
+function Concat (const Strings: array of string): string; overload;
 var
   ResLen: integer;
   Offset: integer;
@@ -1110,6 +1114,59 @@ begin
       Offset := Offset + StrLen;
     end;
   end;
+end; // .function Concat
+
+function Concat ({n} Buf: pchar; BufSize: integer; {n} Str1: pchar; StrLen1: integer; {n} Str2: pchar; StrLen2: integer = -1): integer; overload;
+var
+{n} Caret: pchar;
+
+begin
+  {!} Assert(Utils.IsValidBuf(Buf, BufSize));
+  Caret := Buf;
+  // * * * * * //
+  result := 0;
+
+  if BufSize > 0 then begin
+    Dec(BufSize);
+
+    if (BufSize > 0) and (Str1 <> nil) and (Str1^ <> #0) and (StrLen1 <> 0) then begin
+      if StrLen1 < 0 then begin
+        StrLen1 := Windows.LStrLen(Str1);
+      end;
+
+      StrLen1 := Math.Min(BufSize, StrLen1);
+
+      // String appending
+      if Str1 = Buf then begin
+        Inc(result, StrLen1);
+      end else begin
+        Utils.CopyMem(StrLen1, Str1, Caret);
+      end;
+
+      Inc(Caret, StrLen1);
+      Inc(result, StrLen1);
+      Dec(BufSize, StrLen1);
+    end; // .if
+
+    if (BufSize > 0) and (Str2 <> nil) and (Str2^ <> #0) and (StrLen2 <> 0) then begin
+      if StrLen2 < 0 then begin
+        StrLen2 := Windows.LStrLen(Str2);
+      end;
+
+      StrLen2 := Math.Min(BufSize, StrLen2);
+
+      // String appending
+      if Str2 = Buf then begin
+        Inc(result, StrLen2);
+      end else begin
+        Utils.CopyMem(StrLen2, Str2, Caret);
+      end;
+
+      Inc(result, StrLen2);
+    end; // .if
+
+    Caret^ := #0;
+  end; // .if
 end; // .function Concat
 
 function TrimEx (const Str: string; const TrimCharSet: Utils.TCharSet; TrimSides: TTrimSides = [LEFT_SIDE, RIGHT_SIDE]): string;
