@@ -13,10 +13,10 @@ procedure InitMt (Seed: integer);
 procedure InitMtbyArray (InitKey: array of integer; KeyLength: Word);
 { Initialize MT generator with an array InitKey[0..(KeyLength - 1)] }
 
-function RandomMt: integer; overload;
+function RandomMt: integer;
 { Generates a Random number }
 
-function RandomMt (Min, Max: integer): integer; overload;
+function RandomRangeMt (Min, Max: integer): integer; overload;
 { Generates Random number in specified range }
 
 implementation
@@ -37,7 +37,7 @@ var
   IsInited:    boolean;
   CritSection: Concur.TCritSection;
 
-procedure InitMT (Seed: integer);
+procedure InitMt (Seed: integer);
 var
   i: Word;
 
@@ -62,7 +62,7 @@ begin
 
     Leave;
   end;
-end; // .procedure InitMT
+end; // .procedure InitMt
 
 procedure InitMTbyArray (InitKey: array of integer; KeyLength: Word);
 var
@@ -119,7 +119,7 @@ begin
   InitMT(Time.wHour * 3600000 + Time.wMinute * 60000 + Time.wSecond * 1000 + Time.wMilliseconds);
 end;
 
-function RandomMt: integer; overload;
+function RandomMt: integer;
 var
   y : integer;
   k : Word;
@@ -163,10 +163,11 @@ begin
   end; // .with
 end; // .function RandomMt
 
-function RandomMt (Min, Max: integer): integer; overload;
+function RandomRangeMt (Min, Max: integer): integer; overload;
 var
   Interval:    cardinal;
   IntervalCap: cardinal;
+  Mask:        cardinal;
 
 begin
   {!} Assert(Max >= Min);
@@ -180,19 +181,25 @@ begin
     exit;
   end;
 
-  Interval    := cardinal(Max - Min) + 1;
-  IntervalCap := 1;
+  Interval := cardinal(Max - Min) + 1;
+  Mask     := $ffffffff;
 
-  while IntervalCap < Interval do begin
-    IntervalCap := IntervalCap shl 1;
-  end;
+  if Interval < (cardinal(1) shl 31) then begin
+    IntervalCap := 1;
+
+    while IntervalCap < Interval do begin
+      IntervalCap := IntervalCap shl 1;
+    end;
+
+    Mask := IntervalCap - 1;
+  end;  
 
   repeat
-    result := RandomMt() and (IntervalCap - 1);
+    result := RandomMt() and Mask;
   until cardinal(result) < Interval;
 
   Inc(result, Min);
-end; // .function RandomMt
+end; // .function RandomRangeMt
 
 initialization
   CritSection.Init;
