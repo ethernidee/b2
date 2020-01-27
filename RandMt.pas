@@ -13,6 +13,10 @@ procedure InitMt (Seed: integer);
 procedure InitMtbyArray (InitKey: array of integer; KeyLength: Word);
 { Initialize MT generator with an array InitKey[0..(KeyLength - 1)] }
 
+procedure InitMtByTime;
+{ Initializes MT generator with current timestamp in milliseconds. Used by default on first number generation,
+  if not initialized yet }
+
 function RandomMt: integer;
 { Generates a Random number }
 
@@ -112,11 +116,13 @@ end; // .procedure InitMTbyArray
 
 procedure InitMtByTime;
 var
-  Time: Windows.TSystemTime;
+  SysTime:  Windows.TSystemTime;
+  FileTime: Windows.TFileTime;
 
 begin
-  Windows.GetSystemTime(Time);
-  InitMT(Time.wHour * 3600000 + Time.wMinute * 60000 + Time.wSecond * 1000 + Time.wMilliseconds);
+  Windows.GetSystemTime(SysTime);
+  Windows.SystemTimeToFileTime(SysTime, FileTime);
+  InitMt(FileTime.dwLowDateTime);
 end;
 
 function RandomMt: integer;
