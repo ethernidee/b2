@@ -176,8 +176,7 @@ var
   Mask:        cardinal;
 
 begin
-  {!} Assert(Max >= Min);
-  if Min = Max then begin
+  if Min >= Max then begin
     result := Min;
     exit;
   end;
