@@ -195,6 +195,10 @@ function  Match (const Str, Pattern: string): boolean;
 function  MatchW (const Str, Pattern: WideString): boolean;
 function  ExtractFromPchar (Str: pchar; Count: integer): string;
 
+(* Reads and parses [+-]\d++ value from buffer and returns true, if at least single digit is processed.
+   BufPos is adjusted to point to next character. Overflows are allowed *)
+function ParseIntFromPchar (var BufPos: pchar; var Res: integer): boolean;
+
 (* Consider using SetString (string, pchar, length) *)
 function  BufToStr ({n} Buf: pointer; BufSize: integer): string;
 
@@ -1547,6 +1551,39 @@ begin
     Utils.CopyMem(StrLen, Buf, pointer(result));
   end;
 end; // .function ExtractFromPchar
+
+function ParseIntFromPchar (var BufPos: pchar; var Res: integer): boolean;
+var
+  Value: integer;
+  c:     char;
+  IsNeg: boolean;
+
+begin
+  Value := 0;
+  c     := BufPos^;
+  IsNeg := c = '-';
+
+  if IsNeg or (c = '+') then begin
+    Inc(BufPos);
+    c := BufPos^;
+  end;
+
+  result := c in ['0'..'9'];
+
+  while c in ['0'..'9'] do begin
+    Value := Value * 10 + (ord(c) - ord('0'));
+    Inc(BufPos);
+    c := BufPos^;
+  end;
+
+  if result then begin
+    if IsNeg then begin
+      Value := -Value;
+    end;
+
+    Res := Value;
+  end;
+end; // .function ParseIntFromPchar
 
 function BufToStr ({n} Buf: pointer; BufSize: integer): string;
 begin
