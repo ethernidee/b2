@@ -970,26 +970,26 @@ destructor TObjArray.Destroy;
 begin
   Self.Clear;
   SysUtils.FreeAndNil(Self.fItemGuard);
-end; // .destructor TObjArray.Destroy
+end;
 
 function TObjArray.KeyToHash ({n} Key: pointer): integer;
 begin
-  result  :=  Crypto.Bb2011Encode(integer(Key));
+  result := Crypto.Tm32Encode(integer(Key));
 end;
 
 function TObjArray.HashToKey (Hash: integer): {n} pointer;
 begin
-  result  :=  pointer(Crypto.Bb2011Decode(Hash));
+  result := pointer(Crypto.Tm32Decode(Hash));
 end;
 
 function TObjArray.IsValidValue ({n} Value: pointer): boolean;
 begin
-  result  :=  Self.ItemGuardProc(Value, Self.ItemsAreObjects, Utils.TItemGuard(Self.fItemGuard));
+  result := Self.ItemGuardProc(Value, Self.ItemsAreObjects, Utils.TItemGuard(Self.fItemGuard));
 end;
 
 function TObjArray.CalcCritDepth: integer;
 begin
-  result  :=  Alg.IntLog2(Self.NodeCount + 1) shl 1;
+  result := Alg.IntLog2(Self.NodeCount + 1) shl 1;
 end;
 
 procedure TObjArray.FreeNodeValue (Node: PObjArrayNode);

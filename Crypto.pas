@@ -163,6 +163,7 @@ MaxLen: 268 435 455 байт (2 147 483 647 бит) - detects single, double, packet an
 }
 function  CRC32 (PStr: pchar; StrLen: integer): integer;
 function  AnsiCRC32 (const Str: string): integer;
+
 {
 Name:         Bb2011
 Version:      1.0
@@ -171,6 +172,10 @@ Discription:  Generates reversable unique int-to-int hash with high bits distrib
 }
 function  Bb2011Encode (Value: integer): integer;
 function  Bb2011Decode (Encoded: integer): integer;
+
+(* Fast and reversable int32 hashing. Link: https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key *)
+function  Tm32Encode (Value: integer): integer;
+function  Tm32Decode (Encoded: integer): integer;
 
 
 (***)  implementation  (***)
@@ -211,6 +216,20 @@ begin
   TInt32(result)[3] := RevByteRedirTable[TInt32(Encoded)[0]];
   TInt32(result)[2] := RevByteRedirTable[TInt32(Encoded)[1]];
   TInt32(result)[1] := RevByteRedirTable[TInt32(Encoded)[2]];
+end;
+
+function Tm32Encode (Value: integer): integer;
+begin
+  result := ((Value shr 16) xor Value) * $45d9f3b;
+  result := ((result shr 16) xor result) * $45d9f3b;
+  result := (result shr 16) xor result;
+end;
+
+function Tm32Decode (Encoded: integer): integer;
+begin
+  result := ((Encoded shr 16) xor Encoded) * $119de1f3;
+  result := ((result shr 16) xor result) * $119de1f3;
+  result := (result shr 16) xor result;
 end;
 
 end.
