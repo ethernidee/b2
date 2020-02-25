@@ -714,8 +714,8 @@ begin
   Item        :=  nil;
   ParentItem  :=  nil;
   // * * * * * //
-  Key   :=  Self.GetPreprocessedKey(Key);
-  Hash  :=  Self.HashFunc(Key);
+  Key  := Self.GetPreprocessedKey(Key);
+  Hash := Self.HashFunc(Key);
   
   if Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item) then begin
     result  :=  Item.Value;
@@ -739,9 +739,9 @@ begin
   Item        :=  nil;
   ParentItem  :=  nil;
   // * * * * * //
-  Key     :=  Self.GetPreprocessedKey(Key);
-  Hash    :=  Self.HashFunc(Key);
-  result  :=  Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
+  Key    := Self.GetPreprocessedKey(Key);
+  Hash   := Self.HashFunc(Key);
+  result := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
   
   if result then begin
     Res :=  Item.Value;

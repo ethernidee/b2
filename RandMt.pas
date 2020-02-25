@@ -6,11 +6,22 @@
 unit RandMt;
 
 interface
+uses Utils;
+
+const
+  N          = 624;
+  M          = 397;
+  MATRIX_A   = integer($9908b0df);  { constant vector a }
+  UPPER_MASK = integer($80000000);  { most significant w-r bits }
+  LOWER_MASK = integer($7fffffff);  { least significant r bits }
+
+type
+  TRngState = Utils.TArrayOfByte;
 
 procedure InitMt (Seed: integer);
 { Initializes MT generator with a seed }
 
-procedure InitMtbyArray (InitKey: array of integer; KeyLength: Word);
+procedure InitMtbyArray (InitKey: array of integer; KeyLength: word);
 { Initialize MT generator with an array InitKey[0..(KeyLength - 1)] }
 
 procedure InitMtByTime;
@@ -23,27 +34,37 @@ function RandomMt: integer;
 function RandomRangeMt (Min, Max: integer): integer; overload;
 { Generates Random number in specified range }
 
+(* Returns generator state *)
+function GetState: TRngState;
+
+(* Replaces generator state *)
+procedure SetState (const State: TRngState);
+
 implementation
 uses Windows, Concur;
 
-const
-  N          = 624;
-  M          = 397;
-  MATRIX_A   = integer($9908b0df);  { constant vector a }
-  UPPER_MASK = integer($80000000);  { most significant w-r bits }
-  LOWER_MASK = integer($7fffffff);  { least significant r bits }
+type
+  TRngStateVector = array [0..(N - 1)] of integer;
 
-  mag01 : array[0..1] of integer = (0, MATRIX_A);
+  PRngStateStruct = ^TRngStateStruct;
+  TRngStateStruct = packed record
+    mt:  TRngStateVector;
+    mti: word;
+    _1:  word;
+  end;
+
+const
+  mag01: array [0..1] of integer = (0, MATRIX_A);
 
 var
-  mt:          array [0..(N - 1)] of integer; { the array for the state vector }
-  mti:         Word;
+  mt:          TRngStateVector;
+  mti:         word;
   IsInited:    boolean;
   CritSection: Concur.TCritSection;
 
 procedure InitMt (Seed: integer);
 var
-  i: Word;
+  i: word;
 
 begin
   with CritSection do begin
@@ -68,9 +89,9 @@ begin
   end;
 end; // .procedure InitMt
 
-procedure InitMTbyArray (InitKey: array of integer; KeyLength: Word);
+procedure InitMTbyArray (InitKey: array of integer; KeyLength: word);
 var
-  i, j, k, k1 : Word;
+  i, j, k, k1 : word;
 begin
   with CritSection do begin
     Enter;
@@ -128,7 +149,7 @@ end;
 function RandomMt: integer;
 var
   y : integer;
-  k : Word;
+  k : word;
 begin
   with CritSection do begin
     Enter;
@@ -205,6 +226,41 @@ begin
 
   Inc(result, Min);
 end; // .function RandomRangeMt
+
+function GetState: TRngState;
+var
+  State: PRngStateStruct;
+
+begin
+  CritSection.Enter;
+
+  if not IsInited then begin
+    InitMtByTime;
+  end;
+
+  SetLength(result, sizeof(TRngStateStruct));
+  State     := @result[0];
+  State.mt  := mt;
+  State.mti := mti;
+  State._1  := 0;
+
+  CritSection.Leave;
+end; // .function GetState
+
+procedure SetState (const State: TRngState); 
+var
+  StateStruct: PRngStateStruct;
+
+begin
+  CritSection.Enter;
+
+  IsInited    := true;
+  StateStruct := @State[0];
+  mt          := StateStruct.mt;
+  mti         := StateStruct.mti;
+
+  CritSection.Leave;
+end;
 
 initialization
   CritSection.Init;
