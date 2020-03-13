@@ -197,30 +197,16 @@ end;
 
 function NewList (OwnsItems: boolean): {O} TList;
 begin
-  result  :=  Lists.NewList
-  (
-    OwnsItems,
-    Utils.ITEMS_ARE_OBJECTS and OwnsItems,
-    Utils.NO_TYPEGUARD,
-    Utils.ALLOW_NIL
-  );
+  result := Lists.NewList(OwnsItems, Utils.ITEMS_ARE_OBJECTS and OwnsItems, Utils.NO_TYPEGUARD, Utils.ALLOW_NIL);
 end;
 
 function NewStrList (OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 begin
-  result := Lists.NewStrList
-  (
-    OwnsItems,
-    Utils.ITEMS_ARE_OBJECTS and OwnsItems,
-    Utils.NO_TYPEGUARD,
-    Utils.ALLOW_NIL
-  );
-  
+  result                 := Lists.NewStrList(OwnsItems, Utils.ITEMS_ARE_OBJECTS and OwnsItems, Utils.NO_TYPEGUARD, Utils.ALLOW_NIL);
   result.CaseInsensitive := CaseInsensitive;
 end; // .function NewStrList
 
-function NewStrListFromStrArr (StrArr: Utils.TArrayOfStr;
-                               OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
+function NewStrListFromStrArr (StrArr: Utils.TArrayOfStr; OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 var
   i: integer;
 
@@ -234,7 +220,7 @@ end; // .function NewStrListFromStrArr
 
 function NewHashedList (OwnsItems, CaseInsensitive: boolean): {O} THashedList;
 begin
-  result  :=  TStdHashedList.Create(OwnsItems, CaseInsensitive);
+  result := TStdHashedList.Create(OwnsItems, CaseInsensitive);
 end;
 
 procedure THashedList.Add (const Key: string; {OUn} Value: TObject);
@@ -285,13 +271,7 @@ begin
   result := Self.fItemList.Find(Key, Ind);
 end;
 
-procedure TStdHashedList.InsertBefore
-(
-        const Key:       string;
-  {OUn}       Value:     TObject;
-              BeforeInd: integer
-);
-
+procedure TStdHashedList.InsertBefore (const Key: string; {OUn} Value: TObject; BeforeInd: integer);
 var
 {U} OldValue: TObject;
 
@@ -334,8 +314,8 @@ end;
 function TDictIterator.IterNext: boolean;
 begin
   {!} Assert(Self.fIterating);
-  Self.fIterValue :=  nil;
-  result          :=  Self.fDict.IterateNext(Self.fIterKey, pointer(Self.fIterValue));
+  Self.fIterValue := nil;
+  result          := Self.fDict.IterateNext(Self.fIterKey, pointer(Self.fIterValue));
   
   if not result then begin
     Self.EndIterate;

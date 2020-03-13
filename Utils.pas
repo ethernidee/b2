@@ -343,9 +343,9 @@ var
   C:  integer;
 
 begin
-  C :=  A;
-  A :=  B;
-  B :=  C;
+  C := A;
+  A := B;
+  B := C;
 end;
 
 procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer); overload;

@@ -187,12 +187,12 @@ function  NewSimpleStrList: TStringList;
 constructor TList.Create (OwnsItems: boolean; ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc; (* n *) var (* in *) ItemGuard: Utils.TItemGuard);
 begin
   {!} Assert(@ItemGuardProc <> nil);
-  Self.fGrowthRate      :=  Self.DEFAULT_GROWTH_RATE;
-  Self.fOwnsItems       :=  OwnsItems;
-  Self.fItemsAreObjects :=  ItemsAreObjects;
-  Self.fItemGuardProc   :=  ItemGuardProc;
-  Self.fItemGuard       :=  ItemGuard;
-  ItemGuard             :=  nil;
+  Self.fGrowthRate      := Self.DEFAULT_GROWTH_RATE;
+  Self.fOwnsItems       := OwnsItems;
+  Self.fItemsAreObjects := ItemsAreObjects;
+  Self.fItemGuardProc   := ItemGuardProc;
+  Self.fItemGuard       := ItemGuard;
+  ItemGuard             := nil;
 end; // .constructor TList.Create
 
 destructor TList.Destroy;
@@ -212,21 +212,22 @@ begin
   // * * * * * //
   if Self <> Source then begin
     Self.Clear;
-    Self.fCapacity        :=  SrcList.Capacity;
-    Self.fCount           :=  SrcList.Count;
-    Self.fGrowthRate      :=  SrcList.GrowthRate;
-    Self.fOwnsItems       :=  SrcList.OwnsItems;
-    Self.fItemsAreObjects :=  SrcList.ItemsAreObjects;
-    Self.fItemGuardProc   :=  SrcList.ItemGuardProc;
-    Self.fItemGuard       :=  SrcList.fItemGuard.Clone;
+    Self.fCapacity        := SrcList.Capacity;
+    Self.fCount           := SrcList.Count;
+    Self.fGrowthRate      := SrcList.GrowthRate;
+    Self.fOwnsItems       := SrcList.OwnsItems;
+    Self.fItemsAreObjects := SrcList.ItemsAreObjects;
+    Self.fItemGuardProc   := SrcList.ItemGuardProc;
+    Self.fItemGuard       := SrcList.fItemGuard.Clone;
     GetMem(Self.fData, Self.Capacity * sizeof(pointer));
-    for i:=0 to SrcList.Count - 1 do begin
+    
+    for i := 0 to SrcList.Count - 1 do begin
       if (SrcList.fData[i] = nil) or (not Self.OwnsItems) then begin
-        Self.fData[i] :=  SrcList.fData[i];
+        Self.fData[i] := SrcList.fData[i];
       end else begin
         {!} Assert(Self.ItemsAreObjects);
         {!} Assert(TObject(SrcList.fData[i]) IS Utils.TCloneable);
-        Self.fData[i] :=  Utils.TCloneable(SrcList.fData[i]).Clone;
+        Self.fData[i] := Utils.TCloneable(SrcList.fData[i]).Clone;
       end;
     end;
   end; // .if
@@ -242,7 +243,7 @@ begin
       FreeMem(Self.fData[Ind]); Self.fData[Ind] :=  nil;
     end;
   end;
-end; // .procedure TList.FreeItem
+end;
 
 procedure TList.Clear;
 var
@@ -254,9 +255,10 @@ begin
       Self.FreeItem(i);
     end;
   end;
-  FreeMem(Self.fData); Self.fData :=  nil;
-  Self.fCapacity  :=  0;
-  Self.fCount     :=  0;
+  
+  FreeMem(Self.fData); Self.fData := nil;
+  Self.fCapacity := 0;
+  Self.fCount    := 0;
 end; // .procedure TList.Clear
 
 function TList.IsValidItem ((* n *) Item: pointer): boolean;
