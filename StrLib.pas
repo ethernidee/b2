@@ -140,8 +140,9 @@ function  ReverseFindCharEx (Ch: char; const Str: string; StartPos: integer; var
 function  ReverseFindChar (Ch: char; const Str: string; var {out} CharPos: integer): boolean;
 function  FindCharW (Ch: WideChar; const Str: WideString; var {out} CharPos: integer): boolean;
 function  FindCharExW (Ch: WideChar; const Str: WideString; StartPos: integer; var {out} CharPos: integer): boolean;
-function  FindCharsetEx (Charset:  Utils.TCharSet; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
-function  FindCharset (Charset: Utils.TCharSet; const Str: string; var {out} CharPos: integer): boolean;
+function  FindCharsetEx (const Charset: Utils.TCharSet; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
+function  SkipCharsetEx (const Charset: Utils.TCharSet; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
+function  FindCharset (const Charset: Utils.TCharSet; const Str: string; var {out} CharPos: integer): boolean;
 
 (* Both FindSubstr routines are wrappers around Delphi Pos function *)
 function  FindSubstrEx (const Substr, Str: string; StartPos: integer; var {out} SubstrPos: integer): boolean;
@@ -601,7 +602,7 @@ begin
   result := FindCharExW(Ch, Str, 1, CharPos);
 end;
 
-function FindCharsetEx (Charset: Utils.TCharSet; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
+function FindCharsetEx (const Charset: Utils.TCharSet; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
 var
   StrLen: integer;
   i:      integer;
@@ -626,10 +627,35 @@ begin
   end;
 end; // .function FindCharsetEx
 
-function FindCharset (Charset: Utils.TCharSet; const Str: string; var {out} CharPos: integer): boolean;
+function FindCharset (const Charset: Utils.TCharSet; const Str: string; var {out} CharPos: integer): boolean;
 begin
   result := FindCharsetEx(Charset, Str, 1, CharPos);
 end;
+
+function SkipCharsetEx (const Charset: Utils.TCharSet; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
+var
+  StrLen: integer;
+  i:      integer;
+
+begin
+  {!} Assert(StartPos >= 1);
+  StrLen := Length(Str);
+  result := StartPos <= StrLen;
+  
+  if result then begin
+    i :=  StartPos;
+    
+    while (i <= StrLen) and (Str[i] in Charset) do begin
+      Inc(i);
+    end;
+    
+    result := i <= StrLen;
+    
+    if result then begin
+      CharPos := i;
+    end;
+  end;
+end; // .function SkipCharsetEx
 
 function FindSubstrEx (const Substr, Str: string; StartPos: integer; var {out} SubstrPos: integer): boolean;
 var
