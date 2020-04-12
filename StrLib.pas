@@ -1165,16 +1165,13 @@ begin
       end;
 
       StrLen1 := Math.Min(BufSize, StrLen1);
+      Inc(result, StrLen1);
 
-      // String appending
-      if Str1 = Buf then begin
-        Inc(result, StrLen1);
-      end else begin
+      if Str1 <> Buf then begin
         Utils.CopyMem(StrLen1, Str1, Caret);
       end;
 
-      Inc(Caret, StrLen1);
-      Inc(result, StrLen1);
+      Inc(Caret, StrLen1);      
       Dec(BufSize, StrLen1);
     end; // .if
 
@@ -1184,15 +1181,13 @@ begin
       end;
 
       StrLen2 := Math.Min(BufSize, StrLen2);
+      Inc(result, StrLen2);
 
-      // String appending
-      if Str2 = Buf then begin
-        Inc(result, StrLen2);
-      end else begin
+      if (Str2 <> Buf) or (Caret <> Buf) then begin
         Utils.CopyMem(StrLen2, Str2, Caret);
       end;
 
-      Inc(result, StrLen2);
+      Inc(Caret, StrLen2); 
     end; // .if
 
     Caret^ := #0;
