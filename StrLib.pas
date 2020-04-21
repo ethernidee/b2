@@ -195,6 +195,7 @@ function  TrimExW (const Str: WideString; const TrimCharSet: Utils.TCharSet; Tri
 
 function  ExtractBaseFileName (const FilePath: string): string;
 function  ExtractExt (const FilePath: string): string;
+function  Substr ({n} Buf: pchar; StartPos: integer; SubstrLen: integer = -1): string;
 function  SubstrBeforeChar (const Str: string; Ch: char): string;
 function  Match (const Str, Pattern: string): boolean;
 function  MatchW (const Str, Pattern: WideString): boolean;
@@ -1316,6 +1317,42 @@ begin
     result := Copy(FilePath, DotPos + 1);
   end;
 end;
+
+function Substr ({n} Buf: pchar; StartPos: integer; SubstrLen: integer = -1): string;
+var
+  StrLen: integer;
+
+begin
+  result := '';
+  StrLen := 0;
+
+  if SubstrLen = 0 then begin
+    exit;
+  end;
+
+  if Buf <> nil then begin
+    StrLen := Windows.LStrLen(Buf);
+  end;
+
+  if StrLen = 0 then begin
+    exit; 
+  end;
+
+  StartPos := Math.Max(0, Math.Min(StartPos, StrLen));
+
+  if StartPos >= StrLen then begin
+    exit;
+  end;
+
+  if SubstrLen < 0 then begin
+    SubstrLen := StrLen - StartPos;
+  end else begin
+    SubstrLen := Math.Min(StrLen - StartPos, SubstrLen);
+  end;
+
+  SetLength(result, SubstrLen);
+  Utils.CopyMem(SubstrLen, @Buf[StartPos], pointer(result));
+end; // .function Substr
 
 function SubstrBeforeChar (const Str: string; Ch: char): string;
 var
