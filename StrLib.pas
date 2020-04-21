@@ -134,6 +134,7 @@ function  MapBytes (ByteSource: IByteSource): IByteMapper;
 function  InStrBounds (Pos: integer; const Str: string): boolean;
 function  BytesToAnsiString (PBytes: pbyte; NumBytes: integer): AnsiString;
 function  BytesToWideString (PBytes: pbyte; NumBytes: integer): WideString;
+function  StrLen ({n} Str: pchar): integer;
 function  FindChar (Ch: char; const Str: string; var {out} CharPos: integer): boolean;
 function  FindCharEx (Ch: char; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
 function  ReverseFindCharEx (Ch: char; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
@@ -499,6 +500,15 @@ end;
 function InStrBounds (Pos: integer; const Str: string): boolean;
 begin
   result := Math.InRange(Pos, 1, Length(Str));
+end;
+
+function StrLen ({n} Str: pchar): integer;
+begin
+  result := 0;
+
+  if (Str <> nil) and (Str^ <> #0) then begin
+    result := Windows.LStrLen(Str);
+  end;
 end;
 
 function BytesToAnsiString (PBytes: PBYTE; NumBytes: integer): AnsiString;
