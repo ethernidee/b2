@@ -132,8 +132,8 @@ function  StrAsByteSource (const Str: string): IByteSource;
 function  BufAsByteSource ({Un} Buf: pointer; BufSize: integer): IByteSource;
 function  MapBytes (ByteSource: IByteSource): IByteMapper;
 function  InStrBounds (Pos: integer; const Str: string): boolean;
-function  BytesToAnsiString (PBytes: PBYTE; NumBytes: integer): AnsiString;
-function  BytesToWideString (PBytes: PBYTE; NumBytes: integer): WideString;
+function  BytesToAnsiString (PBytes: pbyte; NumBytes: integer): AnsiString;
+function  BytesToWideString (PBytes: pbyte; NumBytes: integer): WideString;
 function  FindChar (Ch: char; const Str: string; var {out} CharPos: integer): boolean;
 function  FindCharEx (Ch: char; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
 function  ReverseFindCharEx (Ch: char; const Str: string; StartPos: integer; var {out} CharPos: integer): boolean;
@@ -165,6 +165,10 @@ function  FindStrEx (const Needle, Haystack: string; Pos: integer; var {out} Fou
 function  ExplodeEx (const Str, Delim: string; InclDelim: boolean; LimitTokens: boolean; MaxTokens: integer): TArrayOfStr;
 function  Explode (const Str: string; const Delim: string): TArrayOfStr;
 function  Join (const Arr: TArrayOfStr; const Glue: string): string;
+
+(* Returns true if string consists of #0..#32 characters only *)
+function  IsEmpty (const Str: string): boolean; overload;
+function  IsEmpty ({n} Buf: pchar): boolean; overload;
 
 (*
   TemplArgs - pairs of (ArgName, ArgValue).
@@ -927,6 +931,27 @@ begin
     Utils.CopyMem(Length(Arr[NumPairs]), pointer(Arr[NumPairs]), Mem);
   end; // .if
 end; // .function Join
+
+function IsEmpty (const Str: string): boolean; overload;
+begin
+  result := (Str = '') or IsEmpty(pchar(Str));
+end;
+
+function IsEmpty ({n} Buf: pchar): boolean; overload;
+begin
+  result := true;
+
+  if Buf <> nil then begin
+    while Buf^ <> #0 do begin
+      if not (Buf^ in [#1..#32]) then begin
+        result := false;
+        exit;
+      end;
+
+      Inc(Buf);
+    end;
+  end;
+end;
 
 function BuildStr (const Template: string; TemplArgs: array of string; TemplChar: char): string;
 var
