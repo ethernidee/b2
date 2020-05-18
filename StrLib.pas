@@ -48,13 +48,14 @@ type
     procedure WriteInt (Value: integer);
     function  BuildStr: string;
     function  BuildBuf: TArrayOfByte;
+    procedure BuildTo ({n} Buf: pointer; BufSize: integer);
     procedure Clear;
   end; // .interface IStrBuilder
 
   TStrBuilder = class (TInterfacedObject, IStrBuilder)
    protected
     const
-      MIN_BLOCK_SIZE = 65536;
+      MIN_BLOCK_SIZE = 65000;
 
     var
       {On} fRootItem: PListItem;
@@ -62,7 +63,7 @@ type
            fSize:     integer;
 
    public
-    destructor  Destroy; override;
+    destructor Destroy; override;
     procedure Append (const Str: string);
     procedure AppendWide (const Str: WideString);
     procedure AppendBuf (BufSize: integer; {n} Buf: pointer);
@@ -72,6 +73,7 @@ type
     function  BuildStr: string;
     function  BuildWideStr: WideString;
     function  BuildBuf: TArrayOfByte;
+    procedure BuildTo ({n} Buf: pointer; BufSize: integer);
     procedure Clear;
 
     property  Size: integer read fSize;
@@ -279,11 +281,11 @@ begin
       Utils.CopyMem(LeftPartSize, Buf, @Self.fCurrItem.Data[Self.fCurrItem.DataSize]);
     end;
     
-    Self.fCurrItem.DataSize := Self.fCurrItem.DataSize + LeftPartSize;
+    Inc(Self.fCurrItem.DataSize, LeftPartSize);
     
     if RightPartSize > 0 then begin
       New(Self.fCurrItem.NextItem);
-      Self.fCurrItem := Self.fCurrItem.NextItem;
+      Self.fCurrItem          := Self.fCurrItem.NextItem;
       SetLength(Self.fCurrItem.Data, Math.Max(RightPartSize, Self.MIN_BLOCK_SIZE));
       Self.fCurrItem.DataSize := RightPartSize;
       Self.fCurrItem.NextItem := nil;
@@ -362,6 +364,24 @@ begin
     CurrItem := CurrItem.NextItem;
   end;
 end; // .function TStrBuilder.BuildBuf
+
+procedure TStrBuilder.BuildTo ({n} Buf: pointer; BufSize: integer);
+var
+{U} CurrItem: PListItem;
+    Pos:      integer;
+
+begin
+  {!} Assert(Utils.IsValidBuf(Buf, BufSize));
+  CurrItem := Self.fRootItem;
+  // * * * * * //
+  Pos := 0;
+  
+  while (CurrItem <> nil) and (Pos < BufSize) do begin
+    Utils.CopyMem(Math.Min(BufSize - Pos, CurrItem.DataSize), @CurrItem.Data[0], Utils.PtrOfs(pointer(Buf), Pos));
+    Inc(Pos, CurrItem.DataSize);
+    CurrItem := CurrItem.NextItem;
+  end;
+end; // .procedure TStrBuilder.BuildTo
 
 procedure TStrBuilder.Clear;
 var
