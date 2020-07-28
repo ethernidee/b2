@@ -59,13 +59,13 @@ type
       procedure CustomSort (Compare: Alg.TCompareFunc); overload;
       procedure CustomSort (Compare: Alg.TCompareMethod); overload;
       
-      property  Capacity:             integer read fCapacity;
-      property  Count:                integer read fCount;
-      property  GrowthRate:           integer read fGrowthRate;
-      property  OwnsItems:            boolean read fOwnsItems;
-      property  ItemsAreObjects:      boolean read fItemsAreObjects;
-      property  ItemGuardProc:        Utils.TItemGuardProc read fItemGuardProc;
-      property  Items[Ind: integer]:  (* n *) pointer read Get write Put; default;
+      property Capacity:             integer read fCapacity;
+      property Count:                integer read fCount;
+      property GrowthRate:           integer read fGrowthRate;
+      property OwnsItems:            boolean read fOwnsItems;
+      property ItemsAreObjects:      boolean read fItemsAreObjects;
+      property ItemGuardProc:        Utils.TItemGuardProc read fItemGuardProc;
+      property Items[Ind: integer]:  (* n *) pointer read Get write Put; default;
   end; // .class TList
   
   TStringList = class;

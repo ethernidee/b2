@@ -158,16 +158,19 @@ end;
 
 function TTextScanner.GotoNextChar: boolean;
 begin
-  result  :=  not Self.EndOfText;
+  result := not Self.EndOfText;
+  
   if result then begin
     if Self.TextBuf[Self.Pos] = Self.EndOfLineMarker then begin
-      Self.fLineStartPos  :=  Self.Pos;
+      Self.fLineStartPos := Self.Pos;
       Inc(Self.fLineN);
     end;
+    
     Inc(Self.fPos);
+    
     if Self.Pos > Self.TextBufLen then begin
-      Self.fEndOfText :=  TRUE;
-      result          :=  FALSE;
+      Self.fEndOfText := TRUE;
+      result          := FALSE;
     end;
   end; // .if
 end; // .function TTextScanner.GotoNextChar
@@ -177,17 +180,22 @@ var
   i: integer;
 
 begin
-  result  :=  Self.Pos > 1;
+  result := Self.Pos > 1;
+
   if result then begin
     Dec(Self.fPos);
+    
     if Self.TextBuf[Self.Pos] = Self.EndOfLineMarker then begin
       Dec(Self.fLineN);
-      i :=  Self.Pos - 1;
+      i := Self.Pos - 1;
+      
       while (i >= 1) and (Self.TextBuf[i] <> Self.EndOfLineMarker) do begin
         Dec(i);
       end;
-      Self.fLineStartPos  :=  i;
+      
+      Self.fLineStartPos := i;
     end;
+    
     Self.fEndOfText :=  FALSE;
   end; // .if
 end; // .function TTextScanner.GotoPrevChar
