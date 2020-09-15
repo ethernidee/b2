@@ -30,7 +30,8 @@ function  ToRange (Value, MinValue, MaxValue: integer; OnRangeMinMaxConflict: TO
 function  InRange (Value, MinValue, MaxValue: cardinal): boolean; overload; inline;
 function  InRange (Value, MinValue, MaxValue: integer): boolean; overload; inline;
 function  IntLog2 (Num: integer): integer; {=> Ceil(Log2(N)), N > 0}
-function  IntCompare (Int1, Int2: integer): integer;
+function  IntCompare (Int1, Int2: integer): integer; overload;
+function  IntCompare (Int1, Int2: integer; {n} State: pointer): integer; overload;
 function  CardCompare (Card1, Card2: cardinal): integer;
 function  PtrCompare (Ptr1, Ptr2: pointer): integer;
 function  Int64To32 (Value: INT64): integer; {No overflow, bounds to LOW(INT32)..HIGH(IN32)}
@@ -111,6 +112,17 @@ begin
 end; // .function IntLog2
 
 function IntCompare (Int1, Int2: integer): integer;
+begin
+  if Int1 > Int2 then begin
+    result := +1;
+  end else if Int1 < Int2 then begin
+    result := -1;
+  end else begin
+    result := 0;
+  end;
+end;
+
+function IntCompare (Int1, Int2: integer; {n} State: pointer): integer;
 begin
   if Int1 > Int2 then begin
     result := +1;
