@@ -12,6 +12,7 @@ type
 
   TCompareFunc   = function (Value1, Value2: integer): integer;
   TCompareMethod = function (Value1, Value2: integer): integer of object;
+  TCompareFuncEx = function (Value1, Value2: integer; {n} State: pointer): integer;
   
   TQuickSortAdapter = class abstract
     function  CompareItems (Ind1, Ind2: integer): integer; virtual; abstract;
@@ -40,13 +41,14 @@ function  IsDescSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer): 
 function  IsCustomDescSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFunc): boolean; overload;
 function  IsCustomDescSortedArr (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareMethod): boolean; overload;
 procedure QuickSort (Arr: Utils.PEndlessIntArr; MinInd, MaxInd: integer);
-procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer;
-                           CompareItems: TCompareFunc); overload;
-procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer;
-                           CompareItems: TCompareMethod); overload;
+procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer; CompareItems: TCompareFunc); overload;
+procedure CustomQuickSort (Arr: Utils.PEndlessIntArr; MinInd: integer; MaxInd: integer; CompareItems: TCompareMethod); overload;
 procedure QuickSortEx (Obj: TQuickSortAdapter; MinInd, MaxInd: integer);
-function  CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Needle: integer;
-                              CompareItems: TCompareFunc; out ResInd: integer): boolean; overload;
+function  CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Needle: integer; CompareItems: TCompareFunc; out ResInd: integer): boolean; overload;
+procedure InsertionSortInt32 (Arr: PEndlessIntArr; MinInd, MaxInd: integer);
+procedure CustomInsertionSortInt32 (Arr: PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFuncEx; {n} State: pointer = nil);
+procedure CustomMergeSortInt32 (Arr: PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFuncEx; {n} State: pointer = nil);
+
 function  CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Needle: integer;
                               CompareItems: TCompareMethod; out ResInd: integer): boolean; overload;
 
@@ -432,6 +434,151 @@ begin
     end; // .else
   end; // .while
 end; // .procedure QuickSortEx
+
+procedure InsertionSortInt32 (Arr: PEndlessIntArr; MinInd, MaxInd: integer);
+var
+  CurrItem: integer;
+  i, j, k: integer;
+
+begin
+  for i := MinInd + 1 to MaxInd do begin
+    CurrItem := Arr[i];
+
+    j := i - 1;
+
+    // Find insertion index = j + 1
+    while (j >= MinInd) and (Arr[j] > CurrItem) do begin
+      Dec(j);
+    end;
+
+    Inc(j);
+
+    // Move items from insertion position to the right by 1
+    k := i;
+
+    while k > j do begin
+      Arr[k] := Arr[k - 1];
+      Dec(k);
+    end;
+
+    Arr[j] := CurrItem;
+  end; // .for
+end; // .procedure InsertionSortInt32
+
+procedure CustomInsertionSortInt32 (Arr: PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFuncEx; {n} State: pointer = nil);
+var
+  CurrItem: integer;
+  i, j, k: integer;
+
+begin
+  for i := MinInd + 1 to MaxInd do begin
+    CurrItem := Arr[i];
+
+    j := i - 1;
+
+    // Find insertion index = j + 1
+    while (j >= MinInd) and (CompareItems(Arr[j], CurrItem, State) > 0) do begin
+      Dec(j);
+    end;
+
+    Inc(j);
+
+    // Move items from insertion position to the right by 1
+    k := i;
+
+    while k > j do begin
+      Arr[k] := Arr[k - 1];
+      Dec(k);
+    end;
+
+    Arr[j] := CurrItem;
+  end; // .for
+end; // .procedure CustomInsertionSortInt32
+
+procedure _CustomMergeSortInt32 (Arr: PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFuncEx; {n} State: pointer; Buf: PEndlessIntArr);
+var
+  RangeLen:    integer;
+  LeftInd:     integer;
+  LeftEndInd:  integer;
+  RightInd:    integer;
+  RightEndInd: integer;
+  MiddleInd:   integer;
+  ArrPos:      integer;
+  Item:        integer;
+  i:           integer;
+
+begin
+  RangeLen := MaxInd - MinInd + 1;
+
+  if RangeLen = 2 then begin
+    if CompareItems(Arr[MinInd], Arr[MaxInd], State) > 0 then begin
+      Item        := Arr[MinInd];
+      Arr[MinInd] := Arr[MaxInd];
+      Arr[MaxInd] := Item;
+    end;
+  end else if RangeLen <= 10 then begin
+    CustomInsertionSortInt32(Arr, MinInd, MaxInd, CompareItems, State);
+  end else begin
+    MiddleInd := MinInd + RangeLen div 2;
+    CustomMergeSortInt32(Arr, MinInd, MiddleInd - 1, CompareItems, State);
+    CustomMergeSortInt32(Arr, MiddleInd, MaxInd, CompareItems, State);
+
+    // Do not sort already sorted list
+    if Arr[MiddleInd - 1] <= Arr[MiddleInd] then begin
+      exit;
+    end;
+
+    // Copy left partition to buffer
+    for i := MinInd to MiddleInd - 1 do begin
+      Buf[i - MinInd] := Arr[i];
+    end;
+
+    // Merge partitions
+    LeftEndInd  := MiddleInd - MinInd - 1;
+    LeftInd     := 0;
+    RightEndInd := MaxInd;
+    RightInd    := MiddleInd;
+    ArrPos      := MinInd;
+
+    while (LeftInd <= LeftEndInd) and (RightInd <= RightEndInd) do begin
+      if Arr[RightInd] < Buf[LeftInd] then begin
+        Item := Arr[RightInd];
+        Inc(RightInd);
+      end else begin
+        Item := Buf[LeftInd];
+        Inc(LeftInd);
+      end;
+
+      Arr[ArrPos] := Item;
+      Inc(ArrPos);
+    end;
+
+    // Copy rest of left partition items, if any
+    while (LeftInd <= LeftEndInd) do begin
+      Arr[ArrPos] := Buf[LeftInd];
+      Inc(ArrPos);
+      Inc(LeftInd);
+    end;
+  end; // .else
+end; // .procedure _CustomMergeSortInt32
+
+procedure CustomMergeSortInt32 (Arr: PEndlessIntArr; MinInd, MaxInd: integer; CompareItems: TCompareFuncEx; {n} State: pointer = nil);
+var
+{O} Buf:      PEndlessIntArr;
+    RangeLen: integer;
+
+begin
+  RangeLen := MaxInd - MinInd + 1;
+
+  if RangeLen <= 10 then begin
+    CustomInsertionSortInt32(Arr, MinInd, MaxInd, CompareItems, State);
+  end else begin
+    Buf := nil;
+    GetMem(Buf, (RangeLen div 2 + 1) * sizeof(Buf[0]));
+    _CustomMergeSortInt32(Arr, MinInd, MaxInd, CompareItems, State, Buf);
+    FreeMem(Buf);
+  end;
+end;
 
 function CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Needle: integer;
                              CompareItems: TCompareFunc; out ResInd: integer): boolean; overload;
