@@ -235,7 +235,7 @@ function  ExcludeTrailingBackslashW (const Str: WideString; {n} HadTrailingBacks
 function  TrimBackslashesW (const Str: WideString): WideString;
 function  ExtractDirPathW (const Path: WideString): WideString;
 function  ExtractFileNameW (const Path: WideString): WideString;
-function  ComparePchars (Str1Ptr, Str2Ptr: pchar): integer;
+function  ComparePchars ({n} Str1Ptr, {n} Str2Ptr: pchar): integer;
 function  CompareWideChars (Str1Ptr, Str2Ptr: PWideChar; Len: integer = -1): integer;
 function  CompareBinStringsW (const Str1, Str2: WideString): integer;
 
@@ -2083,13 +2083,19 @@ asm
   pop esi
 end; // .function CompareAlignedPchars
 
-function ComparePchars (Str1Ptr, Str2Ptr: pchar): integer;
+function ComparePchars ({n} Str1Ptr, {n} Str2Ptr: pchar): integer;
 const
   ALIGNMENT_MASK = sizeof(integer) - 1;
 
 begin
-  {!} Assert(Str1Ptr <> nil);
-  {!} Assert(Str2Ptr <> nil);
+  if Str1Ptr = nil then begin
+    Str1Ptr := '';
+  end;
+
+  if Str2Ptr = nil then begin
+    Str2Ptr := '';
+  end;
+
   // Fast check for Str1Ptr = Str2Ptr or first unequal character
   result := ord(Str1Ptr^) - ord(Str2Ptr^);
 
