@@ -366,9 +366,8 @@ begin
   result := pointer(p.Pos);
 
   // Write original code bridge
-  OrigCodeBridgeStartPos := p.Pos;
-  p.WriteCode(Addr, PatchForge.TMinCodeSizeDetector.Create(sizeof(PatchForge.TJumpCall32Rec)));
-  OverwrittenCodeSize    := p.Pos - OrigCodeBridgeStartPos;
+  OverwrittenCodeSize    := PatchForge.GetCodeSize(Addr, sizeof(PatchForge.TJumpCall32Rec));
+  p.WriteCode(Addr, PatchForge.TFixedCodeSizeDetector.Create(OverwrittenCodeSize));
   p.Jump(PatchForge.JMP, Utils.PtrOfs(Addr, OverwrittenCodeSize));
 
   // :DontExecOrigCodeLabel
