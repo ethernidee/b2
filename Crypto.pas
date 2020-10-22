@@ -220,15 +220,15 @@ end;
 
 function Tm32Encode (Value: integer): integer;
 begin
-  result := ((Value shr 16) xor Value) * $45d9f3b;
-  result := ((result shr 16) xor result) * $45d9f3b;
+  result := ((Value shr 16) xor Value) * $45D9F3B;
+  result := ((result shr 16) xor result) * $45D9F3B;
   result := (result shr 16) xor result;
 end;
 
 function Tm32Decode (Encoded: integer): integer;
 begin
-  result := ((Encoded shr 16) xor Encoded) * $119de1f3;
-  result := ((result shr 16) xor result) * $119de1f3;
+  result := ((Encoded shr 16) xor Encoded) * $119DE1F3;
+  result := ((result shr 16) xor result) * $119DE1F3;
   result := (result shr 16) xor result;
 end;
 

@@ -1052,7 +1052,6 @@ var
     i:        integer;
     LoChar:   char;
     HiChar:   char;
-    CharVal:  byte;
     HexToVal: array [0..2] of integer;
 
 begin
