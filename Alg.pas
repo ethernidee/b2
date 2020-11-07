@@ -30,6 +30,13 @@ function  ToRange (Value, MinValue, MaxValue: integer; OnRangeMinMaxConflict: TO
 function  InRange (Value, MinValue, MaxValue: cardinal): boolean; overload; inline;
 function  InRange (Value, MinValue, MaxValue: integer): boolean; overload; inline;
 function  IntLog2 (Num: integer): integer; {=> Ceil(Log2(N)), N > 0}
+
+(* Returns number of decimal digits in integer *)
+function CountDigits (Num: integer): integer;
+
+(* Raises 10 to specified power. Possible powers must be in 0..9 range *)
+function IntPow10 (Power: integer): integer;
+
 function  IntCompare (Int1, Int2: integer): integer; overload;
 function  IntCompare (Int1, Int2: integer; {n} State: pointer): integer; overload;
 function  CardCompare (Card1, Card2: cardinal): integer;
@@ -55,6 +62,10 @@ function  CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Need
 
 
 (***)  implementation  (***)
+
+
+const
+  Pow10Table: array [0..8] of integer = (10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000);
 
 
 function IntRoundToBoundary (Value, Boundary: integer; Ceil: boolean = true): integer;
@@ -98,7 +109,7 @@ end;
 
 function IntLog2 (Num: integer): integer;
 var
-  TestValue:  cardinal;
+  TestValue: cardinal;
   
 begin
   {!} Assert(Num > 0);
@@ -110,6 +121,38 @@ begin
     TestValue := TestValue shl 1;
   end;
 end; // .function IntLog2
+
+function CountDigits (Num: integer): integer;
+var
+  i: integer;
+  
+begin
+  if Num < 0 then begin
+    Num := -Num;
+
+    if Num < 0 then begin
+      Num := High(integer);
+    end;
+  end;
+
+  i := Low(Pow10Table);
+
+  while (i < High(Pow10Table)) and (Num >= Pow10Table[i]) do begin
+    Inc(i);
+  end;
+
+  result := i + 1;
+end; // .function IntLog2
+
+function IntPow10 (Power: integer): integer;
+begin
+  {!} Assert((Power >= 0) and (Power <= High(Pow10Table) + 1));
+  result := 1;
+
+  if Power <> 0 then begin
+    result := Pow10Table[Power - 1];
+  end;
+end;
 
 function IntCompare (Int1, Int2: integer): integer;
 begin
