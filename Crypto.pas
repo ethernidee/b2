@@ -161,8 +161,8 @@ XorOut: 0xFFFFFFFF
 Check : 0xCBF43926  ("123456789")
 MaxLen: 268 435 455 байт (2 147 483 647 бит) - detects single, double, packet and all odd errors
 }
-function  CRC32 (PStr: pchar; StrLen: integer): integer;
-function  AnsiCRC32 (const Str: string): integer;
+function  Crc32 (PStr: pchar; StrLen: integer): integer;
+function  AnsiCrc32 (const Str: string): integer;
 
 {
 Name:         Bb2011
