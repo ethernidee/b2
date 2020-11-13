@@ -186,6 +186,7 @@ function  CharToUpper (c: char): char;
 function  Capitalize (const Str: string): string;
 function  HexCharToByte (HexChar: char): byte;
 function  ByteToHexChar (ByteValue: byte): char;
+function  BinToHex (NumBytes: integer; Bytes: Utils.PEndlessByteArr): string;
 function  Concat (const Strings: array of string): string; overload;
 
 (* Routine can safely copy two pchars to buffer or concat existing pchar with another one (if Buf = Str1, i.e).
@@ -1173,6 +1174,39 @@ begin
     result := CHR(ByteValue - 10 + ORD('A'));
   end;
 end;
+
+function BinToHex (NumBytes: integer; Bytes: Utils.PEndlessByteArr): string;
+const
+  HEX_CHARS_PER_BYTE = 2;
+
+var
+  HalfByte: integer;
+  i, j, k:  integer;
+
+begin
+  {!} Assert(Utils.IsValidBuf(Bytes, NumBytes));
+  result := '';
+
+  if NumBytes > 0 then begin
+    SetLength(result, NumBytes * HEX_CHARS_PER_BYTE);
+
+    j := 1;
+
+    for i := 0 to NumBytes - 1 do begin
+      for k := 0 to 1 do begin
+        HalfByte := (Bytes[i] shr (k shl 2)) and $0F;
+
+        if HalfByte < 10 then begin
+          result[j + 1 - k] := chr(HalfByte + ord('0'));
+        end else begin
+          result[j + 1 - k] := chr(HalfByte + ord('A') - 10);
+        end;
+      end;
+
+      Inc(j, 2);
+    end; // .for
+  end; // .if
+end; // .function BinToHex 
 
 function Concat (const Strings: array of string): string; overload;
 var
