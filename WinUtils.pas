@@ -64,6 +64,10 @@ function GetSysDirW: WideString;
 (* Returns attributes for file at given path *)
 function GetFileAttrs (const Path: WideString; {out} var Attrs: integer): boolean;
 
+(* Fills buffer with cryptographically safe random data *)
+function RtlGenRandom (Buf: pointer; BufSize: integer): boolean; stdcall; external 'advapi32.dll' name 'SystemFunction036';
+
+
 (***)  implementation  (***)
 
 
