@@ -579,7 +579,7 @@ begin
     CustomMergeSortInt32(Arr, MiddleInd, MaxInd, CompareItems, State);
 
     // Do not sort already sorted list
-    if Arr[MiddleInd - 1] <= Arr[MiddleInd] then begin
+    if CompareItems(Arr[MiddleInd - 1], Arr[MiddleInd], State) <= 0 then begin
       exit;
     end;
 
@@ -589,14 +589,14 @@ begin
     end;
 
     // Merge partitions
-    LeftEndInd  := MiddleInd - MinInd - 1;
+    LeftEndInd  := MiddleInd - 1 - MinInd;
     LeftInd     := 0;
     RightEndInd := MaxInd;
     RightInd    := MiddleInd;
     ArrPos      := MinInd;
 
     while (LeftInd <= LeftEndInd) and (RightInd <= RightEndInd) do begin
-      if Arr[RightInd] < Buf[LeftInd] then begin
+      if CompareItems(Arr[RightInd], Buf[LeftInd], State) < 0 then begin
         Item := Arr[RightInd];
         Inc(RightInd);
       end else begin
