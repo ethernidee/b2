@@ -286,8 +286,12 @@ begin
   FilePath  :=  SysUtils.ExpandFileName(FilePath);
   CachedIni :=  CachedIniFiles[FilePath];
   
-  if (CachedIni = nil) and LoadIni(FilePath) then begin
-    CachedIni :=  CachedIniFiles[FilePath];
+  if CachedIni = nil then begin
+    if not LoadIni(FilePath) then begin
+      CachedIniFiles[FilePath] := AssocArrays.NewStrictAssocArr(TAssocArray);
+    end;
+
+    CachedIni := CachedIniFiles[FilePath];
   end;
   
   result  :=
@@ -298,21 +302,21 @@ begin
   
   if result then begin
     if CachedIni = nil then begin
-      CachedIni                 :=  AssocArrays.NewStrictAssocArr(TAssocArray);
-      CachedIniFiles[FilePath]  :=  CachedIni;
+      CachedIni                := AssocArrays.NewStrictAssocArr(TAssocArray);
+      CachedIniFiles[FilePath] := CachedIni;
     end;
     
-    Section :=  CachedIni[SectionName];
+    Section := CachedIni[SectionName];
     
     if Section = nil then begin
-      Section                 :=  AssocArrays.NewStrictAssocArr(TString);
-      CachedIni[SectionName]  :=  Section;
+      Section                := AssocArrays.NewStrictAssocArr(TString);
+      CachedIni[SectionName] := Section;
     end;
     
-    Section[Key]  :=  TString.Create(Value);
+    Section[Key] := TString.Create(Value);
   end; // .if
 end; // .function WriteStrToIni
 
 begin
-  CachedIniFiles  :=  AssocArrays.NewStrictAssocArr(TAssocArray);
+  CachedIniFiles := AssocArrays.NewStrictAssocArr(TAssocArray);
 end.
