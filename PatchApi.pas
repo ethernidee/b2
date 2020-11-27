@@ -518,6 +518,19 @@ type
 
   end;
 
+//тип "переменная" используется для возвращаемых методами TPatcher.VarInit
+  // и TPatcher.VarFind значений
+  TVariable = packed class
+    // возвращает значение "переменной" (потокобезопасное обращение)
+    function GetValue: _dword_; virtual; stdcall; abstract;
+
+    // устанавливает значение "переменной" (потокобезопасное обращение)
+    procedure SetValue(value: _dword_); virtual; stdcall; abstract;
+
+    // возвращает указатель на значение "переменной" (обращение к значению "переменной" через указатеь непотокобезопасно)
+    function GetPValue: Pointer; virtual; stdcall; abstract;
+  end;
+
 // Класс TPatcher
   TPatcher = packed class
 
@@ -631,6 +644,17 @@ type
 	// Внимание! Из-за этого размер скопированного кода может оказаться значительно 
 	// больше копируемого.
     function MemCopyCodeEx(dst, src: pointer; size: cardinal): integer; virtual; stdcall; abstract;
+
+  // метод VarInit
+  // инициализирует "переменную" с именем name и устанавливает ее значение равным value
+  // если переменная с таким именем уже существует, то просто устанавливает ее значение равным value
+  // возвращает переменную в случае успеха и nil в противном случае
+    function VarInit(name: PAnsiChar; value: _dword_): TVariable; virtual; stdcall; abstract;
+  
+  // метод VarFind
+  // возвращает переменную с именем name, если такая была инициализирована
+  // если нет, возвращает nil
+    function VarFind(name: PAnsiChar): TVariable; virtual; stdcall; abstract;
 
 	////////////////////////////////////////////////////////////////////
 	// метод WriteComplexData
