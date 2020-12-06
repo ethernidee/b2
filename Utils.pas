@@ -40,6 +40,10 @@ type
   PEndlessWordArr       = ^TEndlessWordArr;
   TEndlessIntArr        = array [0..MAXLONGINT div sizeof(integer) - 1] of integer;
   PEndlessIntArr        = ^TEndlessIntArr;
+  TEndlessSmallIntArr   = array [0..MAXLONGINT div sizeof(smallint) - 1] of smallint;
+  PEndlessSmallIntArr   = ^TEndlessSmallIntArr;
+  TEndlessShortIntArr   = array [0..MAXLONGINT div sizeof(shortint) - 1] of shortint;
+  PEndlessShortIntArr   = ^TEndlessShortIntArr;
   TEndlessBoolArr       = array [0..MAXLONGINT div sizeof(boolean) - 1] of boolean;
   PEndlessBoolArr       = ^TEndlessBoolArr;
   TEndlessCharArr       = array [0..MAXLONGINT div sizeof(char) - 1] of char;
