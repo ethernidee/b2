@@ -33,7 +33,7 @@ type
   PCharByte = ^char;
   plongbool = ^LONGBOOL;
   
-  (* array pointers *)
+  (* Array pointers *)
   TEndlessByteArr       = array [0..MAXLONGINT div sizeof(byte) - 1] of byte;
   PEndlessByteArr       = ^TEndlessByteArr;
   TEndlessWordArr       = array [0..MAXLONGINT div sizeof(word) - 1] of word;
@@ -203,7 +203,7 @@ function ChangeFlags (var Value: integer): TFlagsChanger; inline;
 function  PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer; inline;
 function  IsValidBuf ({n} Buf: pointer; BufSize: integer): boolean;
 procedure CopyMem (Count: integer; {n} Source, Destination: pointer);
-procedure Exchange (var A, B: integer);
+procedure Exchange (var A, B); inline;
 procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer); overload;
 procedure SetPcharValue (What: pchar; {n} Value: pchar; BufSize: integer); overload;
 function  GetPcharValue (Str: pchar; MaxLen: integer = -1): string;
@@ -342,14 +342,14 @@ begin
   System.Move(Source^, Destination^, Count);
 end;
 
-procedure Exchange (var A, B: integer);
+procedure Exchange (var A, B); inline;
 var
-  C:  integer;
+  C: integer;
 
 begin
-  C := A;
-  A := B;
-  B := C;
+  C             := pinteger(@A)^;
+  pinteger(@A)^ := pinteger(@B)^;
+  pinteger(@B)^ := pinteger(@C)^;
 end;
 
 procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer); overload;
