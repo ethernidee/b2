@@ -1,16 +1,25 @@
 unit Ini;
 {
-DESCRIPTION:  Memory cached ini files management
-AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+DESCRIPTION: Memory cached ini files management
+AUTHOR:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 }
 
 (***)  interface  (***)
+
 uses
-  SysUtils, Utils, Log,
-  TypeWrappers, AssocArrays, Lists, Files, TextScan, StrLib;
+  SysUtils,
+
+  AssocArrays,
+  Files,
+  Lists,
+  Log,
+  StrLib,
+  TextScan,
+  TypeWrappers,
+  Utils;
 
 type
-  (* IMPORT *)
+  (* Import *)
   TString     = TypeWrappers.TString;
   TAssocArray = AssocArrays.TAssocArray;
 
@@ -18,17 +27,24 @@ type
 procedure ClearIniCache (const FileName: string);
 procedure ClearAllIniCache;
 
-function  ReadStrFromIni
+(* Works with RAM cache only *)
+function ReadStrFromIni
 (
-  const Key:          string;
-  const SectionName:  string;
-        FilePath:     string;
-  out   Res:          string
+  const Key:         string;
+  const SectionName: string;
+        FilePath:    string;
+  out   Res:         string
 ): boolean;
 
-function  WriteStrToIni (const Key, Value, SectionName: string; FilePath: string): boolean;
-function  SaveIni (FilePath: string): boolean;
-procedure MergeIni (TargetPath, SourcePath: string);
+(* Works with RAM cache only *)
+function WriteStrToIni (const Key, Value, SectionName: string; FilePath: string): boolean;
+
+function LoadIni (FilePath: string): boolean;
+function SaveIni (FilePath: string): boolean;
+
+(* Workis with RAM cache only *)
+procedure MergeIniWithDefault (TargetPath, SourcePath: string);
+
 
 (***) implementation (***)
 
@@ -73,15 +89,16 @@ var
  end;
 
 begin
-  TextScanner :=  TextScan.TTextScanner.Create;
-  Sections    :=  nil;
-  CurrSection :=  nil;
+  TextScanner := TextScan.TTextScanner.Create;
+  Sections    := nil;
+  CurrSection := nil;
   // * * * * * //
-  FilePath  :=  SysUtils.ExpandFileName(FilePath);
-  result    :=  Files.ReadFileContents(FilePath, FileContents);
+  FilePath                 := SysUtils.ExpandFileName(FilePath);
+  CachedIniFiles[FilePath] := nil;
+  result                   := Files.ReadFileContents(FilePath, FileContents);
 
   if result and (Length(FileContents) > 0) then begin
-    Sections  :=  AssocArrays.NewStrictAssocArr(TAssocArray);
+    Sections := AssocArrays.NewStrictAssocArr(TAssocArray);
     TextScanner.Connect(FileContents, LINE_END_MARKER);
 
     while result and (not TextScanner.EndOfText) do begin
@@ -95,37 +112,37 @@ begin
             TextScanner.GotoNextChar;
 
             result  :=
-              TextScanner.ReadTokenTillDelim(SECTION_NAME_DELIMS, SectionName)  and
-              TextScanner.GetCurrChar(c)                                        and
+              TextScanner.ReadTokenTillDelim(SECTION_NAME_DELIMS, SectionName) and
+              TextScanner.GetCurrChar(c)                                       and
               (c = ']');
 
             if result then begin
-              SectionName :=  SysUtils.Trim(SectionName);
+              SectionName := SysUtils.Trim(SectionName);
               GotoNextLine;
-              CurrSection :=  Sections[SectionName];
+              CurrSection := Sections[SectionName];
 
               if CurrSection = nil then begin
-                CurrSection           :=  AssocArrays.NewStrictAssocArr(TString);
-                Sections[SectionName] :=  CurrSection;
+                CurrSection           := AssocArrays.NewStrictAssocArr(TString);
+                Sections[SectionName] := CurrSection;
               end;
             end;
           end else begin
             TextScanner.ReadTokenTillDelim(KEY_DELIMS, Key);
-            result  :=  TextScanner.GetCurrChar(c) and (c = '=');
+            result := TextScanner.GetCurrChar(c) and (c = '=');
 
             if result then begin
-              Key :=  SysUtils.Trim(Key);
+              Key := SysUtils.Trim(Key);
               TextScanner.GotoNextChar;
 
               if not TextScanner.ReadTokenTillDelim(DEFAULT_DELIMS, Value) then begin
-                Value :=  '';
+                Value := '';
               end else begin
-                Value :=  Trim(Value);
+                Value := Trim(Value);
               end;
 
               if CurrSection = nil then begin
-                CurrSection   :=  AssocArrays.NewStrictAssocArr(TString);
-                Sections['']  :=  CurrSection;
+                CurrSection  := AssocArrays.NewStrictAssocArr(TString);
+                Sections[''] := CurrSection;
               end;
 
               CurrSection[Key]  :=  TString.Create(Value);
@@ -318,7 +335,7 @@ begin
   end; // .if
 end; // .function WriteStrToIni
 
-procedure MergeIni (TargetPath, SourcePath: string);
+procedure MergeIniWithDefault (TargetPath, SourcePath: string);
 var
 {U} TargetIni:     {O} TAssocArray {OF TAssocArray};
 {U} SourceIni:     {O} TAssocArray {OF TAssocArray};
@@ -356,8 +373,11 @@ begin
           SourceSection.BeginIterate;
 
           while SourceSection.IterateNext(Key, pointer(Value)) do begin
-            TargetSection[Key] := Value.Clone;
-            Value              := nil;
+            if not TargetSection.HasKey(Key) then begin
+              TargetSection[Key] := Value.Clone;
+            end;
+
+            Value := nil;
           end;
 
           SourceSection.EndIterate;
@@ -369,7 +389,7 @@ begin
       SourceIni.EndIterate;
     end; // .else
   end; // .if
-end; // .procedure MergeIni
+end; // .procedure MergeIniWithDefault
 
 begin
   CachedIniFiles := AssocArrays.NewStrictAssocArr(TAssocArray);
