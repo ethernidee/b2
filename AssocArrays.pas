@@ -14,10 +14,10 @@ Rebalancing is done by converting tree to linear node array and inserting nodes 
 uses SysUtils, Utils, Alg, Crypto;
 
 const
-  LEFT_CHILD  = FALSE;
-  RIGHT_CHILD = TRUE;
-  
-  NO_KEY_PREPROCESS_FUNC  = nil;
+  LEFT_CHILD  = false;
+  RIGHT_CHILD = true;
+
+  NO_KEY_PREPROCESS_FUNC = nil;
 
 
 type
@@ -35,19 +35,19 @@ type
         Hash:       integer;
     {O} Item:       PAssocArrayItem;
         ChildNodes: array [LEFT_CHILD..RIGHT_CHILD] of {On} PAssocArrayNode;
-  end; // .record TAssocArrayNode
+  end;
 
   THashFunc          = function (const Str: string): integer;
   TKeyPreprocessFunc = function (const OrigKey: string): string;
-  
+
   TNodeArray = array of {O} PAssocArrayNode;
-  
+
   TLinearNodeArray  = record
     NodeArray: TNodeArray; // Nodes are sorted by hash
     NodeCount: integer;
     ItemCount: integer;
   end;
-  
+
   TAssocArray = class (Utils.TCloneable)
     (***) protected (***)
       {On}  fRoot:              PAssocArrayNode;
@@ -64,7 +64,7 @@ type
             fIterNodeInd:       integer;
             fLocked:            boolean;
 
-      
+
       function  CloneItem (Item: PAssocArrayItem): {O} PAssocArrayItem;
       function  CloneNode ({n} Node: PAssocArrayNode): {On} PAssocArrayNode;
       procedure FreeItemValue (Item: PAssocArrayItem);
@@ -77,13 +77,13 @@ type
         {n} ParentItem: PAssocArrayItem;
             Item:       PAssocArrayItem
       );
-      
+
       (*
         All nodes are placed in NodeArray and disconnected from each other.
         Original binary tree is emptied. Nodes are sorted by hash.
       *)
       procedure ConvertToLinearNodeArray (out Res: TLinearNodeArray);
-      
+
       function  FindItem
       (
                     Hash:       integer;
@@ -104,7 +104,9 @@ type
                       ItemGuardProc:      Utils.TItemGuardProc;
         {IN} var  {n} ItemGuard:          Utils.TItemGuard
       );
+
       destructor  Destroy; override;
+
       procedure Assign (Source: Utils.TCloneable); override;
       procedure Clear;
       function  GetPreprocessedKey (const Key: string): string;
@@ -115,10 +117,10 @@ type
       function  GetExistingValue (Key: string; out {Un} Res: pointer): boolean;
       procedure SetValue (Key: string; {OUn} NewValue: pointer);
       function  DeleteItem (Key: string): boolean;
-      
+
       (* Returns value with specified key and NILify it in the array *)
       function  TakeValue (Key: string; out {OUn} Value: pointer): boolean;
-      
+
       (* Returns old value *)
       function  ReplaceValue
       (
@@ -126,7 +128,9 @@ type
             {OUn} NewValue: pointer;
         out {OUn} OldValue: pointer
       ): boolean;
-      
+
+      procedure Merge (Source: TAssocArray);
+
       procedure BeginIterate;
       function  IterateNext (out Key: string; out {Un} Value: pointer): boolean;
       procedure EndIterate;
@@ -148,14 +152,14 @@ type
     {OUn} Value:      pointer;
           ChildNodes: array [LEFT_CHILD..RIGHT_CHILD] of {On} PObjArrayNode;
   end; // .record TObjArrayItem
-  
+
   TObjNodeArray = array of {O} PObjArrayNode;
-  
+
   TLinearObjNodeArray = record
     NodeArray:  TObjNodeArray;  // Nodes are sorted by hash
     NodeCount:  integer;
   end; // .record TLinearObjNodeArray
-  
+
   TObjArray = class (Utils.TCloneable)
     (***) protected (***)
       {On}  fRoot:            PObjArrayNode;
@@ -167,14 +171,14 @@ type
             fIterNodes:       array of {U} PObjArrayNode;
             fIterNodeInd:     integer;
             fLocked:          boolean;
-      
+
       function  HashToKey (Hash: integer): {n} pointer;
       function  KeyToHash (Key: {n} pointer): integer;
       procedure FreeNodeValue (Node: PObjArrayNode);
       procedure FreeNode ({IN} var {n} Node: PObjArrayNode);
       procedure RemoveNode ({n} ParentNode: PObjArrayNode; Node: PObjArrayNode);
       function  CloneNode (Node: PObjArrayNode): {O} PObjArrayNode;
-      
+
       (*
         All nodes are placed in NodeArray and disconnected from each other.
         Original binary tree is emptied. Nodes are sorted by hash.
@@ -206,10 +210,10 @@ type
       function  GetExistingValue ({n} Key: pointer; out {Un} Res: pointer): boolean;
       procedure SetValue ({n} Key: pointer; {OUn} NewValue: pointer);
       function  DeleteItem ({n} Key: pointer): boolean;
-      
+
       (* Returns value with specified key and NILify it in the array *)
       function  TakeValue ({n} Key: pointer; out {OUn} Value: pointer): boolean;
-      
+
       {Returns old value}
       function  ReplaceValue
       (
@@ -247,7 +251,7 @@ function  NewSimpleAssocArr
   {n} KeyPreprocessFunc:  TKeyPreprocessFunc
 ): TAssocArray;
 
-function  NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = TRUE): TAssocArray;
+function  NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TAssocArray;
 function  NewObjArr
 (
   OwnsItems:        boolean;
@@ -298,13 +302,13 @@ begin
   {!} Assert(Self.IsValidValue(Item.Value));
   New(result);
   result.Key  :=  Item.Key;
-  
+
   if Item.NextItem <> nil then begin
     result.NextItem :=  Self.CloneItem(Item.NextItem);
   end else begin
     result.NextItem :=  nil;
   end;
-  
+
   if (Item.Value = nil) or (not Self.OwnsItems) then begin
     result.Value  :=  Item.Value;
   end else begin
@@ -330,7 +334,7 @@ end; // .function TAssocArray.CloneNode
 procedure TAssocArray.Assign (Source: Utils.TCloneable);
 var
 {U} SrcArr: TAssocArray;
-  
+
 begin
   {!} Assert(not Self.Locked);
   {!} Assert(Source <> nil);
@@ -360,7 +364,7 @@ begin
       FreeMem(Item.Value);
     end;
   end;
-  
+
   Item.Value := nil;
 end; // .procedure TAssocArray.FreeItemValue
 
@@ -370,15 +374,15 @@ var
 {U} RightClosestNode:       PAssocArrayNode;
     ItemNodeIsRoot:         boolean;
     ItemNodeSide:           TChildNodeSide;
-  
+
 begin
   {!} Assert(ItemNode <> nil);
   RightClosestNodeParent := nil;
   RightClosestNode       := nil;
-  ItemNodeSide           := FALSE;
+  ItemNodeSide           := false;
   // * * * * * //
   ItemNodeIsRoot := ParentNode = nil;
-  
+
   if Self.NodeCount = 1 then begin
     {!} Assert(ItemNodeIsRoot);
     {!} Assert(ItemNode = Self.fRoot);
@@ -387,7 +391,7 @@ begin
     if not ItemNodeIsRoot then begin
       ItemNodeSide  :=  ItemNode.Hash >= ParentNode.Hash;
     end;
-    
+
     (* N
       - -
     *)
@@ -407,7 +411,7 @@ begin
       end else begin
         ParentNode.ChildNodes[ItemNodeSide] :=  ItemNode.ChildNodes[RIGHT_CHILD];
       end;
-      
+
       Dispose(ItemNode); ItemNode :=  nil;
     end // .elseif
     (* N
@@ -419,7 +423,7 @@ begin
       end else begin
         ParentNode.ChildNodes[ItemNodeSide] :=  ItemNode.ChildNodes[LEFT_CHILD];
       end;
-      
+
       Dispose(ItemNode); ItemNode :=  nil;
     end // .elseif
     (* N
@@ -428,12 +432,12 @@ begin
     else begin
       RightClosestNodeParent  :=  ItemNode;
       RightClosestNode        :=  ItemNode.ChildNodes[RIGHT_CHILD];
-      
+
       while RightClosestNode.ChildNodes[LEFT_CHILD] <> nil do begin
         RightClosestNodeParent  :=  RightClosestNode;
         RightClosestNode        :=  RightClosestNode.ChildNodes[LEFT_CHILD];
       end;
-      
+
       ItemNode.Item :=  RightClosestNode.Item; RightClosestNode.Item  :=  nil;
       ItemNode.Hash :=  RightClosestNode.Hash;
       Self.RemoveNode(RightClosestNodeParent, RightClosestNode);
@@ -453,7 +457,7 @@ begin
   {!} Assert(ItemNode <> nil);
   {!} Assert(Item <> nil);
   Self.FreeItemValue(Item);
-  
+
   if (ItemNode.Item = Item) and (Item.NextItem = nil) then begin
     Self.RemoveNode(ParentNode, ItemNode);
     (* RemoveNode is recursive procedure not affecting the counter *)
@@ -466,7 +470,7 @@ begin
       ParentItem.NextItem := Item.NextItem;
     end;
   end; // .else
-  
+
   Dispose(Item); Item := nil;
   Dec(Self.fItemCount);
 end; // .procedure TAssocArray.RemoveItem
@@ -482,14 +486,14 @@ begin
   // * * * * * //
   if Node <> nil then begin
     Item := Node.Item;
-    
+
     while Item <> nil do begin
       NextItem := Item.NextItem;
       Self.FreeItemValue(Item);
       Dispose(Item); Item := nil;
       Item := NextItem;
     end;
-    
+
     Self.FreeNode(Node.ChildNodes[LEFT_CHILD]);
     Self.FreeNode(Node.ChildNodes[RIGHT_CHILD]);
     Dispose(Node); Node := nil;
@@ -542,12 +546,12 @@ var
     NumNotProcessedNodes: integer;
 {U} CurrNode:             PAssocArrayNode;
     i:                    integer;
-  
+
 begin
   SetLength(Res.NodeArray, Self.NodeCount);
   Res.NodeCount :=  Self.NodeCount;
   Res.ItemCount :=  Self.ItemCount;
-  
+
   if Self.NodeCount > 0 then begin
     CurrNode                :=  Self.fRoot;
     LeftInd                 :=  0;
@@ -555,14 +559,14 @@ begin
     RightInd                :=  Self.NodeCount;
     RightCheckInd           :=  RightInd - 1;
     NumNotProcessedNodes    :=  Self.NodeCount - 1;
-    
+
     while NumNotProcessedNodes > 0 do begin
       if CurrNode.ChildNodes[RIGHT_CHILD] <> nil then begin
         Dec(RightInd);
         Res.NodeArray[RightInd] :=  CurrNode.ChildNodes[RIGHT_CHILD];
         Dec(NumNotProcessedNodes);
       end;
-      
+
       if CurrNode.ChildNodes[LEFT_CHILD] <> nil then begin
         CurrNode  :=  CurrNode.ChildNodes[LEFT_CHILD];
         Inc(LeftInd);
@@ -573,12 +577,12 @@ begin
         Dec(RightCheckInd);
       end;
     end; // .while
-    
+
     for i:=0 to Self.NodeCount - 1 do begin
       Res.NodeArray[i].ChildNodes[LEFT_CHILD]   :=  nil;
       Res.NodeArray[i].ChildNodes[RIGHT_CHILD]  :=  nil;
     end;
-    
+
     Self.fRoot      :=  nil;
     Self.fNodeCount :=  0;
     Self.fItemCount :=  0;
@@ -590,12 +594,12 @@ procedure TAssocArray.Rebuild;
 var
   LinearNodeArray:  TLinearNodeArray;
   NodeArray:        TNodeArray;
-  
+
   procedure InsertNode (InsNode: PAssocArrayNode);
   var
   {U} ParentNode: PAssocArrayNode;
   {U} CurrNode:   PAssocArrayNode;
-    
+
   begin
     {!} Assert(InsNode <> nil);
     ParentNode  :=  nil;
@@ -605,10 +609,10 @@ var
       ParentNode  :=  CurrNode;
       CurrNode    :=  CurrNode.ChildNodes[InsNode.Hash >= CurrNode.Hash];
     end;
-    
+
     ParentNode.ChildNodes[InsNode.Hash >= ParentNode.Hash]  :=  InsNode;
   end; // .procedure InsertNode
-  
+
   procedure InsertNodeRange (MinInd, MaxInd: integer);
   var
   {U} InsNode:    PAssocArrayNode;
@@ -622,13 +626,13 @@ var
     // * * * * * //
     MiddleInd :=  MinInd + (MaxInd - MinInd) shr 1;
     InsNode   :=  NodeArray[MiddleInd];
-    
+
     if Self.fRoot = nil then begin
       Self.fRoot  :=  InsNode;
     end else begin
       InsertNode(InsNode);
     end;
-    
+
     if RangeLen > 2 then begin
       InsertNodeRange(MinInd, MiddleInd - 1);
       InsertNodeRange(MiddleInd + 1, MaxInd);
@@ -636,7 +640,7 @@ var
       InsertNode(NodeArray[MiddleInd + 1]);
     end;
   end; // .procedure InsertNodeRange
-  
+
 begin
   {!} Assert(not Self.Locked);
   if Self.NodeCount > 2 then begin
@@ -661,25 +665,25 @@ function TAssocArray.FindItem
 var
   SearchDepth:      integer;
   CritSearchDepth:  integer;
-  
+
 begin
   {!} Assert(ParentNode = nil);
   {!} Assert(ItemNode = nil);
   {!} Assert(ParentItem = nil);
   {!} Assert(Item = nil);
-  result  :=  FALSE;
-  
+  result  :=  false;
+
   if Self.NodeCount > 0 then begin
     CritSearchDepth :=  Self.CalcCritDepth;
     SearchDepth     :=  1;
     ItemNode        :=  Self.fRoot;
-    
+
     while (ItemNode <> nil) and (ItemNode.Hash <> Hash) do begin
       Inc(SearchDepth);
       ParentNode  :=  ItemNode;
       ItemNode    :=  ItemNode.ChildNodes[Hash >= ItemNode.Hash];
     end;
-    
+
     if SearchDepth > CritSearchDepth then begin
       Self.Rebuild;
       ParentNode  :=  nil;
@@ -707,7 +711,7 @@ var
 {U} Item:       PAssocArrayItem;
 {U} ParentItem: PAssocArrayItem;
     Hash:       integer;
-  
+
 begin
   ItemNode    :=  nil;
   ParentNode  :=  nil;
@@ -716,7 +720,7 @@ begin
   // * * * * * //
   Key  := Self.GetPreprocessedKey(Key);
   Hash := Self.HashFunc(Key);
-  
+
   if Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item) then begin
     result  :=  Item.Value;
   end else begin
@@ -731,7 +735,7 @@ var
 {U} Item:       PAssocArrayItem;
 {U} ParentItem: PAssocArrayItem;
     Hash:       integer;
-  
+
 begin
   {!} Assert(Res = nil);
   ItemNode    :=  nil;
@@ -742,7 +746,7 @@ begin
   Key    := Self.GetPreprocessedKey(Key);
   Hash   := Self.HashFunc(Key);
   result := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
-  
+
   if result then begin
     Res :=  Item.Value;
   end;
@@ -758,7 +762,7 @@ var
 {O} NewNode:          PAssocArrayNode;
     PreprocessedKey:  string;
     Hash:             integer;
-  
+
 begin
   ItemNode    :=  nil;
   ParentNode  :=  nil;
@@ -770,7 +774,7 @@ begin
   {!} Assert(Self.IsValidValue(NewValue));
   PreprocessedKey :=  Self.GetPreprocessedKey(Key);
   Hash            :=  Self.HashFunc(PreprocessedKey);
-  
+
   if Self.FindItem(Hash, PreprocessedKey, ParentNode, ItemNode, ParentItem, Item) then begin
     if Item.Value <> NewValue then begin
       Self.FreeItemValue(Item);
@@ -782,7 +786,7 @@ begin
     NewItem.Value     :=  NewValue;
     NewItem.NextItem  :=  nil;
     Inc(Self.fItemCount);
-    
+
     if ItemNode <> nil then begin
       ParentItem.NextItem :=  NewItem; NewItem  :=  nil;
     end else begin
@@ -792,14 +796,14 @@ begin
       NewNode.ChildNodes[RIGHT_CHILD] :=  nil;
       NewNode.Item                    :=  NewItem; NewItem  :=  nil;
       Inc(Self.fNodeCount);
-      
+
       if Self.NodeCount > 1 then begin
         ParentNode.ChildNodes[NewNode.Hash >= ParentNode.Hash]  :=  NewNode; NewNode  :=  nil;
       end else begin
         Self.fRoot  :=  NewNode; NewNode  :=  nil;
       end;
     end; // .else
-  end; // .else   
+  end; // .else
 end; // .procedure TAssocArray.SetValue
 
 function TAssocArray.DeleteItem (Key: string): boolean;
@@ -809,7 +813,7 @@ var
 {U} ParentItem: PAssocArrayItem;
 {U} Item:       PAssocArrayItem;
     Hash:       integer;
-  
+
 begin
   {!} Assert(not Self.Locked);
   ItemNode   := nil;
@@ -820,7 +824,7 @@ begin
   Key    := Self.GetPreprocessedKey(Key);
   Hash   := Self.HashFunc(Key);
   result := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
-  
+
   if result then begin
     Self.RemoveItem(ParentNode, ItemNode, ParentItem, Item);
   end;
@@ -833,7 +837,7 @@ var
 {U} ParentItem:       PAssocArrayItem;
 {U} Item:             PAssocArrayItem;
     Hash:             integer;
-  
+
 
 begin
   {!} Assert(Value = nil);
@@ -845,7 +849,7 @@ begin
   Key     :=  Self.GetPreprocessedKey(Key);
   Hash    :=  Self.HashFunc(Key);
   result  :=  Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
-  
+
   if result then begin
     Value :=  Item.Value;
     {!} Assert(Self.IsValidValue(nil));
@@ -861,63 +865,87 @@ function TAssocArray.ReplaceValue
 ): boolean;
 
 var
-{U} ParentNode:       PAssocArrayNode;
-{U} ItemNode:         PAssocArrayNode;
-{U} ParentItem:       PAssocArrayItem;
-{U} Item:             PAssocArrayItem;
-    Hash:             integer;
+{U} ParentNode: PAssocArrayNode;
+{U} ItemNode:   PAssocArrayNode;
+{U} ParentItem: PAssocArrayItem;
+{U} Item:       PAssocArrayItem;
+    Hash:       integer;
 
 begin
   {!} Assert(OldValue = nil);
   {!} Assert(Self.IsValidValue(NewValue));
-  ItemNode          :=  nil;
-  ParentNode        :=  nil;
-  Item              :=  nil;
-  ParentItem        :=  nil;
+  ItemNode   := nil;
+  ParentNode := nil;
+  Item       := nil;
+  ParentItem := nil;
   // * * * * * //
-  Key     :=  Self.GetPreprocessedKey(Key);
-  Hash    :=  Self.HashFunc(Key);
-  result  :=  Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
-  
+  Key    := Self.GetPreprocessedKey(Key);
+  Hash   := Self.HashFunc(Key);
+  result := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
+
   if result then begin
-    OldValue    :=  Item.Value;
-    Item.Value  :=  NewValue;
+    OldValue   := Item.Value;
+    Item.Value := NewValue;
   end;
 end; // .function TAssocArray.ReplaceValue
+
+procedure TAssocArray.Merge (Source: TAssocArray);
+var
+{OUn} Value: pointer;
+      Key:   string;
+
+begin
+  {!} Assert(Source <> nil);
+  {!} Assert(not Self.fOwnsItems or (Self.fItemsAreObjects and Source.fItemsAreObjects), 'Incompatible arrays for merging due to items type and ownage');
+  Source.BeginIterate;
+
+  while Source.IterateNext(Key, Value) do begin
+    {!} Assert(Self.IsValidValue(Value));
+
+    if Self.fOwnsItems then begin
+      {!} Assert(TObject(Value) is Utils.TCloneable, 'Cannot merge array with non-clonable items. Got item: ' + TObject(Value).ClassName);
+      Self.SetValue(Key, Utils.TCloneable(Value).Clone);
+    end else begin
+      Self.SetValue(Key, Value);
+    end;
+  end;
+
+  Source.EndIterate;
+end;
 
 procedure TAssocArray.EndIterate;
 begin
   {!} Assert(Self.fLocked);
-  Self.fLocked  :=  FALSE;
+  Self.fLocked := false;
 end;
 
 procedure TAssocArray.BeginIterate;
 var
-  OptimalNumIterNodes:  integer;
-  
+  OptimalNumIterNodes: integer;
+
 begin
   {!} Assert(not Self.fLocked);
   OptimalNumIterNodes :=  Self.CalcCritDepth + 1;
-  
+
   if Length(Self.fIterNodes) < OptimalNumIterNodes then begin
     SetLength(Self.fIterNodes, OptimalNumIterNodes);
   end;
-  
+
   Self.fIterCurrItem  :=  nil;
-  
+
   if Self.NodeCount > 0 then begin
     Self.fIterNodeInd   :=  0;
     Self.fIterNodes[0]  :=  Self.fRoot;
   end else begin
     Self.fIterNodeInd :=  -1;
   end;
-  
-  Self.fLocked  :=  TRUE;
+
+  Self.fLocked  :=  true;
 end; // .procedure TAssocArray.BeginIterate
 
 function TAssocArray.IterateNext (out Key: string; out {Un} Value: pointer): boolean;
 var
-{U} IterNode: PAssocArrayNode;  
+{U} IterNode: PAssocArrayNode;
 
 begin
   {!} Assert(Self.Locked);
@@ -925,13 +953,13 @@ begin
   IterNode  :=  nil;
   // * * * * * //
   result  :=  (Self.fIterNodeInd >= 0) or (Self.fIterCurrItem <> nil);
-  
+
   if result then begin
     if Self.fIterCurrItem = nil then begin
       IterNode            :=  Self.fIterNodes[Self.fIterNodeInd];
       Self.fIterCurrItem  :=  IterNode.Item;
       Dec(Self.fIterNodeInd);
-      
+
       if IterNode.ChildNodes[LEFT_CHILD] <> nil then begin
         Inc(Self.fIterNodeInd);
         Self.fIterNodes[Self.fIterNodeInd]  :=  IterNode.ChildNodes[LEFT_CHILD];
@@ -941,7 +969,7 @@ begin
         Self.fIterNodes[Self.fIterNodeInd]  :=  IterNode.ChildNodes[RIGHT_CHILD];
       end;
     end; // .if
-    
+
     Key                 :=  Self.fIterCurrItem.Key;
     Value               :=  Self.fIterCurrItem.Value;
     Self.fIterCurrItem  :=  Self.fIterCurrItem.NextItem;
@@ -1002,7 +1030,7 @@ begin
       FreeMem(Node.Value);
     end;
   end;
-  
+
   Node.Value := nil;
 end; // .procedure TObjArray.FreeNodeValue
 
@@ -1022,7 +1050,7 @@ var
 {U} RightClosestNode:       PObjArrayNode;
     NodeIsRoot:             boolean;
     NodeSide:               TChildNodeSide;
-  
+
 begin
   {!} Assert(Node <> nil);
   RightClosestNodeParent := nil;
@@ -1031,7 +1059,7 @@ begin
   // * * * * * //
   Self.FreeNodeValue(Node);
   NodeIsRoot := ParentNode = nil;
-  
+
   if Self.NodeCount = 1 then begin
     {!} Assert(NodeIsRoot);
     {!} Assert(Node = Self.fRoot);
@@ -1056,7 +1084,7 @@ begin
       end else begin
         ParentNode.ChildNodes[NodeSide] := Node.ChildNodes[RIGHT_CHILD];
       end;
-      
+
       Dispose(Node); Node := nil;
     end // .elseif
     (* N
@@ -1068,7 +1096,7 @@ begin
       end else begin
         ParentNode.ChildNodes[NodeSide] := Node.ChildNodes[LEFT_CHILD];
       end;
-      
+
       Dispose(Node); Node := nil;
     end // .elseif
     (* N
@@ -1077,12 +1105,12 @@ begin
     else begin
       RightClosestNodeParent := Node;
       RightClosestNode       := Node.ChildNodes[RIGHT_CHILD];
-      
+
       while RightClosestNode.ChildNodes[LEFT_CHILD] <> nil do begin
         RightClosestNodeParent := RightClosestNode;
         RightClosestNode       := RightClosestNode.ChildNodes[LEFT_CHILD];
       end;
-      
+
       Node.Value := RightClosestNode.Value; RightClosestNode.Value := nil;
       Node.Hash  := RightClosestNode.Hash;
       Self.RemoveNode(RightClosestNodeParent, RightClosestNode);
@@ -1105,7 +1133,7 @@ begin
     New(result);
     result.Hash := Node.Hash;
     {!} Assert(Self.IsValidValue(Node.Value));
-    
+
     if (Node.Value = nil) or (not Self.OwnsItems) then begin
       result.Value := Node.Value;
     end else begin
@@ -1113,7 +1141,7 @@ begin
       {!} Assert(TObject(Node.Value) IS Utils.TCloneable);
       result.Value := Utils.TCloneable(Node.Value).Clone;
     end;
-    
+
     result.ChildNodes[LEFT_CHILD]  := Self.CloneNode(Node.ChildNodes[LEFT_CHILD]);
     result.ChildNodes[RIGHT_CHILD] := Self.CloneNode(Node.ChildNodes[RIGHT_CHILD]);
   end; // .else
@@ -1122,7 +1150,7 @@ end; // .function TObjArray.CloneNode
 procedure TObjArray.Assign (Source: Utils.TCloneable);
 var
 {U} SrcArr: TObjArray;
-  
+
 begin
   {!} Assert(not Self.Locked);
   {!} Assert(Source <> nil);
@@ -1158,11 +1186,11 @@ var
     NumNotProcessedNodes: integer;
 {U} CurrNode:             PObjArrayNode;
     i:                    integer;
-  
+
 begin
   SetLength(Res.NodeArray, Self.NodeCount);
   Res.NodeCount :=  Self.NodeCount;
-  
+
   if Self.NodeCount > 0 then begin
     CurrNode                :=  Self.fRoot;
     LeftInd                 :=  0;
@@ -1170,14 +1198,14 @@ begin
     RightInd                :=  Self.NodeCount;
     RightCheckInd           :=  RightInd - 1;
     NumNotProcessedNodes    :=  Self.NodeCount - 1;
-    
+
     while NumNotProcessedNodes > 0 do begin
       if CurrNode.ChildNodes[RIGHT_CHILD] <> nil then begin
         Dec(RightInd);
         Res.NodeArray[RightInd] :=  CurrNode.ChildNodes[RIGHT_CHILD];
         Dec(NumNotProcessedNodes);
       end;
-      
+
       if CurrNode.ChildNodes[LEFT_CHILD] <> nil then begin
         CurrNode  :=  CurrNode.ChildNodes[LEFT_CHILD];
         Inc(LeftInd);
@@ -1188,12 +1216,12 @@ begin
         Dec(RightCheckInd);
       end;
     end; // .while
-    
+
     for i:=0 to Self.NodeCount - 1 do begin
       Res.NodeArray[i].ChildNodes[LEFT_CHILD]   :=  nil;
       Res.NodeArray[i].ChildNodes[RIGHT_CHILD]  :=  nil;
     end;
-    
+
     Self.fRoot      :=  nil;
     Self.fNodeCount :=  0;
     Alg.CustomQuickSort(pointer(Res.NodeArray), 0, Res.NodeCount - 1, ObjArrayCompareNodes);
@@ -1204,12 +1232,12 @@ procedure TObjArray.Rebuild;
 var
   LinearNodeArray:  TLinearObjNodeArray;
   NodeArray:        TObjNodeArray;
-  
+
   procedure InsertNode (InsNode: PObjArrayNode);
   var
   {U} ParentNode: PObjArrayNode;
   {U} CurrNode:   PObjArrayNode;
-    
+
   begin
     {!} Assert(InsNode <> nil);
     ParentNode  :=  nil;
@@ -1219,16 +1247,16 @@ var
       ParentNode  :=  CurrNode;
       CurrNode    :=  CurrNode.ChildNodes[InsNode.Hash >= CurrNode.Hash];
     end;
-    
+
     ParentNode.ChildNodes[InsNode.Hash >= ParentNode.Hash]  :=  InsNode;
   end; // .procedure InsertNode
-  
+
   procedure InsertNodeRange (MinInd, MaxInd: integer);
   var
       RangeLen:   integer;
       MiddleInd:  integer;
   {U} InsNode:    PObjArrayNode;
-    
+
   begin
     RangeLen  :=  MaxInd - MinInd + 1;
     {!} Assert(RangeLen > 0);
@@ -1236,13 +1264,13 @@ var
     // * * * * * //
     MiddleInd :=  MinInd + (MaxInd - MinInd) shr 1;
     InsNode   :=  NodeArray[MiddleInd];
-    
+
     if Self.fRoot = nil then begin
       Self.fRoot  :=  InsNode;
     end else begin
       InsertNode(InsNode);
     end;
-    
+
     if RangeLen > 2 then begin
       InsertNodeRange(MinInd, MiddleInd - 1);
       InsertNodeRange(MiddleInd + 1, MaxInd);
@@ -1250,7 +1278,7 @@ var
       InsertNode(NodeArray[MiddleInd + 1]);
     end;
   end; // .procedure InsertNodeRange
-  
+
 begin
   {!} Assert(not Self.Locked);
   if Self.NodeCount > 2 then begin
@@ -1272,31 +1300,31 @@ var
   Hash:            integer;
   SearchDepth:     integer;
   CritSearchDepth: integer;
-  
+
 begin
   {!} Assert(ParentNode = nil);
   {!} Assert(ItemNode = nil);
-  result  :=  FALSE;
-  
+  result  :=  false;
+
   if Self.NodeCount > 0 then begin
     Hash            :=  Self.KeyToHash(Key);
     CritSearchDepth :=  Self.CalcCritDepth;
     SearchDepth     :=  1;
     ItemNode        :=  Self.fRoot;
-    
+
     while (ItemNode <> nil) and (ItemNode.Hash <> Hash) do begin
       Inc(SearchDepth);
       ParentNode  :=  ItemNode;
       ItemNode    :=  ItemNode.ChildNodes[Hash >= ItemNode.Hash];
     end;
-    
+
     if SearchDepth > CritSearchDepth then begin
       Self.Rebuild;
       ParentNode  :=  nil;
       ItemNode    :=  nil;
       result      :=  Self.FindItem(Key, ParentNode, ItemNode);
     end;
-    
+
     result  :=  ItemNode <> nil;
   end; // .if
 end; // .function TObjArray.FindItem
@@ -1305,7 +1333,7 @@ function TObjArray.GetValue ({n} Key: pointer): {n} pointer;
 var
 {U} ItemNode:   PObjArrayNode;
 {U} ParentNode: PObjArrayNode;
-  
+
 begin
   ItemNode    :=  nil;
   ParentNode  :=  nil;
@@ -1321,14 +1349,14 @@ function TObjArray.GetExistingValue ({n} Key: pointer; out {Un} Res: pointer): b
 var
 {U} ItemNode:   PObjArrayNode;
 {U} ParentNode: PObjArrayNode;
-  
+
 begin
   {!} Assert(Res = nil);
   ItemNode    :=  nil;
   ParentNode  :=  nil;
   // * * * * * //
   result  :=  Self.FindItem(Key, ParentNode, ItemNode);
-  
+
   if result then begin
     Res :=  ItemNode.Value;
   end;
@@ -1339,7 +1367,7 @@ var
 {U} ItemNode:   PObjArrayNode;
 {U} ParentNode: PObjArrayNode;
 {O} NewNode:    PObjArrayNode;
-  
+
 begin
   ItemNode    :=  nil;
   ParentNode  :=  nil;
@@ -1358,27 +1386,27 @@ begin
     NewNode.ChildNodes[LEFT_CHILD]  :=  nil;
     NewNode.ChildNodes[RIGHT_CHILD] :=  nil;
     Inc(Self.fNodeCount);
-    
+
     if Self.NodeCount > 1 then begin
       ParentNode.ChildNodes[NewNode.Hash >= ParentNode.Hash]  :=  NewNode; NewNode  :=  nil;
     end else begin
       Self.fRoot  :=  NewNode; NewNode  :=  nil;
     end;
-  end; // .else   
+  end; // .else
 end; // .procedure TObjArray.SetValue
 
 function TObjArray.DeleteItem ({n} Key: pointer): boolean;
 var
 {U} ParentNode: PObjArrayNode;
 {U} ItemNode:   PObjArrayNode;
-  
+
 begin
   {!} Assert(not Self.Locked);
   ItemNode   := nil;
   ParentNode := nil;
   // * * * * * //
   result := Self.FindItem(Key, ParentNode, ItemNode);
-  
+
   if result then begin
     Self.RemoveNode(ParentNode, ItemNode);
     Dec(Self.fNodeCount);
@@ -1396,7 +1424,7 @@ begin
   ParentNode := nil;
   // * * * * * //
   result := Self.FindItem(Key, ParentNode, ItemNode);
-  
+
   if result then begin
     Value := ItemNode.Value;
     {!} Assert(Self.IsValidValue(nil));
@@ -1416,7 +1444,7 @@ begin
   ParentNode := nil;
   // * * * * * //
   result := Self.FindItem(Key, ParentNode, ItemNode);
-  
+
   if result then begin
     OldValue       := ItemNode.Value;
     ItemNode.Value := NewValue;
@@ -1426,34 +1454,34 @@ end; // .function TObjArray.ReplaceValue
 procedure TObjArray.EndIterate;
 begin
   {!} Assert(Self.fLocked);
-  Self.fLocked := FALSE;
+  Self.fLocked := false;
 end;
 
 procedure TObjArray.BeginIterate;
 var
   OptimalNumIterNodes: integer;
-  
+
 begin
   {!} Assert(not Self.fLocked);
   OptimalNumIterNodes :=  Self.CalcCritDepth + 1;
-  
+
   if Length(Self.fIterNodes) < OptimalNumIterNodes then begin
     SetLength(Self.fIterNodes, OptimalNumIterNodes);
   end;
-  
+
   if Self.NodeCount > 0 then begin
     Self.fIterNodeInd  := 0;
     Self.fIterNodes[0] := Self.fRoot;
   end else begin
     Self.fIterNodeInd := -1;
   end;
-  
-  Self.fLocked := TRUE;
+
+  Self.fLocked := true;
 end; // .procedure TObjArray.BeginIterate
 
 function TObjArray.IterateNext (out {Un} Key: pointer; out {Un} Value: pointer): boolean;
 var
-{U} IterNode: PObjArrayNode;  
+{U} IterNode: PObjArrayNode;
 
 begin
   {!} Assert(Self.Locked);
@@ -1462,21 +1490,21 @@ begin
   IterNode := nil;
   // * * * * * //
   result := Self.fIterNodeInd >= 0;
-  
+
   if result then begin
     IterNode  :=  Self.fIterNodes[Self.fIterNodeInd];
     Dec(Self.fIterNodeInd);
-    
+
     if IterNode.ChildNodes[LEFT_CHILD] <> nil then begin
       Inc(Self.fIterNodeInd);
       Self.fIterNodes[Self.fIterNodeInd] := IterNode.ChildNodes[LEFT_CHILD];
     end;
-    
+
     if IterNode.ChildNodes[RIGHT_CHILD] <> nil then begin
       Inc(Self.fIterNodeInd);
       Self.fIterNodes[Self.fIterNodeInd] := IterNode.ChildNodes[RIGHT_CHILD];
     end;
-    
+
     Key   := Self.HashToKey(IterNode.Hash);
     Value := IterNode.Value;
   end; // .if
@@ -1535,7 +1563,7 @@ begin
   );
 end; // .function NewSimpleAssocArr
 
-function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = TRUE): TAssocArray;
+function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TAssocArray;
 begin
   result := NewAssocArr
   (
