@@ -114,6 +114,7 @@ type
       function  CalcCritDepth: integer;
       procedure Rebuild;
       function  GetValue (Key: string): {n} pointer;
+      function  HasKey (Key: string): boolean;
       function  GetExistingValue (Key: string; out {Un} Res: pointer): boolean;
       procedure SetValue (Key: string; {OUn} NewValue: pointer);
       function  DeleteItem (Key: string): boolean;
@@ -727,6 +728,25 @@ begin
     result  :=  nil;
   end;
 end; // .function TAssocArray.GetValue
+
+function TAssocArray.HasKey (Key: string): boolean;
+var
+{U} ItemNode:   PAssocArrayNode;
+{U} ParentNode: PAssocArrayNode;
+{U} Item:       PAssocArrayItem;
+{U} ParentItem: PAssocArrayItem;
+    Hash:       integer;
+
+begin
+  ItemNode   := nil;
+  ParentNode := nil;
+  Item       := nil;
+  ParentItem := nil;
+  // * * * * * //
+  Key    := Self.GetPreprocessedKey(Key);
+  Hash   := Self.HashFunc(Key);
+  result := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
+end;
 
 function TAssocArray.GetExistingValue (Key: string; out {Un} Res: pointer): boolean;
 var
