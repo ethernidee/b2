@@ -11,7 +11,7 @@ const
   WAIT_ALL           = true;
   WAIT_SINGLE_OBJECT = not WAIT_ALL;
 
-type  
+type
   PBgraPix = ^TBgraPix;
   TBgraPix = packed record
     case boolean of
@@ -24,7 +24,7 @@ type
         Alpha: byte;
       );
   end; // .record TBgraPix
-  
+
   PBgraBuf = ^TBgraBuf;
   TBgraBuf = array [0..MAXLONGINT div sizeof(TBgraPix) - 1] of TBgraPix;
 
@@ -216,7 +216,7 @@ begin
       ImageDeviceContext := CreateCompatibleDC(WindowDeviceContext);
       ImageHandle        := CreateCompatibleBitmap(WindowDeviceContext, VisibleRectWidth,
                                                    VisibleRectHeight);
-      
+
       OldImage := SelectObject(ImageDeviceContext, ImageHandle);
       BitBlt(ImageDeviceContext, 0, 0, VisibleRectWidth, VisibleRectHeight, WindowDeviceContext,
              VisibleRect.Left, VisibleRect.Top, SRCCOPY);
@@ -326,7 +326,7 @@ begin
   result     := WR_FAILED;
   i          := 0;
   NumObjects := 0;
-  
+
   while (i < Length(Objects)) do begin
     if IsValidHandle(Objects[i]) then begin
       Objects[NumObjects] := Objects[i];
@@ -341,7 +341,7 @@ begin
       WaitRes := WaitForSingleObject(Objects[0], TimeoutMsec);
     end else begin
       WaitRes := WaitForMultipleObjects(NumObjects, @Objects, WaitAll, TimeoutMsec);
-    end;    
+    end;
 
     if WaitRes < cardinal(NumObjects) then begin
       result   := WR_WAITED;
@@ -365,7 +365,7 @@ var
 
 begin
   Windows.GetSystemTimeAsFileTime(Time);
-  result := Int64(Time.dwLowDateTime) + (Int64(Time.dwHighDateTime) shl 32) + Int64(116444736000000000);
+  result := PInt64(@Time)^ + Int64(116444736000000000);
 end;
 
 function GetSysDirW: WideString;
@@ -379,7 +379,7 @@ begin
   if PathLen > 1 then begin
     SetLength(result, PathLen - 1);
     PathLen := Windows.GetSystemDirectoryW(pointer(result), PathLen);
-    
+
     if PathLen <> Length(result) then begin
       result := '';
     end;
