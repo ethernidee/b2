@@ -118,7 +118,7 @@ begin
   if not result then begin
     try
       result := Windows.VirtualProtect(Dst, NumBytes, Windows.PAGE_EXECUTE_READWRITE, @OldPageProtect);
-      
+
       if result then begin
         Utils.CopyMem(NumBytes, Src, Dst);
         Windows.VirtualProtect(Dst, NumBytes, OldPageProtect, @OldPageProtect);
@@ -189,7 +189,7 @@ begin
 
   // === BEGIN generating SpliceBridge ===
   if ShouldDuplicateArgs then begin
-    (* Prepare to duplicate arguments *) 
+    (* Prepare to duplicate arguments *)
     //   PUSH ESI
     //   PUSH EDI
     //   LEA ESI, [ESP + 12.]
@@ -197,7 +197,7 @@ begin
     //   ADD ESI, NumStackArgs * 4
     p.WriteHex('56578D74E40C89F781C6').WriteInt(NumStackArgs * sizeof(integer));
   end;
-  
+
   (* Push pascal/delphi register arguments and extra arguments *)
   if (CallingConv = CONV_PASCAL) or (CallingConv = CONV_REGISTER) then begin
     // PUSH OrigFuncBridge
@@ -223,9 +223,9 @@ begin
       end;
     end; // .if
   end; // .if
-  
+
   if ShouldDuplicateArgs then begin
-    (* Duplicate stack arguments *) 
+    (* Duplicate stack arguments *)
     // @Loop:
     //   SUB ESI, 4
     //   PUSH [DWORD ESI]
@@ -234,7 +234,7 @@ begin
     p.PutLabel('LoopCopyArgs').WriteHex('83EE04FF3639FE');
     p.JumpLabel(PatchForge.JNE, 'LoopCopyArgs');
   end;
-  
+
   if not ShouldDuplicateArgs then begin
     // POP EAX; remember return address
     p.WriteByte($58);
@@ -285,13 +285,13 @@ begin
     // Jump to new handler, the return will lead to original calling function
     p.Jump(PatchForge.JMP, HandlerFunc);
   end; // .else
-  
+
   // Ensure original code bridge is aligned
   p.Nop(p.Pos mod CODE_ADDR_ALIGNMENT);
 
   // Set result to offset from splice bridge start to original function bridge
   result := pointer(p.Pos);
-  
+
   // Write original function bridge
   p.PutLabel('OrigFuncBridge');
   OrigCodeBridgeStartPos := p.Pos;
@@ -334,11 +334,10 @@ const
 
 
 var
-{O}  p:                      PatchForge.TPatchHelper;
-{OI} HandlerBridge:          pbyte; // Memory is owned by AppliedPatch or never freed
-     DontExecOrigCodeLabel:  string;
-     OrigCodeBridgeStartPos: integer;
-     OverwrittenCodeSize:    integer;
+{O}  p:                     PatchForge.TPatchHelper;
+{OI} HandlerBridge:         pbyte; // Memory is owned by AppliedPatch or never freed
+     DontExecOrigCodeLabel: string;
+     OverwrittenCodeSize:   integer;
 
 begin
   {!} Assert(Addr <> nil);
@@ -374,7 +373,7 @@ begin
   p.PutLabel(DontExecOrigCodeLabel);
   p.WriteByte(INSTR_POPAD);
   p.WriteByte(PatchForge.OPCODE_RET);
-  // === END generating HandlerBridge ===  
+  // === END generating HandlerBridge ===
 
   // Persist handler bridge
   AllocMem(HandlerBridge, p.Size);
