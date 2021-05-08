@@ -13,7 +13,7 @@ const
   (* Relations between containers and their items *)
   OWNS_ITEMS        = TRUE;
   ITEMS_ARE_OBJECTS = TRUE;
-  
+
   (* Items guards *)
   ALLOW_NIL     = TRUE;
   NO_TYPEGUARD  = nil;
@@ -32,7 +32,7 @@ type
   pclass    = ^TClass;
   PCharByte = ^char;
   plongbool = ^LONGBOOL;
-  
+
   (* Array pointers *)
   TEndlessByteArr       = array [0..MAXLONGINT div sizeof(byte) - 1] of byte;
   PEndlessByteArr       = ^TEndlessByteArr;
@@ -73,30 +73,30 @@ type
   TArrayOfInt      = array of integer;
   TArrayOfStr      = array of string;
   TArrayOfWideChar = array of WideChar;
-  
+
   TCharSet  = set of char;
-  
+
   TEmptyRec = packed record end;
-  
+
   TProcedure    = procedure;
   TObjProcedure = procedure of object;
-  
+
   TCloneable  = class
     procedure Assign (Source: TCloneable); virtual;
     function  Clone: TCloneable;
   end; // .class TCloneable
-  
+
   (* Containers items guards *)
   TItemGuard      = TCloneable;
   TItemGuardProc  = function ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
-  
+
   TDefItemGuard = class (TCloneable)
     ItemType: TClass;
     AllowNIL: boolean;
-    
+
     procedure Assign (Source: TCloneable); override;
   end; // .class TDefItemGuard
-  
+
   TEventHandler = procedure ({n} Mes: TObject) of object;
 
   (* Any Delphi's interface implementation, capable to be converted back to object *)
@@ -131,7 +131,7 @@ type
 
     (* Makes object fully managable via interfaces only if HasMainOwner() is true. Raw object pointer must not be used afterwards *)
     procedure ReleaseMainOwnage;
-    
+
     function GetSelf: TInterfaceAwareObject;
     function HasMainOwner: boolean;
     function BecomeMainOwner: {O} TInterfaceAwareObject;
@@ -200,7 +200,9 @@ function Flags (Value: integer): TFlags; inline;
 function ChangeFlags (var Value: integer): TFlagsChanger; inline;
 
 (* Low level functions *)
-function  PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer; inline;
+function  PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer; overload; inline;
+function  PtrOfs ({n} BasePtr: pointer; ItemIndex, ItemSize: integer): pointer; overload; inline;
+function  ItemPtrToIndex ({n} ItemPtr, {n} ArrPtr: pointer; ItemSize: integer): integer; inline;
 function  IsValidBuf ({n} Buf: pointer; BufSize: integer): boolean;
 procedure CopyMem (Count: integer; {n} Source, Destination: pointer);
 procedure Exchange (var A, B); inline;
@@ -324,9 +326,19 @@ begin
   result         := Self;
 end;
 
-function PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer;
+function PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer; overload;
 begin
   result := pointer(integer(BasePtr) + Offset);
+end;
+
+function PtrOfs ({n} BasePtr: pointer; ItemIndex, ItemSize: integer): pointer; overload;
+begin
+  result := pointer(cardinal(BasePtr) + cardinal(ItemIndex) * cardinal(ItemSize));
+end;
+
+function ItemPtrToIndex ({n} ItemPtr, {n} ArrPtr: pointer; ItemSize: integer): integer; inline;
+begin
+  result := integer((cardinal(ItemPtr) - cardinal(ArrPtr)) div cardinal(ItemSize));
 end;
 
 function IsValidBuf ({n} Buf: pointer; BufSize: integer): boolean;
@@ -355,23 +367,23 @@ end;
 procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer); overload;
 var
   NumBytesToCopy: integer;
-   
+
 begin
   {!} Assert(What <> nil);
   {!} Assert(BufSize > 0);
   NumBytesToCopy := Math.Min(Length(Value), BufSize - 1);
-  
+
   if NumBytesToCopy > 0 then begin
     CopyMem(NumBytesToCopy, pchar(Value), What);
   end;
-  
+
   PCharByte(PtrOfs(What, NumBytesToCopy))^ := #0;
 end; // .procedure SetPcharValue
 
 procedure SetPcharValue (What: pchar; {n} Value: pchar; BufSize: integer); overload;
 var
   NumBytesToCopy: integer;
-   
+
 begin
   {!} Assert(What <> nil);
   {!} Assert(BufSize > 0);
@@ -379,11 +391,11 @@ begin
     What^ := #0;
   end else begin
     NumBytesToCopy := Math.Min(Windows.LStrLen(Value), BufSize - 1);
-    
+
     if NumBytesToCopy > 0 then begin
       CopyMem(NumBytesToCopy, Value, What);
     end;
-    
+
     PCharByte(PtrOfs(What, NumBytesToCopy))^ := #0;
   end;
 end; // .procedure SetPcharValue
@@ -442,7 +454,7 @@ end;
 function DefItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 var
 (* U *) MyGuard:  TDefItemGuard;
-  
+
 begin
   {!} Assert(Guard <> nil);
   MyGuard :=  Guard AS TDefItemGuard;
