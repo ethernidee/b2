@@ -13,7 +13,7 @@ type
   TCompareFunc   = function (Value1, Value2: integer): integer;
   TCompareMethod = function (Value1, Value2: integer): integer of object;
   TCompareFuncEx = function (Value1, Value2: integer; {n} State: pointer): integer;
-  
+
   TQuickSortAdapter = class abstract
     function  CompareItems (Ind1, Ind2: integer): integer; virtual; abstract;
     procedure SwapItems (Ind1, Ind2: integer); virtual; abstract;
@@ -29,7 +29,7 @@ function IntRoundToBoundary (Value, Boundary: integer; Ceil: boolean = true): in
 function  ToRange (Value, MinValue, MaxValue: integer; OnRangeMinMaxConflict: TOnRangeMinMaxConflict = FORCE_MIN_VALUE): integer;
 function  InRange (Value, MinValue, MaxValue: cardinal): boolean; overload; inline;
 function  InRange (Value, MinValue, MaxValue: integer): boolean; overload; inline;
-function  IntLog2 (Num: integer): integer; {=> Ceil(Log2(N)), N > 0}
+function  IntLog2 (Num: integer): integer; {=> Ceil(Log2(cardinal(N)))}
 
 (* Returns number of decimal digits in integer *)
 function CountDigits (Num: integer): integer;
@@ -107,25 +107,25 @@ begin
   result := (Value >= MinValue) and (Value <= MaxValue);
 end;
 
-function IntLog2 (Num: integer): integer;
-var
-  TestValue: cardinal;
-  
-begin
-  {!} Assert(Num > 0);
-  result    := 0;
-  TestValue := 1;
-  
-  while TestValue < cardinal(Num) do begin
-    Inc(result);
-    TestValue := TestValue shl 1;
-  end;
+function IntLog2 (Num: integer): integer; assembler;
+asm
+  test eax, eax
+  jz @ret0
+  bsr ecx, eax
+  mov edx, 1
+  shl edx, cl
+  sub edx, eax
+  shr edx, 31
+  lea eax, [ecx + edx]
+  ret
+@ret0:
+  xor eax, eax
 end; // .function IntLog2
 
 function CountDigits (Num: integer): integer;
 var
   i: integer;
-  
+
 begin
   if Num < 0 then begin
     Num := -Num;
@@ -311,37 +311,37 @@ var
   LeftInd:   integer;
   RightInd:  integer;
   PivotItem: integer;
-  
+
   procedure ExchangeItems (Ind1, Ind2: integer);
   var
     TransfValue: integer;
-     
+
   begin
     TransfValue := Arr[Ind1];
     Arr[Ind1]   := Arr[Ind2];
     Arr[Ind2]   := TransfValue;
   end;
-  
+
 begin
   RangeLen := MaxInd - MinInd + 1;
   {!} Assert(RangeLen >= 0);
   {!} Assert(Utils.IsValidBuf(Arr, RangeLen));
   {!} Assert(MinInd >= 0);
-  
+
   while MinInd < MaxInd do begin
     LeftInd   := MinInd;
     RightInd  := MaxInd;
     PivotItem := Arr[MinInd + (MaxInd - MinInd) div 2];
-    
+
     while LeftInd <= RightInd do begin
       while CompareItems(Arr[LeftInd], PivotItem) < 0 do begin
         Inc(LeftInd);
       end;
-      
+
       while CompareItems(Arr[RightInd], PivotItem) > 0 do begin
         Dec(RightInd);
       end;
-      
+
       if LeftInd <= RightInd then begin
         if CompareItems(Arr[LeftInd], Arr[RightInd]) > 0 then begin
           ExchangeItems(LeftInd, RightInd);
@@ -351,20 +351,20 @@ begin
         end;
       end;
     end; // .while
-    
+
     (* MIN__RIGHT|{PIVOT}|LEFT__MAX *)
-    
+
     if (RightInd - MinInd) < (MaxInd - LeftInd) then begin
       if RightInd > MinInd then begin
         CustomQuickSort(Arr, MinInd, RightInd, CompareItems);
       end;
-      
+
       MinInd := LeftInd;
     end else begin
       if MaxInd > LeftInd then begin
         CustomQuickSort(Arr, LeftInd, MaxInd, CompareItems);
       end;
-      
+
       MaxInd := RightInd;
     end; // .else
   end; // .while
@@ -377,37 +377,37 @@ var
   LeftInd:   integer;
   RightInd:  integer;
   PivotItem: integer;
-  
+
   procedure ExchangeItems (Ind1, Ind2: integer);
   var
     TransfValue: integer;
-     
+
   begin
     TransfValue := Arr[Ind1];
     Arr[Ind1]   := Arr[Ind2];
     Arr[Ind2]   := TransfValue;
   end;
-  
+
 begin
   RangeLen := MaxInd - MinInd + 1;
   {!} Assert(RangeLen >= 0);
   {!} Assert(Utils.IsValidBuf(Arr, RangeLen));
   {!} Assert(MinInd >= 0);
-  
+
   while MinInd < MaxInd do begin
     LeftInd   := MinInd;
     RightInd  := MaxInd;
     PivotItem := Arr[MinInd + (MaxInd - MinInd) div 2];
-    
+
     while LeftInd <= RightInd do begin
       while CompareItems(Arr[LeftInd], PivotItem) < 0 do begin
         Inc(LeftInd);
       end;
-      
+
       while CompareItems(Arr[RightInd], PivotItem) > 0 do begin
         Dec(RightInd);
       end;
-      
+
       if LeftInd <= RightInd then begin
         if CompareItems(Arr[LeftInd], Arr[RightInd]) > 0 then begin
           ExchangeItems(LeftInd, RightInd);
@@ -417,20 +417,20 @@ begin
         end;
       end;
     end; // .while
-    
+
     (* MIN__RIGHT|{PIVOT}|LEFT__MAX *)
-    
+
     if (RightInd - MinInd) < (MaxInd - LeftInd) then begin
       if RightInd > MinInd then begin
         CustomQuickSort(Arr, MinInd, RightInd, CompareItems);
       end;
-      
+
       MinInd := LeftInd;
     end else begin
       if MaxInd > LeftInd then begin
         CustomQuickSort(Arr, LeftInd, MaxInd, CompareItems);
       end;
-      
+
       MaxInd := RightInd;
     end; // .else
   end; // .while
@@ -441,27 +441,27 @@ var
   RangeLen: integer;
   LeftInd:  integer;
   RightInd: integer;
-  
+
 begin
   RangeLen := MaxInd - MinInd + 1;
   {!} Assert(RangeLen >= 0);
   {!} Assert(Utils.IsValidBuf(pointer(Obj), RangeLen));
   {!} Assert(MinInd >= 0);
-  
+
   while MinInd < MaxInd do begin
     LeftInd  := MinInd;
     RightInd := MaxInd;
     Obj.SavePivotItem(MinInd + (MaxInd - MinInd) div 2);
-    
+
     while LeftInd <= RightInd do begin
       while Obj.CompareToPivot(LeftInd) < 0 do begin
         Inc(LeftInd);
       end;
-      
+
       while Obj.CompareToPivot(RightInd) > 0 do begin
         Dec(RightInd);
       end;
-      
+
       if LeftInd <= RightInd then begin
         if Obj.CompareItems(LeftInd, RightInd) > 0 then begin
           Obj.SwapItems(LeftInd, RightInd);
@@ -471,20 +471,20 @@ begin
         end;
       end;
     end; // .while
-    
+
     (* MIN__RIGHT|{PIVOT}|LEFT__MAX *)
-    
+
     if (RightInd - MinInd) < (MaxInd - LeftInd) then begin
       if RightInd > MinInd then begin
         QuickSortEx(Obj, MinInd, RightInd);
       end;
-      
+
       MinInd :=  LeftInd;
     end else begin
       if MaxInd > LeftInd then begin
         QuickSortEx(Obj, LeftInd, MaxInd);
       end;
-      
+
       MaxInd  :=  RightInd;
     end; // .else
   end; // .while
