@@ -6,6 +6,10 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 
 (***)  interface  (***)
 
+
+uses
+  Utils;
+
 const
   Crc32Table: array[0..255] of cardinal =
   (
@@ -110,7 +114,7 @@ const
     198,  210,  227,  049,  251,  098,  002,  032,
     130,  195,  242,  243,  089,  025,  202,  050
   );
-  
+
   RevByteRedirTable:  array [0..255] of byte  =
   (
     115,  010,  246,  089,  231,  049,  176,  132,
@@ -153,7 +157,7 @@ type
 
 
 {
-Name  : CRC-32
+Name  : CRC-32(B)
 Poly  : 0x04C11DB7  x^32 + x^26 + x^23 + x^22 + x^16 + x^12 + x^11 + x^10 + x^8 + x^7 + x^5 + x^4 + x^2 + x + 1
 Init  : 0xFFFFFFFF
 Revert: true
@@ -163,6 +167,10 @@ MaxLen: 268 435 455 байт (2 147 483 647 бит) - detects single, double, packet an
 }
 function  Crc32 (PStr: pchar; StrLen: integer): integer;
 function  AnsiCrc32 (const Str: string): integer;
+
+(* Warning! Requires SSE 4.2 support. Shows 8X performance, as compared to 1-byte tabular CRC32 implementation *)
+function Crc32c (PStr: pchar; StrLen: integer): integer;
+function AnsiCrc32c (const Str: string): integer;
 
 {
 Name:         Bb2011
@@ -178,7 +186,17 @@ function  Tm32Encode (Value: integer): integer;
 function  Tm32Decode (Encoded: integer): integer;
 
 
+var
+  (* Hashing routines for runtime in-memory usage only *)
+  FastHash:     function (PStr: pchar; StrLen: integer): integer;
+  FastAnsiHash: function (const Str: string): integer;
+
+
 (***)  implementation  (***)
+
+
+var
+  Sse42Supported: boolean = false;
 
 
 function Crc32 (PStr: pchar; StrLen: integer): integer;
@@ -188,18 +206,52 @@ var
 begin
   {!} Assert((StrLen >= 0) and ((PStr <> nil) or (StrLen = 0)));
   result := -1;
-  
+
   for i := 1 to StrLen do begin
     result := (result shr 8) xor integer(Crc32Table[(result xor ord(PStr^)) and $FF]);
     Inc(PStr);
   end;
-  
+
   result := result xor -1;
 end; // .function Crc32
 
 function AnsiCrc32 (const Str: string): integer;
 begin
   result := Crc32(pointer(Str), Length(Str));
+end;
+
+function Crc32c (PStr: pchar; StrLen: integer): integer; assembler;
+asm
+  push edi
+  mov edi, eax
+  xor eax, eax
+  dec eax
+  mov ecx, edx
+  and ecx, $FFFFFFFC
+  shr ecx, 2
+  jz @@end_crc_dword
+@@crc_dword:
+  db $F2, $0F, $38, $F1, $07 // crc32 eax, [dword edi]
+  add edi, 4
+  dec ecx
+  jnz @@crc_dword
+@@end_crc_dword:
+  mov ecx, edx
+  and ecx, $00000003
+  jz @@end_crc_byte
+@@crc_byte:
+  db $F2, $0F, $38, $F0, $07 // crc32 eax, [byte edi]
+  inc edi
+  dec ecx
+  jnz @@crc_byte
+@@end_crc_byte:
+  xor eax, -1
+  pop edi
+end; // .function Crc32c
+
+function AnsiCrc32c (const Str: string): integer;
+begin
+  result := Crc32c(pointer(Str), Length(Str));
 end;
 
 function Bb2011Encode (Value: integer): integer;
@@ -232,4 +284,13 @@ begin
   result := (result shr 16) xor result;
 end;
 
+begin
+  Sse42Supported := Utils.IsSse42Supported;
+  FastHash       := Crc32;
+  FastAnsiHash   := AnsiCrc32;
+
+  if Sse42Supported then begin
+    FastHash     := Crc32c;
+    FastAnsiHash := AnsiCrc32c;
+  end;
 end.
