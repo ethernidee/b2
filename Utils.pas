@@ -193,6 +193,8 @@ type
     function SetValue (Value: integer): TFlagsChanger; inline;
   end;
 
+function IsSse42Supported: boolean;
+
 (* Wraps integer in TFlags structure *)
 function Flags (Value: integer): TFlags; inline;
 
@@ -244,6 +246,17 @@ function ToObject (Intf: System.IInterface): {n} TObject;
 
 (***)  implementation  (***)
 
+
+function IsSse42Supported: boolean; assembler;
+asm
+  push ebx
+  mov eax, 1
+  cpuid
+  shr ecx, 20
+  and ecx, 1
+  mov eax, ecx
+  pop ebx
+end;
 
 function Flags (Value: integer): TFlags;
 begin
