@@ -111,13 +111,13 @@ type
       procedure Clear;
       function  GetPreprocessedKey (const Key: string): string;
       function  IsValidValue ({n} Value: pointer): boolean;
-      function  CalcCritDepth: integer;
+      function  CalcCritDepth: integer; inline;
       procedure Rebuild;
-      function  GetValue (Key: string): {n} pointer;
-      function  HasKey (Key: string): boolean;
-      function  GetExistingValue (Key: string; out {Un} Res: pointer): boolean;
-      procedure SetValue (Key: string; {OUn} NewValue: pointer);
-      function  DeleteItem (Key: string): boolean;
+      function  GetValue (const Key: string): {n} pointer;
+      function  HasKey (const Key: string): boolean;
+      function  GetExistingValue (const Key: string; out {Un} Res: pointer): boolean;
+      procedure SetValue (const Key: string; {OUn} NewValue: pointer);
+      function  DeleteItem (const Key: string): boolean;
 
       (* Returns value with specified key and NILify it in the array *)
       function  TakeValue (Key: string; out {OUn} Value: pointer): boolean;
@@ -144,7 +144,7 @@ type
       property  ItemGuardProc:      Utils.TItemGuardProc read fItemGuardProc;
       property  NodeCount:          integer read fNodeCount;
       property  Locked:             boolean read fLocked;
-      property  Items[Key: string]: pointer read {n} GetValue write {OUn} SetValue; default;
+      property  Items[const Key: string]: pointer read {n} GetValue write {OUn} SetValue; default;
   end; // .class TAssocArray
 
   PObjArrayNode = ^TObjArrayNode;
@@ -205,7 +205,7 @@ type
       procedure Assign (Source: Utils.TCloneable); override;
       procedure Clear;
       function  IsValidValue ({n} Value: pointer): boolean;
-      function  CalcCritDepth: integer;
+      function  CalcCritDepth: integer; inline;
       procedure Rebuild;
       function  GetValue ({n} Key: pointer): {n} pointer;
       function  GetExistingValue ({n} Key: pointer; out {Un} Res: pointer): boolean;
@@ -266,6 +266,10 @@ function  NewStrictObjArr ({n} TypeGuard: TClass): TObjArray;
 
 
 (***)  implementation  (***)
+
+
+const
+  DEBUG_BUILD = false;
 
 
 constructor TAssocArray.Create
@@ -655,87 +659,66 @@ end; // .procedure TAssocArray.Rebuild
 
 function TAssocArray.FindItem
 (
-              Hash:       integer;
-        const Key:        string;
-  out {ni}   ParentNode: PAssocArrayNode;
-  out {ni}   ItemNode:   PAssocArrayNode;
-  out {ni}   ParentItem: PAssocArrayItem;
-  out {ni}   Item:       PAssocArrayItem
+           Hash:       integer;
+     const Key:        string;
+  out {ni} ParentNode: PAssocArrayNode;
+  out {ni} ItemNode:   PAssocArrayNode;
+  out {ni} ParentItem: PAssocArrayItem;
+  out {ni} Item:       PAssocArrayItem
 ): boolean;
 
 var
-  SearchDepth:      integer;
-  CritSearchDepth:  integer;
+  SearchDepth:     integer;
+  CritSearchDepth: integer;
 
 begin
-  {!} Assert(ParentNode = nil);
-  {!} Assert(ItemNode = nil);
-  {!} Assert(ParentItem = nil);
-  {!} Assert(Item = nil);
-  result  :=  false;
+  if DEBUG_BUILD then begin
+    {!} Assert(ParentNode = nil);
+    {!} Assert(ItemNode = nil);
+    {!} Assert(ParentItem = nil);
+    {!} Assert(Item = nil);
+  end;
+
+  result := false;
 
   if Self.NodeCount > 0 then begin
-    CritSearchDepth :=  Self.CalcCritDepth;
-    SearchDepth     :=  1;
-    ItemNode        :=  Self.fRoot;
+    CritSearchDepth := Self.CalcCritDepth;
+    SearchDepth     := 1;
+    ItemNode        := Self.fRoot;
 
     while (ItemNode <> nil) and (ItemNode.Hash <> Hash) do begin
       Inc(SearchDepth);
-      ParentNode  :=  ItemNode;
-      ItemNode    :=  ItemNode.ChildNodes[Hash >= ItemNode.Hash];
+      ParentNode := ItemNode;
+      ItemNode   := ItemNode.ChildNodes[Hash >= ItemNode.Hash];
     end;
 
     if SearchDepth > CritSearchDepth then begin
       Self.Rebuild;
-      ParentNode  :=  nil;
-      ItemNode    :=  nil;
-      ParentItem  :=  nil;
-      Item        :=  nil;
-      result      :=  Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
+      ParentNode := nil;
+      ItemNode   := nil;
+      ParentItem := nil;
+      Item       := nil;
+      result     := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
     end else if ItemNode <> nil then begin
-      Item  :=  ItemNode.Item;
+      Item := ItemNode.Item;
 
       while (Item <> nil) and (Self.GetPreprocessedKey(Item.Key) <> Key) do begin
-        ParentItem  :=  Item;
-        Item        :=  Item.NextItem;
+        ParentItem := Item;
+        Item       := Item.NextItem;
       end;
 
-      result  :=  Item <> nil;
+      result := Item <> nil;
     end; // .elseif
   end; // .if
 end; // .function TAssocArray.FindItem
 
-function TAssocArray.GetValue (Key: string): {n} pointer;
+function TAssocArray.GetValue (const Key: string): {n} pointer;
 var
-{U} ItemNode:   PAssocArrayNode;
-{U} ParentNode: PAssocArrayNode;
-{U} Item:       PAssocArrayItem;
-{U} ParentItem: PAssocArrayItem;
-    Hash:       integer;
-
-begin
-  ItemNode    :=  nil;
-  ParentNode  :=  nil;
-  Item        :=  nil;
-  ParentItem  :=  nil;
-  // * * * * * //
-  Key  := Self.GetPreprocessedKey(Key);
-  Hash := Self.HashFunc(Key);
-
-  if Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item) then begin
-    result  :=  Item.Value;
-  end else begin
-    result  :=  nil;
-  end;
-end; // .function TAssocArray.GetValue
-
-function TAssocArray.HasKey (Key: string): boolean;
-var
-{U} ItemNode:   PAssocArrayNode;
-{U} ParentNode: PAssocArrayNode;
-{U} Item:       PAssocArrayItem;
-{U} ParentItem: PAssocArrayItem;
-    Hash:       integer;
+{U} ItemNode:        PAssocArrayNode;
+{U} ParentNode:      PAssocArrayNode;
+{U} Item:            PAssocArrayItem;
+{U} ParentItem:      PAssocArrayItem;
+    PreprocessedKey: string;
 
 begin
   ItemNode   := nil;
@@ -743,36 +726,59 @@ begin
   Item       := nil;
   ParentItem := nil;
   // * * * * * //
-  Key    := Self.GetPreprocessedKey(Key);
-  Hash   := Self.HashFunc(Key);
-  result := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
+
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  result          := nil;
+
+  if Self.FindItem(Self.HashFunc(PreprocessedKey), PreprocessedKey, ParentNode, ItemNode, ParentItem, Item) then begin
+    result := Item.Value;
+  end;
+end; // .function TAssocArray.GetValue
+
+function TAssocArray.HasKey (const Key: string): boolean;
+var
+{U} ItemNode:        PAssocArrayNode;
+{U} ParentNode:      PAssocArrayNode;
+{U} Item:            PAssocArrayItem;
+{U} ParentItem:      PAssocArrayItem;
+    PreprocessedKey: string;
+
+begin
+  ItemNode   := nil;
+  ParentNode := nil;
+  Item       := nil;
+  ParentItem := nil;
+  // * * * * * //
+
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  result          := Self.FindItem(Self.HashFunc(PreprocessedKey), PreprocessedKey, ParentNode, ItemNode, ParentItem, Item);
 end;
 
-function TAssocArray.GetExistingValue (Key: string; out {Un} Res: pointer): boolean;
+function TAssocArray.GetExistingValue (const Key: string; out {Un} Res: pointer): boolean;
 var
-{U} ItemNode:   PAssocArrayNode;
-{U} ParentNode: PAssocArrayNode;
-{U} Item:       PAssocArrayItem;
-{U} ParentItem: PAssocArrayItem;
-    Hash:       integer;
+{U} ItemNode:        PAssocArrayNode;
+{U} ParentNode:      PAssocArrayNode;
+{U} Item:            PAssocArrayItem;
+{U} ParentItem:      PAssocArrayItem;
+    PreprocessedKey: string;
 
 begin
   {!} Assert(Res = nil);
-  ItemNode    :=  nil;
-  ParentNode  :=  nil;
-  Item        :=  nil;
-  ParentItem  :=  nil;
+  ItemNode   := nil;
+  ParentNode := nil;
+  Item       := nil;
+  ParentItem := nil;
   // * * * * * //
-  Key    := Self.GetPreprocessedKey(Key);
-  Hash   := Self.HashFunc(Key);
-  result := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
+
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  result          := Self.FindItem(Self.HashFunc(PreprocessedKey), PreprocessedKey, ParentNode, ItemNode, ParentItem, Item);
 
   if result then begin
-    Res :=  Item.Value;
+    Res := Item.Value;
   end;
 end; // .function TAssocArray.GetExistingValue
 
-procedure TAssocArray.SetValue (Key: string; {OUn} NewValue: pointer);
+procedure TAssocArray.SetValue (const Key: string; {OUn} NewValue: pointer);
 var
 {U} ItemNode:         PAssocArrayNode;
 {U} ParentNode:       PAssocArrayNode;
@@ -784,55 +790,55 @@ var
     Hash:             integer;
 
 begin
-  ItemNode    :=  nil;
-  ParentNode  :=  nil;
-  Item        :=  nil;
-  ParentItem  :=  nil;
-  NewItem     :=  nil;
-  NewNode     :=  nil;
+  ItemNode   := nil;
+  ParentNode := nil;
+  Item       := nil;
+  ParentItem := nil;
+  NewItem    := nil;
+  NewNode    := nil;
   // * * * * * //
   {!} Assert(Self.IsValidValue(NewValue));
-  PreprocessedKey :=  Self.GetPreprocessedKey(Key);
-  Hash            :=  Self.HashFunc(PreprocessedKey);
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Hash            := Self.HashFunc(PreprocessedKey);
 
   if Self.FindItem(Hash, PreprocessedKey, ParentNode, ItemNode, ParentItem, Item) then begin
     if Item.Value <> NewValue then begin
       Self.FreeItemValue(Item);
-      Item.Value  :=  NewValue;
+      Item.Value := NewValue;
     end;
   end else begin
     New(NewItem);
-    NewItem.Key       :=  Key;
-    NewItem.Value     :=  NewValue;
-    NewItem.NextItem  :=  nil;
+    NewItem.Key      := Key;
+    NewItem.Value    := NewValue;
+    NewItem.NextItem := nil;
     Inc(Self.fItemCount);
 
     if ItemNode <> nil then begin
-      ParentItem.NextItem :=  NewItem; NewItem  :=  nil;
+      ParentItem.NextItem := NewItem; NewItem := nil;
     end else begin
       New(NewNode);
-      NewNode.Hash                    :=  Hash;
-      NewNode.ChildNodes[LEFT_CHILD]  :=  nil;
-      NewNode.ChildNodes[RIGHT_CHILD] :=  nil;
-      NewNode.Item                    :=  NewItem; NewItem  :=  nil;
+      NewNode.Hash                    := Hash;
+      NewNode.ChildNodes[LEFT_CHILD]  := nil;
+      NewNode.ChildNodes[RIGHT_CHILD] := nil;
+      NewNode.Item                    := NewItem; NewItem := nil;
       Inc(Self.fNodeCount);
 
       if Self.NodeCount > 1 then begin
-        ParentNode.ChildNodes[NewNode.Hash >= ParentNode.Hash]  :=  NewNode; NewNode  :=  nil;
+        ParentNode.ChildNodes[NewNode.Hash >= ParentNode.Hash] := NewNode; NewNode := nil;
       end else begin
-        Self.fRoot  :=  NewNode; NewNode  :=  nil;
+        Self.fRoot := NewNode; NewNode := nil;
       end;
     end; // .else
   end; // .else
 end; // .procedure TAssocArray.SetValue
 
-function TAssocArray.DeleteItem (Key: string): boolean;
+function TAssocArray.DeleteItem (const Key: string): boolean;
 var
-{U} ParentNode: PAssocArrayNode;
-{U} ItemNode:   PAssocArrayNode;
-{U} ParentItem: PAssocArrayItem;
-{U} Item:       PAssocArrayItem;
-    Hash:       integer;
+{U} ParentNode:      PAssocArrayNode;
+{U} ItemNode:        PAssocArrayNode;
+{U} ParentItem:      PAssocArrayItem;
+{U} Item:            PAssocArrayItem;
+    PreprocessedKey: string;
 
 begin
   {!} Assert(not Self.Locked);
@@ -841,9 +847,8 @@ begin
   Item       := nil;
   ParentItem := nil;
   // * * * * * //
-  Key    := Self.GetPreprocessedKey(Key);
-  Hash   := Self.HashFunc(Key);
-  result := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  result          := Self.FindItem(Self.HashFunc(PreprocessedKey), PreprocessedKey, ParentNode, ItemNode, ParentItem, Item);
 
   if result then begin
     Self.RemoveItem(ParentNode, ItemNode, ParentItem, Item);
