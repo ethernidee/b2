@@ -10,7 +10,7 @@ uses
   Utils, Crypto, Lists, AssocArrays, StrLib, TypeWrappers;
 
 const
-  CASE_SENSITIVE   = FALSE; 
+  CASE_SENSITIVE   = FALSE;
   CASE_INSENSITIVE = not CASE_SENSITIVE;
 
 
@@ -21,7 +21,7 @@ type
   TStrList  = Lists.TStringList {OF TObject};
   TString   = TypeWrappers.TString;
 
-  (*  Combines access speed of TDist and order of TStrList  *)
+  (*  Combines access speed of TDict and order of TStrList  *)
   THashedList = class abstract
     protected
       function  GetItem (const Key: string): {Un} TObject; virtual; abstract;
@@ -29,7 +29,7 @@ type
       function  GetValue (Ind: integer): {Un} TObject; virtual; abstract;
       procedure SetValue (Ind: integer; {OUn} NewValue: TObject); virtual; abstract;
       function  GetCount: integer; virtual; abstract;
-      
+
     public
       function  LinearFind (const Key: string; out Ind: integer): boolean; virtual; abstract;
       procedure InsertBefore
@@ -45,30 +45,30 @@ type
       procedure Add (const Key: string; {OUn} Value: TObject);
 
       property Count: integer read GetCount;
-      
+
       property Items  [const Key: string]:  {n} TObject read GetItem; default;
       property Keys   [Ind: integer]:       string read GetKey;
       property Values [Ind: integer]:       {n} TObject read GetValue write SetValue;
   end; // .class THashedList
-  
+
   IDictIterator = interface
     procedure BeginIterate ({U} Dict: TDict);
     function  IterNext: boolean;
     procedure EndIterate;
     function  GetIterKey: string;
     function  GetIterValue: {Un} TObject;
-    
+
     property IterKey:   string read GetIterKey;
     property IterValue: {n} TObject read GetIterValue;
   end; // .interface IDictIterator
-  
+
   IObjDictIterator = interface
     procedure BeginIterate (aDict: TObjDict);
     function  IterNext: boolean;
     procedure EndIterate;
     function  GetIterKey: {n} pointer;
     function  GetIterValue: {n} TObject;
-    
+
     property IterKey:   pointer read GetIterKey;
     property IterValue: {n} TObject read GetIterValue;
   end; // .interface IObjDictIterator
@@ -130,14 +130,14 @@ type
       procedure Delete (Ind: integer); override;
       procedure Clear; override;
   end; // .class TStdHashedList
-  
+
   TDictIterator = class (TInterfacedObject, IDictIterator)
     protected
       {U}   fDict:      TDict;
       {Un}  fIterValue: TObject;
             fIterKey:   string;
             fIterating: boolean;
-            
+
     public
       procedure BeginIterate ({U} Dict: TDict);
       function  IterNext: boolean;
@@ -145,14 +145,14 @@ type
       function  GetIterKey: string;
       function  GetIterValue: {Un} TObject;
   end; // .class TDictIterator
-  
+
   TObjDictIterator = class (TInterfacedObject, IObjDictIterator)
     protected
       {U}   fObjDict:   TObjDict;
       {Un}  fIterValue: TObject;
       {Un}  fIterKey:   pointer;
             fIterating: boolean;
-            
+
     public
       procedure BeginIterate ({U} aObjDict: TObjDict);
       function  IterNext: boolean;
@@ -173,9 +173,9 @@ begin
     KeyPreprocessFunc := nil;
   end;
 
-  result  :=  AssocArrays.NewAssocArr
+  result := AssocArrays.NewAssocArr
   (
-    Crypto.AnsiCRC32,
+    Crypto.FastAnsiHash,
     KeyPreprocessFunc,
     OwnsItems,
     Utils.ITEMS_ARE_OBJECTS and OwnsItems,
@@ -186,7 +186,7 @@ end; // .function NewDict
 
 function NewObjDict (OwnsItems: boolean): {O} TObjDict;
 begin
-  result  :=  AssocArrays.NewObjArr
+  result := AssocArrays.NewObjArr
   (
     OwnsItems,
     Utils.ITEMS_ARE_OBJECTS and OwnsItems,
@@ -283,7 +283,7 @@ begin
   Self.fItems[Key] := Value;
 end; // .procedure TStdHashedList.InsertBefore
 
-procedure TStdHashedList.Delete (Ind: integer);  
+procedure TStdHashedList.Delete (Ind: integer);
 begin
   Self.fItems.DeleteItem(Self.fItemList[Ind]);
   Self.fItemList.Delete(Ind);
@@ -316,7 +316,7 @@ begin
   {!} Assert(Self.fIterating);
   Self.fIterValue := nil;
   result          := Self.fDict.IterateNext(Self.fIterKey, pointer(Self.fIterValue));
-  
+
   if not result then begin
     Self.EndIterate;
   end;
@@ -370,7 +370,7 @@ begin
   Self.fIterKey   := nil;
   Self.fIterValue := nil;
   result          := Self.fObjDict.IterateNext(Self.fIterKey, pointer(Self.fIterValue));
-  
+
   if not result then begin
     Self.EndIterate;
   end;
@@ -412,7 +412,7 @@ end; // .function IterateObjDict
 procedure JoinLists (MainList, DependentList: TList);
 var
   i: integer;
-   
+
 begin
   {!} Assert(MainList <> nil);
   {!} Assert(DependentList <> nil);
