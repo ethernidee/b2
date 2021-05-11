@@ -14,11 +14,11 @@ const
   NO_ICON       = Windows.MB_OK;
   ICON_ERROR    = Windows.MB_ICONSTOP;
   ICON_QUESTION = Windows.MB_ICONQUESTION;
-  
+
   (* Ask results *)
   YES = TRUE;
   NO  = FALSE;
-  
+
   ID_YES    = 0;
   ID_NO     = 1;
   ID_CANCEL = 2;
@@ -86,7 +86,7 @@ end;
 function AskYesNo (const Question: string): boolean;
 begin
   result  :=  NO;
-  
+
   if
     Windows.MessageBox
     (
@@ -103,7 +103,7 @@ end; // .function AskYesNo
 function AskOkCancel (const Question: string): boolean;
 begin
   result  :=  NO;
-  
+
   if Windows.MessageBox
   (
     hParentWindow,
@@ -119,7 +119,7 @@ end; // .function AskOkCancel
 function AskYesNoCancel (const Question: string): integer;
 begin
   result  :=  0;
-  
+
   case
     Windows.MessageBox
     (
@@ -128,7 +128,7 @@ begin
       pchar(Lng[STR_QUESTION]),
       Windows.MB_YESNOCANCEL + ICON_QUESTION
     )
-  of 
+  of
     Windows.IDYES:      result  :=  ID_YES;
     Windows.IDNO:       result  :=  ID_NO;
     Windows.ID_CANCEL:  result  :=  ID_CANCEL;
@@ -154,7 +154,15 @@ begin
     vtPointer:    result  :=  'pointer: $' + SysUtils.Format('%x',[integer(VarRec.vPointer)]);
     vtPChar:      result  :=  'pchar: ' + VarRec.vPChar;
     vtPWideChar:  result  :=  'PWIDECHAR: ' + VarRec.vPWideChar;
-    vtObject:     result  :=  'object: ' + VarRec.vObject.ClassName;
+
+    vtObject: begin
+      if VarRec.vObject <> nil then begin
+        result := 'object: ' + VarRec.vObject.ClassName;
+      end else begin
+        result := 'object: nil';
+      end;
+    end;
+
     vtClass:      result  :=  'class: ' + VarRec.vClass.ClassName;
     vtCurrency:   result  :=  'currency: ' + SysUtils.CurrToStr(VarRec.vCurrency^);
     vtAnsiString: result  :=  'ANSISTRING: ' + string(VarRec.vAnsiString);
@@ -174,11 +182,11 @@ var
 
 begin
   SetLength(ResArr, Length(Vars));
-  
+
   for i := 0 to High(Vars) do begin
     ResArr[i] := VarToString(Vars[i]);
   end;
-  
+
   result := StrLib.Join(ResArr, #13#10);
 end; // .function ToString
 
@@ -189,7 +197,7 @@ var
 begin
   {!} Assert(Math.InRange(VarType, 0, vtInt64));
   VarRec.vType  :=  VarType;
-  
+
   case VarType of
     vtBoolean:    begin VarRec.vBoolean     :=  PBOOLEAN(PArrItem)^; Inc(PBOOLEAN(PArrItem)); end;
     vtInteger:    begin VarRec.vInteger     :=  PINTEGER(PArrItem)^; Inc(PINTEGER(PArrItem)); end;
@@ -245,23 +253,23 @@ const
 var
 {U} CurrItem:           pointer;
     CurrItemInd:        integer;
-    StrArr:             Utils.TArrayOfStr; 
+    StrArr:             Utils.TArrayOfStr;
     DisplayN:           integer;
     NumItemsToDisplay:  integer;
     i:                  integer;
-  
+
 begin
   CurrItemInd :=  0;
   CurrItem    :=  Arr;
-  
+
   for DisplayN := 1 to Math.Ceil(Count / NUM_ITEMS_PER_DISPLAY) do begin
     NumItemsToDisplay :=  Math.Min(Count - CurrItemInd, NUM_ITEMS_PER_DISPLAY);
     SetLength(StrArr, NumItemsToDisplay);
-    
+
     for i := 0 to NumItemsToDisplay - 1 do begin
       StrArr[i] :=  '[' + SysUtils.IntToStr(i) + ']: ' + PArrItemToString(CurrItem, ElemsType);
     end;
-    
+
     MsgTitle(StrLib.Join(StrArr, #13#10), Title);
   end;
 end; // .procedure ArrDump
