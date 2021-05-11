@@ -436,11 +436,11 @@ begin
     *)
     else begin
       RightClosestNodeParent := ItemNode;
-      RightClosestNode      := ItemNode.ChildNodes[RIGHT_CHILD];
+      RightClosestNode       := ItemNode.ChildNodes[RIGHT_CHILD];
 
       while RightClosestNode.ChildNodes[LEFT_CHILD] <> nil do begin
         RightClosestNodeParent := RightClosestNode;
-        RightClosestNode      := RightClosestNode.ChildNodes[LEFT_CHILD];
+        RightClosestNode       := RightClosestNode.ChildNodes[LEFT_CHILD];
       end;
 
       ItemNode.Item := RightClosestNode.Item; RightClosestNode.Item := nil;
@@ -1012,11 +1012,11 @@ constructor TObjArray.Create
 
 begin
   {!} Assert(@ItemGuardProc <> nil);
-  Self.fOwnsItems       :=  OwnsItems;
-  Self.fItemsAreObjects :=  ItemsAreObjects;
-  Self.fItemGuardProc   :=  ItemGuardProc;
-  Self.fItemGuard       :=  ItemGuard;
-  ItemGuard             :=  nil;
+  Self.fOwnsItems       := OwnsItems;
+  Self.fItemsAreObjects := ItemsAreObjects;
+  Self.fItemGuardProc   := ItemGuardProc;
+  Self.fItemGuard       := ItemGuard;
+  ItemGuard             := nil;
 end; // .constructor TObjArray.Create
 
 destructor TObjArray.Destroy;
@@ -1265,33 +1265,33 @@ var
 
   begin
     {!} Assert(InsNode <> nil);
-    ParentNode  :=  nil;
-    CurrNode    :=  Self.fRoot;
+    ParentNode := nil;
+    CurrNode   := Self.fRoot;
     // * * * * * //
     while CurrNode <> nil do begin
-      ParentNode  :=  CurrNode;
-      CurrNode    :=  CurrNode.ChildNodes[InsNode.Hash >= CurrNode.Hash];
+      ParentNode := CurrNode;
+      CurrNode   := CurrNode.ChildNodes[InsNode.Hash >= CurrNode.Hash];
     end;
 
-    ParentNode.ChildNodes[InsNode.Hash >= ParentNode.Hash]  :=  InsNode;
+    ParentNode.ChildNodes[InsNode.Hash >= ParentNode.Hash] := InsNode;
   end; // .procedure InsertNode
 
   procedure InsertNodeRange (MinInd, MaxInd: integer);
   var
-      RangeLen:   integer;
-      MiddleInd:  integer;
-  {U} InsNode:    PObjArrayNode;
+      RangeLen:  integer;
+      MiddleInd: integer;
+  {U} InsNode:   PObjArrayNode;
 
   begin
-    RangeLen  :=  MaxInd - MinInd + 1;
+    RangeLen  := MaxInd - MinInd + 1;
     {!} Assert(RangeLen > 0);
     {!} Assert((MinInd >= 0) and (MaxInd < Length(NodeArray)));
     // * * * * * //
-    MiddleInd :=  MinInd + (MaxInd - MinInd) shr 1;
-    InsNode   :=  NodeArray[MiddleInd];
+    MiddleInd := MinInd + (MaxInd - MinInd) shr 1;
+    InsNode   := NodeArray[MiddleInd];
 
     if Self.fRoot = nil then begin
-      Self.fRoot  :=  InsNode;
+      Self.fRoot := InsNode;
     end else begin
       InsertNode(InsNode);
     end;
