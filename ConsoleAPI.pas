@@ -20,7 +20,7 @@ type
     Start: PAnsiString;
     Interval: integer;
   end; // .record TMenu
-  
+
   PMenu = ^TMenu;
 
   TConsoleBuffer = record
@@ -66,7 +66,7 @@ type
     procedure MoveWindow(dx, dy: integer);
     procedure Center;
     procedure WriteC(Attr: byte; Txt: string);
-    procedure Print(Txt: string);
+    procedure Print (const Txt: string);
     procedure SetCodePage(NewCodePage: integer);
     function ReadKey: char;
     function ReadCode: char;
@@ -75,7 +75,7 @@ type
     function Menu(TitleCol, TitleBack, ItemCol, ItemBack, ChosenCol, ChosenBack,
                           FooterCol, FooterBack: byte;
                           const Title: string; const Footer: string; Items: PMenu): integer;
-    constructor Create(Title: string; WinWidth, WinHeight, BufWidth, BufHeight: integer);
+    constructor Create(const Title: string; WinWidth, WinHeight, BufWidth, BufHeight: integer);
     { PROPERTIES }
     property Width: integer read fWidth write SetWidth;
     property Height: integer read fHeight write SetHeight;
@@ -88,7 +88,15 @@ type
     property CurY: integer read WhereY write GotoY;
   end; // .class TConsole
 
-implementation
+  function GetConsole (const Title: string = ''; WinWidth: integer = 120; WinHeight: integer = 50; BufWidth: integer = 120; BufHeight: integer = 1000): TConsole;
+
+
+(***)  implementation  (***)
+
+
+var
+{On} Console: TConsole;
+
 
 function PackColors(col, back: byte): byte;inline;
 begin
@@ -290,23 +298,23 @@ begin
     CharToOEMBuff(@Txt[1], @Txt[1], Length(Txt));
     Write(Txt);
     OEMToCharBuff(@Txt[1], @Txt[1], Length(Txt));
-  end // .if 
+  end // .if
   else begin
     Write(Txt);
-  end; 
+  end;
   Color:=col;
 end; // .procedure TConsole.WriteC
 
-procedure TConsole.Print(Txt: string);
+procedure TConsole.Print (const Txt: string);
 begin
   if CodePage=cp1251 then begin
     CharToOEMBuff(@Txt[1], @Txt[1], Length(Txt));
     Write(Txt);
     OEMToCharBuff(@Txt[1], @Txt[1], Length(Txt));
-  end // .if 
+  end // .if
   else begin
     Write(Txt);
-  end; 
+  end;
 end; // .procedure TConsole.Print
 
 procedure TConsole.SetCodePage(NewCodePage: integer);
@@ -317,7 +325,7 @@ end;
 function TConsole.ReadKey: char;
 var
   Temp: integer;
-  
+
 begin
   repeat
     Windows.ReadConsoleInput(hIn, TIR, 1, DWORD(Temp));
@@ -346,7 +354,7 @@ procedure TConsole.HideArea(x1, y1, x2, y2: integer; col, back: byte);
 var
   tc: TCoord;
   temp: integer;
-  
+
 begin
   tc.x:=x1;
   tc.y:=y1;
@@ -370,7 +378,7 @@ var
   Chosen: integer;
   P: pointer;
   Interval: integer;
-  
+
 begin
   // Определяем, а вместится ли наше меню в экран, если нет, то не отображаем
   Count:=Items^.Count;
@@ -378,7 +386,7 @@ begin
   Interval:=Items^.Interval;
   if (Height-CurY-Count-2)<0 then begin
     result:=C_ERROR_TOO_LARGE; exit;
-  end; 
+  end;
   X:=CurX;
   WriteC(PackColors(TitleCol, TitleBack), Title); GotoXY(X, CurY+1);
   Y:=CurY;
@@ -392,17 +400,17 @@ begin
     for i:=0 to Count-1 do begin
       if i=index then begin
         WriteC(PackColors(ChosenCol, ChosenBack), PAnsiString(integer(P)+i*Interval)^); GotoXY(X, Y+i+1);
-      end // .if 
+      end // .if
       else begin
         WriteC(PackColors(ItemCol, ItemBack), PAnsiString(integer(P)+i*Interval)^); GotoXY(X, Y+i+1);
-      end; 
+      end;
     end;
 
     WriteC(PackColors(FooterCol, FooterBack), Footer);
     // Цикл чтения клавиатуры
     while TRUE do begin
       C:=ReadKey;
-      case C of 
+      case C of
         #13:
           begin
             Chosen:=index;
@@ -418,13 +426,13 @@ begin
         #0:
           begin
             C:=ReadCode;
-            case C of 
+            case C of
               #72:
                 begin
                   Dec(index);
                   if index<0 then begin
                     index:=Count-1;
-                  end; 
+                  end;
                   BREAK;
                 end;
               #80:
@@ -432,13 +440,13 @@ begin
                   Inc(index);
                   if index=Count then begin
                     index:=0;
-                  end; 
+                  end;
                   BREAK;
                 end;
-            end; // .case 
+            end; // .case
           end;
       end; // .case C
-    end; // .while 
+    end; // .while
   end; // .while
   // Очищаем экран от меню и восстанавливаем положение курсора
   Dec(Y);
@@ -447,21 +455,35 @@ begin
   result:=Chosen;
 end; // .function Menu
 
-constructor TConsole.Create(Title: string; WinWidth, WinHeight, BufWidth, BufHeight: integer);
+constructor TConsole.Create(const Title: string; WinWidth, WinHeight, BufWidth, BufHeight: integer);
 begin
   AllocConsole;
-  hWnd:=GetConsoleWindow;
-  hIn:=GetStdHandle(STD_INPUT_HANDLE);
-  hOut:=GetStdHandle(STD_OUTPUT_HANDLE);
-  PInteger(@Input)^:=hIn;
-  PInteger(@Output)^:=hOut;
-  CodePage:=cp1251;
-  Self.Title:=Title;
+  hWnd               := GetConsoleWindow;
+  hIn                := GetStdHandle(STD_INPUT_HANDLE);
+  hOut               := GetStdHandle(STD_OUTPUT_HANDLE);
+  PInteger(@Input)^  := hIn;
+  PInteger(@Output)^ := hOut;
+  CodePage           := cp1251;
+  Self.Title         := Title;
   SetBufferSize(BufWidth, BufHeight);
   SetWindowSize(WinWidth, WinHeight);
   SetColors(15, 0);
   Windows.ShowWindow(hWnd, SW_NORMAL);
 end; // .constructor TConsole.Create
+
+function GetConsole (const Title: string = ''; WinWidth: integer = 120; WinHeight: integer = 50; BufWidth: integer = 120; BufHeight: integer = 1000): TConsole;
+begin
+  if Console = nil then begin
+    Console := TConsole.Create(Title, WinWidth, WinHeight, BufWidth, BufHeight);
+  end;
+
+  result := Console;
+end;
+
+function c (): TConsole;
+begin
+  result := GetConsole();
+end;
 
 begin
 end.
