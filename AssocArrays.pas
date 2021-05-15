@@ -169,7 +169,7 @@ type
     NodeCount: integer;
   end;
 
-  TObjArray = class (Utils.TCloneable)
+  TObjBinTree = class (Utils.TCloneable)
     (***) protected (***)
       {On}  fRoot:            PObjBinTreeNode;
             fOwnsItems:       boolean;
@@ -242,23 +242,218 @@ type
       property  NodeCount:                integer read fNodeCount;
       property  Locked:                   boolean read fLocked;
       property  Items[{n} Key: pointer]:  {OUn} pointer read GetValue write SetValue; default;
-  end; // .class TObjArray
+  end; // .class TObjBinTree
 
-function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TStrBinTree;
-function NewSimpleAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TStrBinTree;
+  PStrHashTableItem = ^TStrHashTableItem;
+  TStrHashTableItem = record
+    SearchDistance:  integer; // Counts from 1. 0 means empty
+    Hash:            integer;
+    PreprocessedKey: string;
+    Value:           pointer;
+    Key:             string;
 
-function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TStrBinTree;
+    procedure MakeEmpty; inline;
+    procedure Exchange (var OtherItem: TStrHashTableItem); inline;
+  end;
+
+  TStrHashTableItems          = array of TStrHashTableItem;
+  TStrHashTableItemUnmanaged  = array [0..sizeof(TStrHashTableItem) - 1] of byte;
+  TStrHashTableItemsUnmanaged = array of TStrHashTableItemUnmanaged;
+
+  TStrHashTable = class (Utils.TCloneable)
+   const
+    MIN_CAPACITY    = 16;                  // Must be power of 2
+    MAX_LOAD_FACTOR = 0.85;
+    MIN_LOAD_FACTOR = MAX_LOAD_FACTOR / 4;
+    GROWTH_FACTOR   = 2;                   // Must be power of 2
+
+   protected
+         fItems:             TStrHashTableItems;
+         fCapacity:          integer;
+         fModCapacityMask:   integer; // (X and fModCapacityMask) = (X mod fCapacity)
+         fSize:              integer;
+         fMinSize:           integer;
+         fMaxSize:           integer;
+         fOwnsItems:         boolean;
+         fItemsAreObjects:   boolean;
+         fHashFunc:          THashFunc;
+    {n}  fKeyPreprocessFunc: TKeyPreprocessFunc;
+    {On} fItemGuard:         Utils.TItemGuard;
+         fItemGuardProc:     Utils.TItemGuardProc;
+         fIterPos:           integer;
+         fLocked:            boolean;
+
+    function GetPreprocessedKey (const Key: string): string; inline;
+    procedure FreeItemValue (Item: PStrHashTableItem);
+    procedure FreeValues;
+
+    (* Must be called each time, the capacity is changed to maintain dependent values *)
+    procedure OnChangeCapacity;
+
+    (* Discards existing storage and recreates the new one. Be sure to free/move values first *)
+    procedure CreateNewStorage (NewCapacity: integer);
+
+    (* On failure ItemInd is index to continue checking for possible displacement *)
+    function FindItem (Hash: integer; const PreprocessedKey: string; var ItemInd: integer): {Un} PStrHashTableItem;
+
+    procedure AddValue (Hash: integer; const Key, PreprocessedKey: string; {OUn} NewValue: pointer; ItemInd: integer);
+    procedure Rehash (NewCapacity: integer);
+    procedure Grow;
+    procedure Shrink;
+
+   public
+    {$IFDEF INSPECT_SEARCH_DISTANCE}
+      TotalSearchDistance: integer; // Increased by item search distance during items search only, not on rehashing
+      MaxSearchDistance:   integer; // Maximum search distance, met during items search
+    {$ENDIF}
+
+    constructor Create (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc;
+                        {On} ItemGuard: Utils.TItemGuard);
+
+    destructor  Destroy; override;
+
+    procedure Assign (Source: Utils.TCloneable); override;
+    procedure Clear;
+    function  IsValidValue ({n} Value: pointer): boolean;
+    function  GetValue (const Key: string): {n} pointer;
+    function  HasKey (const Key: string): boolean;
+    function  GetExistingValue (const Key: string; {out} var {Un} Res: pointer): boolean;
+    procedure SetValue (const Key: string; {OUn} NewValue: pointer);
+    function  DeleteItem (const Key: string): boolean;
+
+    (* Returns value with specified key and nilify it in the array *)
+    function TakeValue (const Key: string; {out} var {OUn} Value: pointer): boolean;
+
+    (* Returns old value *)
+    function ReplaceValue (const Key: string; {OUn} NewValue: pointer; {out} var {OUn} OldValue: pointer): boolean;
+
+    procedure BeginIterate;
+    function  IterateNext (out Key: string; out {Un} Value: pointer): boolean;
+    procedure EndIterate;
+
+    property HashFunc:          THashFunc read fHashFunc;
+    property KeyPreprocessFunc: TKeyPreprocessFunc read fKeyPreprocessFunc;
+    property OwnsItems:         boolean read fOwnsItems;
+    property ItemsAreObjects:   boolean read fItemsAreObjects;
+    property ItemCount:         integer read fSize;
+    property ItemGuardProc:     Utils.TItemGuardProc read fItemGuardProc;
+    property Locked:            boolean read fLocked;
+    property Items[const Key: string]: pointer read {n} GetValue write {OUn} SetValue; default;
+
+  end; // .class TStrHashTable
+
+  PObjHashTableItem = ^TObjHashTableItem;
+  TObjHashTableItem = record
+    SearchDistance: integer; // Counts from 1. 0 means empty
+    Hash:           integer;
+    Value:          pointer;
+
+    procedure MakeEmpty; inline;
+    procedure Exchange (var OtherItem: TObjHashTableItem); inline;
+  end;
+
+  TObjHashTableItems = array of TObjHashTableItem;
+
+  TObjHashTable = class (Utils.TCloneable)
+   const
+    MIN_CAPACITY    = 16;                  // Must be power of 2
+    MAX_LOAD_FACTOR = 0.85;
+    MIN_LOAD_FACTOR = MAX_LOAD_FACTOR / 4;
+    GROWTH_FACTOR   = 2;                   // Must be power of 2
+
+   protected
+         fItems:             TObjHashTableItems;
+         fCapacity:          integer;
+         fModCapacityMask:   integer; // (X and fModCapacityMask) = (X mod fCapacity)
+         fSize:              integer;
+         fMinSize:           integer;
+         fMaxSize:           integer;
+         fOwnsItems:         boolean;
+         fItemsAreObjects:   boolean;
+    {On} fItemGuard:         Utils.TItemGuard;
+         fItemGuardProc:     Utils.TItemGuardProc;
+         fIterPos:           integer;
+         fLocked:            boolean;
+
+    function  HashToKey (Hash: integer): {n} pointer; inline;
+    function  KeyToHash (Key: {n} pointer): integer; inline;
+    procedure FreeItemValue (Item: PObjHashTableItem);
+    procedure FreeValues;
+
+    (* Must be called each time, the capacity is changed to maintain dependent values *)
+    procedure OnChangeCapacity;
+
+    (* Discards existing storage and recreates the new one. Be sure to free/move values first *)
+    procedure CreateNewStorage (NewCapacity: integer);
+
+    (* On failure ItemInd is index to continue checking for possible displacement *)
+    function FindItem (Hash: integer; var ItemInd: integer): {Un} PObjHashTableItem;
+
+    procedure AddValue (Hash: integer; {OUn} NewValue: pointer; ItemInd: integer);
+    procedure Rehash (NewCapacity: integer);
+    procedure Grow;
+    procedure Shrink;
+
+   public
+    {$IFDEF INSPECT_SEARCH_DISTANCE}
+      TotalSearchDistance: integer; // Increased by item search distance during items search only, not on rehashing
+      MaxSearchDistance:   integer; // Maximum search distance, met during items search
+    {$ENDIF}
+
+    constructor Create (OwnsItems, ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc; {On} ItemGuard: Utils.TItemGuard);
+
+    destructor  Destroy; override;
+
+    procedure Assign (Source: Utils.TCloneable); override;
+    procedure Clear;
+    function  IsValidValue ({n} Value: pointer): boolean;
+    function  GetValue ({n} Key: pointer): {n} pointer;
+    function  HasKey ({n} Key: pointer): boolean;
+    function  GetExistingValue ({n} Key: pointer; {out} var {Un} Res: pointer): boolean;
+    procedure SetValue ({n} Key: pointer; {OUn} NewValue: pointer);
+    function  DeleteItem ({n} Key: pointer): boolean;
+
+    (* Returns value with specified key and nilify it in the array *)
+    function TakeValue ({n} Key: pointer; {out} var {OUn} Value: pointer): boolean;
+
+    (* Returns old value *)
+    function ReplaceValue ({n} Key: pointer; {OUn} NewValue: pointer; {out} var {OUn} OldValue: pointer): boolean;
+
+    procedure BeginIterate;
+    function  IterateNext (out {Un} Key: pointer; out {Un} Value: pointer): boolean;
+    procedure EndIterate;
+
+    property OwnsItems:         boolean read fOwnsItems;
+    property ItemsAreObjects:   boolean read fItemsAreObjects;
+    property ItemCount:         integer read fSize;
+    property ItemGuardProc:     Utils.TItemGuardProc read fItemGuardProc;
+    property Locked:            boolean read fLocked;
+    property Items[{n} Key: pointer]: pointer read {n} GetValue write {OUn} SetValue; default;
+
+  end; // .class TObjHashTable
+
+  TAssocArray = TStrHashTable;
+  TObjArray   = TObjHashTable;
+
+function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TAssocArray;
+function NewSimpleAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TAssocArray;
+
+function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TAssocArray;
 function NewObjArr (OwnsItems, ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TObjArray;
 
 function NewSimpleObjArr: TObjArray;
 function NewStrictObjArr ({n} TypeGuard: TClass): TObjArray;
+
+procedure MergeAssocArrays (Destination, Source: TAssocArray);
+procedure MergeObjArrays (Destination, Source: TObjArray);
 
 
 (***)  implementation  (***)
 
 
 const
-  DEBUG_BUILD = false;
+  EMPTY_ITEM_SEARCH_DISTANCE = 0;
+  DEBUG_BUILD                = false;
 
 
 constructor TStrBinTree.Create
@@ -991,7 +1186,7 @@ begin
   end; // .if
 end; // .function TStrBinTree.IterateNext
 
-constructor TObjArray.Create
+constructor TObjBinTree.Create
 (
 
                 OwnsItems:        boolean;
@@ -1007,35 +1202,35 @@ begin
   Self.fItemGuardProc   := ItemGuardProc;
   Self.fItemGuard       := ItemGuard;
   ItemGuard             := nil;
-end; // .constructor TObjArray.Create
+end; // .constructor TObjBinTree.Create
 
-destructor TObjArray.Destroy;
+destructor TObjBinTree.Destroy;
 begin
   Self.Clear;
   SysUtils.FreeAndNil(Self.fItemGuard);
 end;
 
-function TObjArray.KeyToHash ({n} Key: pointer): integer;
+function TObjBinTree.KeyToHash ({n} Key: pointer): integer;
 begin
   result := Crypto.Tm32Encode(integer(Key));
 end;
 
-function TObjArray.HashToKey (Hash: integer): {n} pointer;
+function TObjBinTree.HashToKey (Hash: integer): {n} pointer;
 begin
   result := pointer(Crypto.Tm32Decode(Hash));
 end;
 
-function TObjArray.IsValidValue ({n} Value: pointer): boolean;
+function TObjBinTree.IsValidValue ({n} Value: pointer): boolean;
 begin
   result := Self.ItemGuardProc(Value, Self.ItemsAreObjects, Utils.TItemGuard(Self.fItemGuard));
 end;
 
-function TObjArray.CalcCritDepth: integer;
+function TObjBinTree.CalcCritDepth: integer;
 begin
   result := Alg.IntLog2(Self.NodeCount + 1) shl 1;
 end;
 
-procedure TObjArray.FreeNodeValue (Node: PObjBinTreeNode);
+procedure TObjBinTree.FreeNodeValue (Node: PObjBinTreeNode);
 begin
   {!} Assert(Node <> nil);
   if Self.OwnsItems then begin
@@ -1047,9 +1242,9 @@ begin
   end;
 
   Node.Value := nil;
-end; // .procedure TObjArray.FreeNodeValue
+end; // .procedure TObjBinTree.FreeNodeValue
 
-procedure TObjArray.FreeNode ({IN} var {n} Node: PObjBinTreeNode);
+procedure TObjBinTree.FreeNode ({IN} var {n} Node: PObjBinTreeNode);
 begin
   if Node <> nil then begin
     Self.FreeNodeValue(Node);
@@ -1059,7 +1254,7 @@ begin
   end;
 end;
 
-procedure TObjArray.RemoveNode ({n} ParentNode: PObjBinTreeNode; Node: PObjBinTreeNode);
+procedure TObjBinTree.RemoveNode ({n} ParentNode: PObjBinTreeNode; Node: PObjBinTreeNode);
 var
 {U} RightClosestNodeParent: PObjBinTreeNode;
 {U} RightClosestNode:       PObjBinTreeNode;
@@ -1131,16 +1326,16 @@ begin
       Self.RemoveNode(RightClosestNodeParent, RightClosestNode);
     end; // .else
   end; // .else
-end; // .procedure TObjArray.RemoveNode
+end; // .procedure TObjBinTree.RemoveNode
 
-procedure TObjArray.Clear;
+procedure TObjBinTree.Clear;
 begin
   {!} Assert(not Self.Locked);
   Self.FreeNode(Self.fRoot);
   Self.fNodeCount := 0;
 end;
 
-function TObjArray.CloneNode ({n} Node: PObjBinTreeNode): {On} PObjBinTreeNode;
+function TObjBinTree.CloneNode ({n} Node: PObjBinTreeNode): {On} PObjBinTreeNode;
 begin
   if Node = nil then begin
     result := nil;
@@ -1160,16 +1355,16 @@ begin
     result.ChildNodes[LEFT_CHILD]  := Self.CloneNode(Node.ChildNodes[LEFT_CHILD]);
     result.ChildNodes[RIGHT_CHILD] := Self.CloneNode(Node.ChildNodes[RIGHT_CHILD]);
   end; // .else
-end; // .function TObjArray.CloneNode
+end; // .function TObjBinTree.CloneNode
 
-procedure TObjArray.Assign (Source: Utils.TCloneable);
+procedure TObjBinTree.Assign (Source: Utils.TCloneable);
 var
-{U} SrcArr: TObjArray;
+{U} SrcArr: TObjBinTree;
 
 begin
   {!} Assert(not Self.Locked);
   {!} Assert(Source <> nil);
-  SrcArr  :=  Source AS TObjArray;
+  SrcArr  :=  Source AS TObjBinTree;
   // * * * * * //
   if Self <> Source then begin
     Self.Clear;
@@ -1180,7 +1375,7 @@ begin
     Self.fNodeCount       :=  SrcArr.NodeCount;
     Self.fRoot            :=  Self.CloneNode(SrcArr.fRoot);
   end;
-end; // .procedure TObjArray.Assign
+end; // .procedure TObjBinTree.Assign
 
 function ObjArrayCompareNodes (A, B: integer): integer;
 begin
@@ -1193,7 +1388,7 @@ begin
   end;
 end;
 
-procedure TObjArray.ConvertToLinearNodeArray (out Res: TObjBinTreeLinearNodeArray);
+procedure TObjBinTree.ConvertToLinearNodeArray (out Res: TObjBinTreeLinearNodeArray);
 var
     LeftInd:              integer;
     RightInd:             integer;
@@ -1241,9 +1436,9 @@ begin
     Self.fNodeCount :=  0;
     Alg.CustomQuickSort(pointer(Res.NodeArray), 0, Res.NodeCount - 1, ObjArrayCompareNodes);
   end; // .if
-end; // .procedure TObjArray.ConvertToLinearNodeArray
+end; // .procedure TObjBinTree.ConvertToLinearNodeArray
 
-procedure TObjArray.Rebuild;
+procedure TObjBinTree.Rebuild;
 var
   LinearNodeArray:  TObjBinTreeLinearNodeArray;
   NodeArray:        TObjBinTreeNodeArray;
@@ -1302,9 +1497,9 @@ begin
     NodeArray       :=  LinearNodeArray.NodeArray;
     InsertNodeRange(0, Self.NodeCount - 1);
   end;
-end; // .procedure TObjArray.Rebuild
+end; // .procedure TObjBinTree.Rebuild
 
-function TObjArray.FindItem
+function TObjBinTree.FindItem
 (
       {n}   Key:        pointer;
   out {ni}  ParentNode: PObjBinTreeNode;
@@ -1342,9 +1537,9 @@ begin
 
     result := ItemNode <> nil;
   end; // .if
-end; // .function TObjArray.FindItem
+end; // .function TObjBinTree.FindItem
 
-function TObjArray.GetValue ({n} Key: pointer): {n} pointer;
+function TObjBinTree.GetValue ({n} Key: pointer): {n} pointer;
 var
 {U} ItemNode:   PObjBinTreeNode;
 {U} ParentNode: PObjBinTreeNode;
@@ -1358,9 +1553,9 @@ begin
   end else begin
     result  :=  nil;
   end;
-end; // .function TObjArray.GetValue
+end; // .function TObjBinTree.GetValue
 
-function TObjArray.GetExistingValue ({n} Key: pointer; out {Un} Res: pointer): boolean;
+function TObjBinTree.GetExistingValue ({n} Key: pointer; out {Un} Res: pointer): boolean;
 var
 {U} ItemNode:   PObjBinTreeNode;
 {U} ParentNode: PObjBinTreeNode;
@@ -1375,9 +1570,9 @@ begin
   if result then begin
     Res :=  ItemNode.Value;
   end;
-end; // .function TObjArray.GetExistingValue
+end; // .function TObjBinTree.GetExistingValue
 
-procedure TObjArray.SetValue ({n} Key: pointer; {OUn} NewValue: pointer);
+procedure TObjBinTree.SetValue ({n} Key: pointer; {OUn} NewValue: pointer);
 var
 {U} ItemNode:   PObjBinTreeNode;
 {U} ParentNode: PObjBinTreeNode;
@@ -1408,9 +1603,9 @@ begin
       Self.fRoot  := NewNode; NewNode  := nil;
     end;
   end; // .else
-end; // .procedure TObjArray.SetValue
+end; // .procedure TObjBinTree.SetValue
 
-function TObjArray.DeleteItem ({n} Key: pointer): boolean;
+function TObjBinTree.DeleteItem ({n} Key: pointer): boolean;
 var
 {U} ParentNode: PObjBinTreeNode;
 {U} ItemNode:   PObjBinTreeNode;
@@ -1426,9 +1621,9 @@ begin
     Self.RemoveNode(ParentNode, ItemNode);
     Dec(Self.fNodeCount);
   end;
-end; // .function TObjArray.DeleteItem
+end; // .function TObjBinTree.DeleteItem
 
-function TObjArray.TakeValue ({n} Key: pointer; out {OUn} Value: pointer): boolean;
+function TObjBinTree.TakeValue ({n} Key: pointer; out {OUn} Value: pointer): boolean;
 var
 {U} ParentNode: PObjBinTreeNode;
 {U} ItemNode:   PObjBinTreeNode;
@@ -1445,9 +1640,9 @@ begin
     {!} Assert(Self.IsValidValue(nil));
     ItemNode.Value := nil;
   end;
-end; // .function TObjArray.TakeValue
+end; // .function TObjBinTree.TakeValue
 
-function TObjArray.ReplaceValue ({n} Key: pointer; {OUn} NewValue: pointer; out {OUn} OldValue: pointer): boolean;
+function TObjBinTree.ReplaceValue ({n} Key: pointer; {OUn} NewValue: pointer; out {OUn} OldValue: pointer): boolean;
 var
 {U} ParentNode: PObjBinTreeNode;
 {U} ItemNode:   PObjBinTreeNode;
@@ -1464,15 +1659,15 @@ begin
     OldValue       := ItemNode.Value;
     ItemNode.Value := NewValue;
   end;
-end; // .function TObjArray.ReplaceValue
+end; // .function TObjBinTree.ReplaceValue
 
-procedure TObjArray.EndIterate;
+procedure TObjBinTree.EndIterate;
 begin
   {!} Assert(Self.fLocked);
   Self.fLocked := false;
 end;
 
-procedure TObjArray.BeginIterate;
+procedure TObjBinTree.BeginIterate;
 var
   OptimalNumIterNodes: integer;
 
@@ -1492,9 +1687,9 @@ begin
   end;
 
   Self.fLocked := true;
-end; // .procedure TObjArray.BeginIterate
+end; // .procedure TObjBinTree.BeginIterate
 
-function TObjArray.IterateNext (out {Un} Key: pointer; out {Un} Value: pointer): boolean;
+function TObjBinTree.IterateNext (out {Un} Key: pointer; out {Un} Value: pointer): boolean;
 var
 {U} IterNode: PObjBinTreeNode;
 
@@ -1523,9 +1718,992 @@ begin
     Key   := Self.HashToKey(IterNode.Hash);
     Value := IterNode.Value;
   end; // .if
-end; // .function TObjArray.IterateNext
+end; // .function TObjBinTree.IterateNext
 
-function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems,ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TStrBinTree;
+procedure TStrHashTableItem.MakeEmpty;
+begin
+  if Self.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE then begin
+    Self.Key             := '';
+    Self.PreprocessedKey := '';
+    Self.SearchDistance  := EMPTY_ITEM_SEARCH_DISTANCE;
+  end;
+end;
+
+procedure TStrHashTableItem.Exchange (var OtherItem: TStrHashTableItem);
+var
+  TempBuf: TStrHashTableItemUnmanaged;
+
+begin
+  System.Move(Self,      TempBuf,   sizeof(Self));
+  System.Move(OtherItem, Self,      sizeof(Self));
+  System.Move(TempBuf,   OtherItem, sizeof(Self));
+end;
+
+constructor TStrHashTable.Create (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc;
+                               {On} ItemGuard: Utils.TItemGuard);
+begin
+  {!} Assert(@HashFunc      <> nil);
+  {!} Assert(@ItemGuardProc <> nil);
+  Self.fHashFunc          := HashFunc;
+  Self.fKeyPreprocessFunc := KeyPreprocessFunc;
+  Self.fOwnsItems         := OwnsItems;
+  Self.fItemsAreObjects   := ItemsAreObjects;
+  Self.fItemGuardProc     := ItemGuardProc;
+  Self.fItemGuard         := ItemGuard;
+  Self.CreateNewStorage(Self.MIN_CAPACITY);
+end;
+
+destructor TStrHashTable.Destroy;
+begin
+  Self.FreeValues;
+  SysUtils.FreeAndNil(Self.fItemGuard);
+end;
+
+procedure TStrHashTable.FreeItemValue (Item: PStrHashTableItem);
+begin
+  if Self.fOwnsItems then begin
+    if Self.fItemsAreObjects then begin
+      TObject(Item.Value).Free;
+    end else begin
+      FreeMem(Item.Value);
+    end;
+  end;
+end;
+
+procedure TStrHashTable.FreeValues;
+var
+  Item:     PStrHashTableItem;
+  ItemsEnd: PStrHashTableItem;
+
+begin
+  if Self.fOwnsItems then begin
+    Item     := @Self.fItems[0];
+    ItemsEnd := @Self.fItems[Self.fCapacity];
+
+    while cardinal(Item) < cardinal(ItemsEnd) do begin
+      Self.FreeItemValue(Item);
+      Inc(Item);
+    end;
+  end;
+end;
+
+procedure TStrHashTable.OnChangeCapacity;
+begin
+  Self.fMinSize         := Math.Max(Self.MIN_CAPACITY, trunc(Self.fCapacity * Self.MIN_LOAD_FACTOR));
+  Self.fMaxSize         := trunc(Self.fCapacity * Self.MAX_LOAD_FACTOR) - 1;
+  Self.fModCapacityMask := (1 shl Alg.IntLog2(Self.fCapacity)) - 1;
+end;
+
+procedure TStrHashTable.CreateNewStorage (NewCapacity: integer);
+begin
+  // Disallow null-capacity hash tables and non power of 2 capacities
+  {!} Assert((NewCapacity > 0) and ((1 shl Alg.IntLog2(NewCapacity)) = NewCapacity));
+
+  Self.fCapacity := NewCapacity;
+  Self.fItems    := nil;
+  SetLength(Self.fItems, Self.fCapacity);
+  Self.OnChangeCapacity;
+end;
+
+procedure TStrHashTable.Clear;
+begin
+  Self.FreeValues;
+  Self.CreateNewStorage(Self.MIN_CAPACITY);
+end;
+
+function TStrHashTable.IsValidValue ({n} Value: pointer): boolean;
+begin
+  result := Self.fItemGuardProc(Value, Self.fItemsAreObjects, Utils.TItemGuard(Self.fItemGuard));
+end;
+
+function TStrHashTable.GetPreprocessedKey (const Key: string): string;
+begin
+  if @Self.fKeyPreprocessFunc = nil then begin
+    result := Key;
+  end else begin
+    result := Self.fKeyPreprocessFunc(Key);
+  end;
+end;
+
+function TStrHashTable.FindItem (Hash: integer; const PreprocessedKey: string; var ItemInd: integer): {Un} PStrHashTableItem;
+var
+  Item:            PStrHashTableItem;
+  SearchDistance:  integer;
+  ModCapacityMask: integer;
+
+begin
+  result          := nil;
+  ModCapacityMask := Self.fModCapacityMask;
+  ItemInd         := Hash and ModCapacityMask;
+  Item            := @Self.fItems[ItemInd];
+  SearchDistance  := 1;
+
+  while true do begin
+    if (Item.SearchDistance = EMPTY_ITEM_SEARCH_DISTANCE) or (SearchDistance > Item.SearchDistance) then begin
+      {$IFDEF INSPECT_SEARCH_DISTANCE}
+        Inc(Self.TotalSearchDistance, SearchDistance);
+        Self.MaxSearchDistance := Max(Self.MaxSearchDistance, SearchDistance);
+      {$ENDIF}
+
+      exit;
+    end;
+
+    if (Item.Hash = Hash) and (Item.PreprocessedKey = PreprocessedKey) then begin
+      {$IFDEF INSPECT_SEARCH_DISTANCE}
+        Inc(Self.TotalSearchDistance, SearchDistance);
+        Self.MaxSearchDistance := Max(Self.MaxSearchDistance, SearchDistance);
+      {$ENDIF}
+
+      result := Item;
+      exit;
+    end;
+
+    Inc(Item);
+    Inc(SearchDistance);
+
+    ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+    if ItemInd = 0 then begin
+      Item := @Self.fItems[0];
+    end;
+  end; // .while
+end; // .function TStrHashTable.FindItem
+
+procedure TStrHashTable.SetValue (const Key: string; {OUn} NewValue: pointer);
+var
+{U} Item:            PStrHashTableItem;
+    PreprocessedKey: string;
+    Hash:            integer;
+    ItemInd:         integer;
+
+begin
+  {!} Assert(Self.IsValidValue(NewValue));
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Hash            := Self.fHashFunc(PreprocessedKey);
+  Item            := Self.FindItem(Hash, PreprocessedKey, ItemInd);
+
+  if Item <> nil then begin
+    if Item.Value <> NewValue then begin
+      Self.FreeItemValue(Item);
+      Item.Value := NewValue;
+    end;
+  end else begin
+    Self.AddValue(Hash, Key, PreprocessedKey, NewValue, ItemInd);
+  end;
+end; // .procedure TStrHashTable.SetValue
+
+procedure TStrHashTable.AddValue (Hash: integer; const Key, PreprocessedKey: string; {OUn} NewValue: pointer; ItemInd: integer);
+var
+  ModCapacityMask: integer;
+  Item:            PStrHashTableItem;
+  NewItem:         TStrHashTableItem;
+
+begin
+  {!} Assert(not Self.fLocked);
+  Item                    := @Self.fItems[ItemInd];
+  ModCapacityMask         := Self.fModCapacityMask;
+  NewItem.Hash            := Hash;
+  NewItem.Key             := Key;
+  NewItem.PreprocessedKey := PreprocessedKey;
+  NewItem.Value           := NewValue;
+  NewItem.SearchDistance  := ItemInd - (Hash and ModCapacityMask) + 1;
+
+  while Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE do begin
+    if NewItem.SearchDistance > Item.SearchDistance then begin
+      NewItem.Exchange(Item^);
+    end;
+
+    Inc(Item);
+    Inc(NewItem.SearchDistance);
+
+    ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+    if ItemInd = 0 then begin
+      Item := @Self.fItems[0];
+    end;
+  end;
+
+  // Finally swap with empty item
+  NewItem.Exchange(Item^);
+
+  Inc(Self.fSize);
+
+  if Self.fSize >= Self.fMaxSize then begin
+    Self.Grow;
+  end;
+end; // .procedure TStrHashTable.AddValue
+
+function TStrHashTable.GetValue (const Key: string): {n} pointer;
+var
+{U} Item:            PStrHashTableItem;
+    ItemInd:         integer;
+    PreprocessedKey: string;
+
+begin
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := nil;
+
+  if Item <> nil then begin
+    result := Item.Value;
+  end;
+end;
+
+function TStrHashTable.HasKey (const Key: string): boolean;
+var
+{U} Item:            PStrHashTableItem;
+    ItemInd:         integer;
+    PreprocessedKey: string;
+
+begin
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+end;
+
+function TStrHashTable.GetExistingValue (const Key: string; {out} var {Un} Res: pointer): boolean;
+var
+{U} Item:            PStrHashTableItem;
+    ItemInd:         integer;
+    PreprocessedKey: string;
+
+begin
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+
+  if result then begin
+    Res := Item.Value;
+  end;
+end;
+
+function TStrHashTable.TakeValue (const Key: string; {out} var {OUn} Value: pointer): boolean;
+var
+{U} Item:            PStrHashTableItem;
+    ItemInd:         integer;
+    PreprocessedKey: string;
+
+begin
+  {!} Assert(Self.IsValidValue(nil));
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+
+  if Item <> nil then begin
+    Value      := Item.Value;
+    Item.Value := nil;
+  end;
+end;
+
+function TStrHashTable.ReplaceValue (const Key: string; {OUn} NewValue: pointer; {out} var {OUn} OldValue: pointer): boolean;
+var
+{U} Item:            PStrHashTableItem;
+    ItemInd:         integer;
+    PreprocessedKey: string;
+
+begin
+  {!} Assert(Self.IsValidValue(NewValue));
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+
+  if Item <> nil then begin
+    OldValue   := Item.Value;
+    Item.Value := NewValue;
+  end;
+end;
+
+function TStrHashTable.DeleteItem (const Key: string): boolean;
+var
+{Un} PrevItem:        PStrHashTableItem;
+{Un} Item:            PStrHashTableItem;
+     PreprocessedKey: string;
+     ItemInd:         integer;
+     StartInd:        integer;
+     ModCapacityMask: integer;
+
+begin
+  {!} Assert(not Self.fLocked);
+  ModCapacityMask := Self.fModCapacityMask;
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  PrevItem        := nil;
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+
+  if result then begin
+    Self.FreeItemValue(Item);
+    Item.MakeEmpty;
+    Dec(Self.fSize);
+    StartInd := (ItemInd + 1) and ModCapacityMask;
+
+    while true do begin
+      PrevItem := Item;
+      Inc(Item);
+
+      ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+      if ItemInd = 0 then begin
+        Item := @Self.fItems[0];
+      end;
+
+      // Chain is ended, because this item is empty or on its own place
+      if Item.SearchDistance <= 1 then begin
+        break;
+      end;
+
+      Dec(Item.SearchDistance);
+      System.Move(Item^, PrevItem^, sizeof(Item^));
+    end; // .while
+
+    // If displacement took place, the previous item is the moved one, we need to erase it memory
+    if ItemInd <> StartInd then begin
+      System.FillChar(PrevItem^, sizeof(PrevItem^), #0);
+    end;
+
+    if Self.fSize <= Self.fMinSize then begin
+      Self.Shrink;
+    end;
+  end; // .if
+end; // .function TStrHashTable.DeleteItem
+
+procedure TStrHashTable.Grow;
+begin
+  Self.Rehash(Self.fCapacity * GROWTH_FACTOR);
+end;
+
+procedure TStrHashTable.Shrink;
+begin
+  Self.Rehash(Self.fCapacity div GROWTH_FACTOR);
+end;
+
+procedure TStrHashTable.Rehash (NewCapacity: integer);
+var
+  OldItems:        TStrHashTableItems;
+  OldItemsEnd:     PStrHashTableItem;
+  OldItem:         PStrHashTableItem;
+  Item:            PStrHashTableItem;
+  ItemInd:         integer;
+  NewItem:         TStrHashTableItem;
+  ModCapacityMask: integer;
+
+begin
+  OldItems        := Self.fItems;
+  OldItem         := @OldItems[0];
+  OldItemsEnd     := @OldItems[Self.fCapacity];
+  Self.CreateNewStorage(NewCapacity);
+  ModCapacityMask := Self.fModCapacityMask;
+
+  NewItem.MakeEmpty;
+
+  while cardinal(OldItem) < cardinal(OldItemsEnd) do begin
+    if OldItem.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE then begin
+      NewItem.Exchange(OldItem^);
+      NewItem.SearchDistance := 1;
+
+      ItemInd := NewItem.Hash and ModCapacityMask;
+      Item    := @Self.fItems[ItemInd];
+
+      while Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE do begin
+        if NewItem.SearchDistance > Item.SearchDistance then begin
+          NewItem.Exchange(Item^);
+        end;
+
+        Inc(Item);
+        Inc(NewItem.SearchDistance);
+
+        ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+        if ItemInd = 0 then begin
+          Item := @Self.fItems[0];
+        end;
+      end;
+
+      // Finally swap with empty item
+      NewItem.Exchange(Item^);
+    end; // .if
+
+    Inc(OldItem);
+  end; // .for
+
+  // All old items strings must be '' and OldItems.RefCount = 1
+  // Fast items deallocation without calling finalizer for each item to free string memory
+  TStrHashTableItemsUnmanaged(OldItems) := nil;
+end; // .procedure TStrHashTable.Rehash
+
+procedure TStrHashTable.BeginIterate;
+begin
+  Self.fIterPos := 0;
+  Self.fLocked  := true;
+end;
+
+function TStrHashTable.IterateNext (out Key: string; out {Un} Value: pointer): boolean;
+var
+{Un} Item: PStrHashTableItem;
+
+begin
+  {!} Assert(Self.fLocked);
+  Item := @Self.fItems[Self.fIterPos];
+
+  while (Self.fIterPos < Self.fCapacity) and (Item.SearchDistance = EMPTY_ITEM_SEARCH_DISTANCE) do begin
+    Inc(Item);
+    Inc(Self.fIterPos);
+  end;
+
+  result := Self.fIterPos < Self.fCapacity;
+
+  if result then begin
+    Value := Item.Value;
+    Key   := Item.Key;
+    Inc(Self.fIterPos);
+  end;
+end;
+
+procedure TStrHashTable.EndIterate;
+begin
+  Self.fLocked := false;
+end;
+
+procedure TStrHashTable.Assign (Source: Utils.TCloneable);
+var
+{U} SrcTable: TStrHashTable;
+    Item:     PStrHashTableItem;
+    ItemsEnd: PStrHashTableItem;
+
+begin
+  {!} Assert(Source <> nil);
+  {!} Assert(not Self.fLocked);
+  SrcTable := Source as TStrHashTable;
+  // * * * * * //
+  if Self <> Source then begin
+    {!} Assert(not SrcTable.fOwnsItems or SrcTable.fItemsAreObjects, 'Improssible to clone hash table if it contains owned non-object pointers');
+    Self.FreeValues;
+    Self.fHashFunc          := SrcTable.fHashFunc;
+    Self.fKeyPreprocessFunc := SrcTable.fKeyPreprocessFunc;
+    Self.fOwnsItems         := SrcTable.fOwnsItems;
+    Self.fItemsAreObjects   := SrcTable.fItemsAreObjects;
+    Self.fItemGuardProc     := SrcTable.fItemGuardProc;
+    Self.fItemGuard         := SrcTable.fItemGuard.Clone;
+    Self.fSize              := SrcTable.fSize;
+    Self.fCapacity          := SrcTable.fCapacity;
+    Self.OnChangeCapacity;
+    Self.fItems             := Copy(SrcTable.fItems);
+
+    if Self.fOwnsItems and Self.fItemsAreObjects then begin
+      Item     := @Self.fItems[0];
+      ItemsEnd := @Self.fItems[Self.fCapacity];
+
+      while cardinal(Item) < cardinal(ItemsEnd) do begin
+        if Item.Value <> nil then begin
+          Item.Value := (TObject(Item.Value) as Utils.TCloneable).Clone;
+        end;
+
+        Inc(Item);
+      end;
+    end; // .if
+  end; // .if
+end; // .procedure TStrHashTable.Assign
+
+procedure MergeAssocArrays (Destination, Source: TAssocArray);
+var
+{OUn} Value: pointer;
+      Key:   string;
+
+begin
+  {!} Assert(Source <> nil);
+  {!} Assert(not Destination.OwnsItems or (Destination.ItemsAreObjects and Source.ItemsAreObjects), 'Incompatible hash tables for merging due to items type and ownage');
+  Source.BeginIterate;
+
+  while Source.IterateNext(Key, Value) do begin
+    {!} Assert(Destination.IsValidValue(Value));
+
+    if Destination.OwnsItems then begin
+      {!} Assert(TObject(Value) is Utils.TCloneable, 'Cannot merge array with non-clonable items. Got item: ' + TObject(Value).ClassName);
+      Destination.SetValue(Key, Utils.TCloneable(Value).Clone);
+    end else begin
+      Destination.SetValue(Key, Value);
+    end;
+  end;
+
+  Source.EndIterate;
+end;
+
+function TObjHashTable.KeyToHash ({n} Key: pointer): integer;
+begin
+  result := Crypto.Tm32Encode(integer(Key));
+end;
+
+function TObjHashTable.HashToKey (Hash: integer): {n} pointer;
+begin
+  result := pointer(Crypto.Tm32Decode(Hash));
+end;
+
+procedure TObjHashTableItem.MakeEmpty;
+begin
+  Self.SearchDistance := EMPTY_ITEM_SEARCH_DISTANCE;
+end;
+
+procedure TObjHashTableItem.Exchange (var OtherItem: TObjHashTableItem);
+var
+  TempBuf: TObjHashTableItem;
+
+begin
+  System.Move(Self,      TempBuf,   sizeof(Self));
+  System.Move(OtherItem, Self,      sizeof(Self));
+  System.Move(TempBuf,   OtherItem, sizeof(Self));
+end;
+
+constructor TObjHashTable.Create (OwnsItems, ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc; {On} ItemGuard: Utils.TItemGuard);
+begin
+  {!} Assert(@ItemGuardProc <> nil);
+  Self.fOwnsItems       := OwnsItems;
+  Self.fItemsAreObjects := ItemsAreObjects;
+  Self.fItemGuardProc   := ItemGuardProc;
+  Self.fItemGuard       := ItemGuard;
+  Self.CreateNewStorage(Self.MIN_CAPACITY);
+end;
+
+destructor TObjHashTable.Destroy;
+begin
+  Self.FreeValues;
+  SysUtils.FreeAndNil(Self.fItemGuard);
+end;
+
+procedure TObjHashTable.FreeItemValue (Item: PObjHashTableItem);
+begin
+  if Self.fOwnsItems then begin
+    if Self.fItemsAreObjects then begin
+      TObject(Item.Value).Free;
+    end else begin
+      FreeMem(Item.Value);
+    end;
+  end;
+end;
+
+procedure TObjHashTable.FreeValues;
+var
+  Item:     PObjHashTableItem;
+  ItemsEnd: PObjHashTableItem;
+
+begin
+  if Self.fOwnsItems then begin
+    Item     := @Self.fItems[0];
+    ItemsEnd := @Self.fItems[Self.fCapacity];
+
+    while cardinal(Item) < cardinal(ItemsEnd) do begin
+      Self.FreeItemValue(Item);
+      Inc(Item);
+    end;
+  end;
+end;
+
+procedure TObjHashTable.OnChangeCapacity;
+begin
+  Self.fMinSize         := Math.Max(Self.MIN_CAPACITY, trunc(Self.fCapacity * Self.MIN_LOAD_FACTOR));
+  Self.fMaxSize         := trunc(Self.fCapacity * Self.MAX_LOAD_FACTOR) - 1;
+  Self.fModCapacityMask := (1 shl Alg.IntLog2(Self.fCapacity)) - 1;
+end;
+
+procedure TObjHashTable.CreateNewStorage (NewCapacity: integer);
+begin
+  // Disallow null-capacity hash tables and non power of 2 capacities
+  {!} Assert((NewCapacity > 0) and ((1 shl Alg.IntLog2(NewCapacity)) = NewCapacity));
+
+  Self.fCapacity := NewCapacity;
+  Self.fItems    := nil;
+  SetLength(Self.fItems, Self.fCapacity);
+  Self.OnChangeCapacity;
+end;
+
+procedure TObjHashTable.Clear;
+begin
+  Self.FreeValues;
+  Self.CreateNewStorage(Self.MIN_CAPACITY);
+end;
+
+function TObjHashTable.IsValidValue ({n} Value: pointer): boolean;
+begin
+  result := Self.fItemGuardProc(Value, Self.fItemsAreObjects, Utils.TItemGuard(Self.fItemGuard));
+end;
+
+function TObjHashTable.FindItem (Hash: integer; var ItemInd: integer): {Un} PObjHashTableItem;
+var
+  Item:            PObjHashTableItem;
+  SearchDistance:  integer;
+  ModCapacityMask: integer;
+
+begin
+  result          := nil;
+  ModCapacityMask := Self.fModCapacityMask;
+  ItemInd         := Hash and ModCapacityMask;
+  Item            := @Self.fItems[ItemInd];
+  SearchDistance  := 1;
+
+  while true do begin
+    if (Item.SearchDistance = EMPTY_ITEM_SEARCH_DISTANCE) or (SearchDistance > Item.SearchDistance) then begin
+      {$IFDEF INSPECT_SEARCH_DISTANCE}
+        Inc(Self.TotalSearchDistance, SearchDistance);
+        Self.MaxSearchDistance := Max(Self.MaxSearchDistance, SearchDistance);
+      {$ENDIF}
+
+      exit;
+    end;
+
+    if Item.Hash = Hash then begin
+      {$IFDEF INSPECT_SEARCH_DISTANCE}
+        Inc(Self.TotalSearchDistance, SearchDistance);
+        Self.MaxSearchDistance := Max(Self.MaxSearchDistance, SearchDistance);
+      {$ENDIF}
+
+      result := Item;
+      exit;
+    end;
+
+    Inc(Item);
+    Inc(SearchDistance);
+
+    ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+    if ItemInd = 0 then begin
+      Item := @Self.fItems[0];
+    end;
+  end; // .while
+end; // .function TObjHashTable.FindItem
+
+procedure TObjHashTable.SetValue ({n} Key: pointer; {OUn} NewValue: pointer);
+var
+{U} Item:    PObjHashTableItem;
+    Hash:    integer;
+    ItemInd: integer;
+
+begin
+  {!} Assert(Self.IsValidValue(NewValue));
+  Hash := Self.KeyToHash(Key);
+  Item := Self.FindItem(Hash, ItemInd);
+
+  if Item <> nil then begin
+    if Item.Value <> NewValue then begin
+      Self.FreeItemValue(Item);
+      Item.Value := NewValue;
+    end;
+  end else begin
+    Self.AddValue(Hash, NewValue, ItemInd);
+  end;
+end; // .procedure TObjHashTable.SetValue
+
+procedure TObjHashTable.AddValue (Hash: integer; {OUn} NewValue: pointer; ItemInd: integer);
+var
+  ModCapacityMask: integer;
+  Item:            PObjHashTableItem;
+  NewItem:         TObjHashTableItem;
+
+begin
+  {!} Assert(not Self.fLocked);
+  Item                   := @Self.fItems[ItemInd];
+  ModCapacityMask        := Self.fModCapacityMask;
+  NewItem.Hash           := Hash;
+  NewItem.Value          := NewValue;
+  NewItem.SearchDistance := ItemInd - (Hash and ModCapacityMask) + 1;
+
+  while Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE do begin
+    if NewItem.SearchDistance > Item.SearchDistance then begin
+      NewItem.Exchange(Item^);
+    end;
+
+    Inc(Item);
+    Inc(NewItem.SearchDistance);
+
+    ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+    if ItemInd = 0 then begin
+      Item := @Self.fItems[0];
+    end;
+  end;
+
+  // Finally swap with empty item
+  NewItem.Exchange(Item^);
+
+  Inc(Self.fSize);
+
+  if Self.fSize >= Self.fMaxSize then begin
+    Self.Grow;
+  end;
+end; // .procedure TObjHashTable.AddValue
+
+function TObjHashTable.GetValue ({n} Key: pointer): {n} pointer;
+var
+{U} Item:    PObjHashTableItem;
+    ItemInd: integer;
+
+begin
+  Item   := Self.FindItem(Self.KeyToHash(Key), ItemInd);
+  result := nil;
+
+  if Item <> nil then begin
+    result := Item.Value;
+  end;
+end;
+
+function TObjHashTable.HasKey ({n} Key: pointer): boolean;
+var
+  ItemInd: integer;
+
+begin
+  result := Self.FindItem(Self.KeyToHash(Key), ItemInd) <> nil;
+end;
+
+function TObjHashTable.GetExistingValue ({n} Key: pointer; {out} var {Un} Res: pointer): boolean;
+var
+{U} Item:    PObjHashTableItem;
+    ItemInd: integer;
+
+begin
+  Item   := Self.FindItem(Self.KeyToHash(Key), ItemInd);
+  result := Item <> nil;
+
+  if result then begin
+    Res := Item.Value;
+  end;
+end;
+
+function TObjHashTable.TakeValue ({n} Key: pointer; {out} var {OUn} Value: pointer): boolean;
+var
+{U} Item:    PObjHashTableItem;
+    ItemInd: integer;
+
+begin
+  {!} Assert(Self.IsValidValue(nil));
+  Item   := Self.FindItem(Self.KeyToHash(Key), ItemInd);
+  result := Item <> nil;
+
+  if Item <> nil then begin
+    Value      := Item.Value;
+    Item.Value := nil;
+  end;
+end;
+
+function TObjHashTable.ReplaceValue ({n} Key: pointer; {OUn} NewValue: pointer; {out} var {OUn} OldValue: pointer): boolean;
+var
+{U} Item:    PObjHashTableItem;
+    ItemInd: integer;
+
+begin
+  {!} Assert(Self.IsValidValue(NewValue));
+  Item   := Self.FindItem(Self.KeyToHash(Key), ItemInd);
+  result := Item <> nil;
+
+  if Item <> nil then begin
+    OldValue   := Item.Value;
+    Item.Value := NewValue;
+  end;
+end;
+
+function TObjHashTable.DeleteItem ({n} Key: pointer): boolean;
+var
+{Un} PrevItem:        PObjHashTableItem;
+{Un} Item:            PObjHashTableItem;
+     ItemInd:         integer;
+     StartInd:        integer;
+     ModCapacityMask: integer;
+
+begin
+  {!} Assert(not Self.fLocked);
+  ModCapacityMask := Self.fModCapacityMask;
+  PrevItem        := nil;
+  Item            := Self.FindItem(Self.KeyToHash(Key), ItemInd);
+  result          := Item <> nil;
+
+  if result then begin
+    Self.FreeItemValue(Item);
+    Item.MakeEmpty;
+    Dec(Self.fSize);
+    StartInd := (ItemInd + 1) and ModCapacityMask;
+
+    while true do begin
+      PrevItem := Item;
+      Inc(Item);
+
+      ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+      if ItemInd = 0 then begin
+        Item := @Self.fItems[0];
+      end;
+
+      // Chain is ended, because this item is empty or on its own place
+      if Item.SearchDistance <= 1 then begin
+        break;
+      end;
+
+      Dec(Item.SearchDistance);
+      System.Move(Item^, PrevItem^, sizeof(Item^));
+    end; // .while
+
+    // If displacement took place, the previous item is the moved one, we need to erase it memory
+    if ItemInd <> StartInd then begin
+      System.FillChar(PrevItem^, sizeof(PrevItem^), #0);
+    end;
+
+    if Self.fSize <= Self.fMinSize then begin
+      Self.Shrink;
+    end;
+  end; // .if
+end; // .function TObjHashTable.DeleteItem
+
+procedure TObjHashTable.Grow;
+begin
+  Self.Rehash(Self.fCapacity * GROWTH_FACTOR);
+end;
+
+procedure TObjHashTable.Shrink;
+begin
+  Self.Rehash(Self.fCapacity div GROWTH_FACTOR);
+end;
+
+procedure TObjHashTable.Rehash (NewCapacity: integer);
+var
+  OldItems:        TObjHashTableItems;
+  OldItemsEnd:     PObjHashTableItem;
+  OldItem:         PObjHashTableItem;
+  Item:            PObjHashTableItem;
+  ItemInd:         integer;
+  NewItem:         TObjHashTableItem;
+  ModCapacityMask: integer;
+
+begin
+  OldItems        := Self.fItems;
+  OldItem         := @OldItems[0];
+  OldItemsEnd     := @OldItems[Self.fCapacity];
+  Self.CreateNewStorage(NewCapacity);
+  ModCapacityMask := Self.fModCapacityMask;
+
+  NewItem.MakeEmpty;
+
+  while cardinal(OldItem) < cardinal(OldItemsEnd) do begin
+    if OldItem.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE then begin
+      NewItem.Exchange(OldItem^);
+      NewItem.SearchDistance := 1;
+
+      ItemInd := NewItem.Hash and ModCapacityMask;
+      Item    := @Self.fItems[ItemInd];
+
+      while Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE do begin
+        if NewItem.SearchDistance > Item.SearchDistance then begin
+          NewItem.Exchange(Item^);
+        end;
+
+        Inc(Item);
+        Inc(NewItem.SearchDistance);
+
+        ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+        if ItemInd = 0 then begin
+          Item := @Self.fItems[0];
+        end;
+      end;
+
+      // Finally swap with empty item
+      NewItem.Exchange(Item^);
+    end; // .if
+
+    Inc(OldItem);
+  end; // .for
+end; // .procedure TObjHashTable.Rehash
+
+procedure TObjHashTable.BeginIterate;
+begin
+  Self.fIterPos := 0;
+  Self.fLocked  := true;
+end;
+
+function TObjHashTable.IterateNext (out {Un} Key: pointer; out {Un} Value: pointer): boolean;
+var
+{Un} Item: PObjHashTableItem;
+
+begin
+  {!} Assert(Self.fLocked);
+  Item := @Self.fItems[Self.fIterPos];
+
+  while (Self.fIterPos < Self.fCapacity) and (Item.SearchDistance = EMPTY_ITEM_SEARCH_DISTANCE) do begin
+    Inc(Item);
+    Inc(Self.fIterPos);
+  end;
+
+  result := Self.fIterPos < Self.fCapacity;
+
+  if result then begin
+    Value := Item.Value;
+    Key   := Self.HashToKey(Item.Hash);
+    Inc(Self.fIterPos);
+  end;
+end;
+
+procedure TObjHashTable.EndIterate;
+begin
+  Self.fLocked := false;
+end;
+
+procedure TObjHashTable.Assign (Source: Utils.TCloneable);
+var
+{U} SrcTable: TObjHashTable;
+    Item:     PObjHashTableItem;
+    ItemsEnd: PObjHashTableItem;
+
+begin
+  {!} Assert(Source <> nil);
+  {!} Assert(not Self.fLocked);
+  SrcTable := Source as TObjHashTable;
+  // * * * * * //
+  if Self <> Source then begin
+    {!} Assert(not SrcTable.fOwnsItems or SrcTable.fItemsAreObjects, 'Improssible to clone hash table if it contains owned non-object pointers');
+    Self.FreeValues;
+    Self.fOwnsItems       := SrcTable.fOwnsItems;
+    Self.fItemsAreObjects := SrcTable.fItemsAreObjects;
+    Self.fItemGuardProc   := SrcTable.fItemGuardProc;
+    Self.fItemGuard       := SrcTable.fItemGuard.Clone;
+    Self.fSize            := SrcTable.fSize;
+    Self.fCapacity        := SrcTable.fCapacity;
+    Self.OnChangeCapacity;
+    Self.fItems           := Copy(SrcTable.fItems);
+
+    if Self.fOwnsItems and Self.fItemsAreObjects then begin
+      Item     := @Self.fItems[0];
+      ItemsEnd := @Self.fItems[Self.fCapacity];
+
+      while cardinal(Item) < cardinal(ItemsEnd) do begin
+        if Item.Value <> nil then begin
+          Item.Value := (TObject(Item.Value) as Utils.TCloneable).Clone;
+        end;
+
+        Inc(Item);
+      end;
+    end; // .if
+  end; // .if
+end; // .procedure TObjHashTable.Assign
+
+procedure MergeObjArrays (Destination, Source: TObjArray);
+var
+{OUn} Value: pointer;
+{Un}  Key:   pointer;
+
+begin
+  {!} Assert(Source <> nil);
+  {!} Assert(not Destination.OwnsItems or (Destination.ItemsAreObjects and Source.ItemsAreObjects), 'Incompatible hash tables for merging due to items type and ownage');
+  Source.BeginIterate;
+
+  while Source.IterateNext(Key, Value) do begin
+    {!} Assert(Destination.IsValidValue(Value));
+
+    if Destination.OwnsItems then begin
+      {!} Assert(TObject(Value) is Utils.TCloneable, 'Cannot merge array with non-clonable items. Got item: ' + TObject(Value).ClassName);
+      Destination.SetValue(Key, Utils.TCloneable(Value).Clone);
+    end else begin
+      Destination.SetValue(Key, Value);
+    end;
+  end;
+
+  Source.EndIterate;
+end;
+
+function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems,ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TAssocArray;
 var
 {O} ItemGuard: Utils.TDefItemGuard;
 
@@ -1535,19 +2713,19 @@ begin
   // * * * * * //
   ItemGuard.ItemType := ItemType;
   ItemGuard.AllowNil := AllowNil;
-  result             := TStrBinTree.Create(HashFunc, KeyPreprocessFunc, OwnsItems, ItemsAreObjects, @Utils.DefItemGuardProc, Utils.TItemGuard(ItemGuard));
+  result             := TAssocArray.Create(HashFunc, KeyPreprocessFunc, OwnsItems, ItemsAreObjects, @Utils.DefItemGuardProc, Utils.TItemGuard(ItemGuard));
 end;
 
-function NewSimpleAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TStrBinTree;
+function NewSimpleAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TAssocArray;
 var
 {O} ItemGuard: Utils.TCloneable;
 
 begin
   ItemGuard := nil;
-  result    := TStrBinTree.Create (HashFunc, KeyPreprocessFunc, not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
+  result    := TAssocArray.Create (HashFunc, KeyPreprocessFunc, not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
 end;
 
-function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TStrBinTree;
+function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TAssocArray;
 begin
   result := NewAssocArr(Crypto.FastAnsiHash, SysUtils.AnsiLowerCase, OwnsItems, Utils.ITEMS_ARE_OBJECTS, TypeGuard, Utils.ALLOW_NIL);
 end;
