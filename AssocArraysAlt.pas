@@ -1,30 +1,9 @@
 unit AssocArraysAlt;
-{
-DESCRIPTION:  Associative array implementation
-AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
-}
-
 (*
-The implementation uses binary tree and (in case of array with string keys) user provided hash function to store and retrieve data.
-Tree is automatically rebalanced when critical search depth is met which is equal to 2X of balanced tree height.
-Rebalancing is done by converting tree to linear node array and inserting nodes in empty tree.
+  Author: Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft).
+  Hash tables implementation.
+  Robin Hood open address hashing, linear probing, preprocessed string key storage (for case-insensitive dictionaries).
 *)
-
-(*
-  Robin Hood hashing, linear probing, preprocessed key storage (for case-insensitive dictionaries),
-  open addressing, hash table.
-
-*)
-
-(*
-@todo
-.SearchDistance = EMPTY_ITEM_SEARCH_DISTANCE => IsEmpty
-
-*)
-
-// Grow, Shrink, Rehash, Shrink load factor is delete + load factor = max load factor / 4, but no less min
-// Add shrink check to addvalue too
-// Do not shrink in DeleteItem during iteration
 
 
 (***)  interface  (***)
@@ -50,8 +29,8 @@ type
   THashFunc          = function (const Str: string): integer;
   TKeyPreprocessFunc = function (const OrigKey: string): string;
 
-  PHashTableItem = ^THashTableItem;
-  THashTableItem = record
+  PStrHashTableItem = ^TStrHashTableItem;
+  TStrHashTableItem = record
     SearchDistance:  integer; // Counts from 1. 0 means empty
     Hash:            integer;
     PreprocessedKey: string;
@@ -59,14 +38,14 @@ type
     Key:             string;
 
     procedure MakeEmpty; inline;
-    procedure Exchange (var OtherItem: THashTableItem); inline;
+    procedure Exchange (var OtherItem: TStrHashTableItem); inline;
   end;
 
-  THashTableItems          = array of THashTableItem;
-  THashTableItemUnmanaged  = array [0..sizeof(THashTableItem) - 1] of byte;
-  THashTableItemsUnmanaged = array of THashTableItemUnmanaged;
+  TStrHashTableItems          = array of TStrHashTableItem;
+  TStrHashTableItemUnmanaged  = array [0..sizeof(TStrHashTableItem) - 1] of byte;
+  TStrHashTableItemsUnmanaged = array of TStrHashTableItemUnmanaged;
 
-  THashTable = class (Utils.TCloneable)
+  TStrHashTable = class (Utils.TCloneable)
    const
     MIN_CAPACITY    = 16;                  // Must be power of 2
     MAX_LOAD_FACTOR = 0.85;
@@ -74,7 +53,7 @@ type
     GROWTH_FACTOR   = 2;                   // Must be power of 2
 
    protected
-         fItems:             THashTableItems;
+         fItems:             TStrHashTableItems;
          fCapacity:          integer;
          fModCapacityMask:   integer; // (X and fModCapacityMask) = (X mod fCapacity)
          fSize:              integer;
@@ -90,14 +69,17 @@ type
          fLocked:            boolean;
 
     function GetPreprocessedKey (const Key: string): string; inline;
-    procedure FreeItemValue (Item: PHashTableItem);
+    procedure FreeItemValue (Item: PStrHashTableItem);
     procedure FreeValues;
+
+    (* Must be called each time, the capacity is changed to maintain dependent values *)
+    procedure OnChangeCapacity;
 
     (* Discards existing storage and recreates the new one. Be sure to free/move values first *)
     procedure CreateNewStorage (NewCapacity: integer);
 
     (* On failure ItemInd is index to continue checking for possible displacement *)
-    function FindItem (Hash: integer; const PreprocessedKey: string; var ItemInd: integer): {Un} PHashTableItem;
+    function FindItem (Hash: integer; const PreprocessedKey: string; var ItemInd: integer): {Un} PStrHashTableItem;
 
     procedure AddValue (Hash: integer; const Key, PreprocessedKey: string; {OUn} NewValue: pointer; ItemInd: integer);
     procedure Rehash (NewCapacity: integer);
@@ -115,30 +97,20 @@ type
 
     destructor  Destroy; override;
 
-    // procedure Assign (Source: Utils.TCloneable); override;
+    procedure Assign (Source: Utils.TCloneable); override;
     procedure Clear;
-    // function  GetPreprocessedKey (const Key: string): string;
     function  IsValidValue ({n} Value: pointer): boolean;
-    // function  CalcCritDepth: integer; inline;
-    // procedure Rebuild;
     function  GetValue (const Key: string): {n} pointer;
-    // function  HasKey (const Key: string): boolean;
-    // function  GetExistingValue (const Key: string; out {Un} Res: pointer): boolean;
+    function  HasKey (const Key: string): boolean;
+    function  GetExistingValue (const Key: string; {out} var {Un} Res: pointer): boolean;
     procedure SetValue (const Key: string; {OUn} NewValue: pointer);
     function  DeleteItem (const Key: string): boolean;
 
-    // (* Returns value with specified key and NILify it in the array *)
-    // function  TakeValue (Key: string; out {OUn} Value: pointer): boolean;
+    (* Returns value with specified key and nilify it in the array *)
+    function TakeValue (const Key: string; {out} var {OUn} Value: pointer): boolean;
 
-    // (* Returns old value *)
-    // function  ReplaceValue
-    // (
-    //             Key:      string;
-    //       {OUn} NewValue: pointer;
-    //   out {OUn} OldValue: pointer
-    // ): boolean;
-
-    // procedure Merge (Source: THashTable);
+    (* Returns old value *)
+    function ReplaceValue (const Key: string; {OUn} NewValue: pointer; {out} var {OUn} OldValue: pointer): boolean;
 
     procedure BeginIterate;
     function  IterateNext (out Key: string; out {Un} Value: pointer): boolean;
@@ -149,21 +121,23 @@ type
     property OwnsItems:         boolean read fOwnsItems;
     property ItemsAreObjects:   boolean read fItemsAreObjects;
     property ItemCount:         integer read fSize;
-    // property  ItemGuardProc:     Utils.TItemGuardProc read fItemGuardProc;
-    // property  Locked:            boolean read fLocked;
+    property ItemGuardProc:     Utils.TItemGuardProc read fItemGuardProc;
+    property Locked:            boolean read fLocked;
     property Items[const Key: string]: pointer read {n} GetValue write {OUn} SetValue; default;
 
-  end; // .class THashTable
+  end; // .class TStrHashTable
 
-  TAssocArray = THashTable;
+  TAssocArray = TStrHashTable;
 
-function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; {n} ItemType: TClass; AllowNil: boolean): THashTable;
+function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; {n} ItemType: TClass; AllowNil: boolean): TStrHashTable;
+
+procedure MergeArrays (Destination, Source: TStrHashTable);
 
 
 (***)  implementation  (***)
 
 
-procedure THashTableItem.MakeEmpty;
+procedure TStrHashTableItem.MakeEmpty;
 begin
   if Self.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE then begin
     Self.Key             := '';
@@ -172,9 +146,9 @@ begin
   end;
 end;
 
-procedure THashTableItem.Exchange (var OtherItem: THashTableItem);
+procedure TStrHashTableItem.Exchange (var OtherItem: TStrHashTableItem);
 var
-  TempBuf: THashTableItemUnmanaged;
+  TempBuf: TStrHashTableItemUnmanaged;
 
 begin
   System.Move(Self,      TempBuf,   sizeof(Self));
@@ -182,7 +156,7 @@ begin
   System.Move(TempBuf,   OtherItem, sizeof(Self));
 end;
 
-constructor THashTable.Create (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc;
+constructor TStrHashTable.Create (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc;
                                {On} ItemGuard: Utils.TItemGuard);
 begin
   {!} Assert(@HashFunc      <> nil);
@@ -196,13 +170,13 @@ begin
   Self.CreateNewStorage(Self.MIN_CAPACITY);
 end;
 
-destructor THashTable.Destroy;
+destructor TStrHashTable.Destroy;
 begin
   Self.FreeValues;
   SysUtils.FreeAndNil(Self.fItemGuard);
 end;
 
-procedure THashTable.FreeItemValue (Item: PHashTableItem);
+procedure TStrHashTable.FreeItemValue (Item: PStrHashTableItem);
 begin
   if Self.fOwnsItems then begin
     if Self.fItemsAreObjects then begin
@@ -213,10 +187,10 @@ begin
   end;
 end;
 
-procedure THashTable.FreeValues;
+procedure TStrHashTable.FreeValues;
 var
-  Item:     PHashTableItem;
-  ItemsEnd: PHashTableItem;
+  Item:     PStrHashTableItem;
+  ItemsEnd: PStrHashTableItem;
 
 begin
   if Self.fOwnsItems then begin
@@ -230,31 +204,36 @@ begin
   end;
 end;
 
-procedure THashTable.CreateNewStorage (NewCapacity: integer);
+procedure TStrHashTable.OnChangeCapacity;
+begin
+  Self.fMinSize         := Math.Max(Self.MIN_CAPACITY, trunc(Self.fCapacity * Self.MIN_LOAD_FACTOR));
+  Self.fMaxSize         := trunc(Self.fCapacity * Self.MAX_LOAD_FACTOR) - 1;
+  Self.fModCapacityMask := (1 shl Alg.IntLog2(Self.fCapacity)) - 1;
+end;
+
+procedure TStrHashTable.CreateNewStorage (NewCapacity: integer);
 begin
   // Disallow null-capacity hash tables and non power of 2 capacities
   {!} Assert((NewCapacity > 0) and ((1 shl Alg.IntLog2(NewCapacity)) = NewCapacity));
 
-  Self.fCapacity        := NewCapacity;
-  Self.fMinSize         := Math.Max(Self.MIN_CAPACITY, trunc(Self.fCapacity * Self.MIN_LOAD_FACTOR));
-  Self.fMaxSize         := trunc(Self.fCapacity * Self.MAX_LOAD_FACTOR) - 1;
-  Self.fModCapacityMask := (1 shl Alg.IntLog2(Self.fCapacity)) - 1;
-  Self.fItems           := nil;
+  Self.fCapacity := NewCapacity;
+  Self.fItems    := nil;
   SetLength(Self.fItems, Self.fCapacity);
+  Self.OnChangeCapacity;
 end;
 
-procedure THashTable.Clear;
+procedure TStrHashTable.Clear;
 begin
   Self.FreeValues;
   Self.CreateNewStorage(Self.MIN_CAPACITY);
 end;
 
-function THashTable.IsValidValue ({n} Value: pointer): boolean;
+function TStrHashTable.IsValidValue ({n} Value: pointer): boolean;
 begin
   result := Self.fItemGuardProc(Value, Self.fItemsAreObjects, Utils.TItemGuard(Self.fItemGuard));
 end;
 
-function THashTable.GetPreprocessedKey (const Key: string): string;
+function TStrHashTable.GetPreprocessedKey (const Key: string): string;
 begin
   if @Self.fKeyPreprocessFunc = nil then begin
     result := Key;
@@ -263,9 +242,9 @@ begin
   end;
 end;
 
-function THashTable.FindItem (Hash: integer; const PreprocessedKey: string; var ItemInd: integer): {Un} PHashTableItem;
+function TStrHashTable.FindItem (Hash: integer; const PreprocessedKey: string; var ItemInd: integer): {Un} PStrHashTableItem;
 var
-  Item:            PHashTableItem;
+  Item:            PStrHashTableItem;
   SearchDistance:  integer;
   ModCapacityMask: integer;
 
@@ -305,11 +284,11 @@ begin
       Item := @Self.fItems[0];
     end;
   end; // .while
-end; // .function THashTable.FindItem
+end; // .function TStrHashTable.FindItem
 
-procedure THashTable.SetValue (const Key: string; {OUn} NewValue: pointer);
+procedure TStrHashTable.SetValue (const Key: string; {OUn} NewValue: pointer);
 var
-{U} Item:            PHashTableItem;
+{U} Item:            PStrHashTableItem;
     PreprocessedKey: string;
     Hash:            integer;
     ItemInd:         integer;
@@ -328,13 +307,13 @@ begin
   end else begin
     Self.AddValue(Hash, Key, PreprocessedKey, NewValue, ItemInd);
   end;
-end; // .procedure THashTable.SetValue
+end; // .procedure TStrHashTable.SetValue
 
-procedure THashTable.AddValue (Hash: integer; const Key, PreprocessedKey: string; {OUn} NewValue: pointer; ItemInd: integer);
+procedure TStrHashTable.AddValue (Hash: integer; const Key, PreprocessedKey: string; {OUn} NewValue: pointer; ItemInd: integer);
 var
   ModCapacityMask: integer;
-  Item:            PHashTableItem;
-  NewItem:         THashTableItem;
+  Item:            PStrHashTableItem;
+  NewItem:         TStrHashTableItem;
 
 begin
   {!} Assert(not Self.fLocked);
@@ -369,11 +348,11 @@ begin
   if Self.fSize >= Self.fMaxSize then begin
     Self.Grow;
   end;
-end; // .procedure THashTable.AddValue
+end; // .procedure TStrHashTable.AddValue
 
-function THashTable.GetValue (const Key: string): {n} pointer;
+function TStrHashTable.GetValue (const Key: string): {n} pointer;
 var
-{U} Item:            PHashTableItem;
+{U} Item:            PStrHashTableItem;
     ItemInd:         integer;
     PreprocessedKey: string;
 
@@ -387,10 +366,98 @@ begin
   end;
 end;
 
-function THashTable.DeleteItem (const Key: string): boolean;
+function TStrHashTable.HasKey (const Key: string): boolean;
 var
-{Un} PrevItem:        PHashTableItem;
-{Un} Item:            PHashTableItem;
+{U} Item:            PStrHashTableItem;
+    ItemInd:         integer;
+    PreprocessedKey: string;
+
+begin
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+end;
+
+function TStrHashTable.GetExistingValue (const Key: string; {out} var {Un} Res: pointer): boolean;
+var
+{U} Item:            PStrHashTableItem;
+    ItemInd:         integer;
+    PreprocessedKey: string;
+
+begin
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+
+  if result then begin
+    Res := Item.Value;
+  end;
+end;
+
+function TStrHashTable.TakeValue (const Key: string; {out} var {OUn} Value: pointer): boolean;
+var
+{U} Item:            PStrHashTableItem;
+    ItemInd:         integer;
+    PreprocessedKey: string;
+
+begin
+  {!} Assert(Self.IsValidValue(nil));
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+
+  if Item <> nil then begin
+    Value      := Item.Value;
+    Item.Value := nil;
+  end;
+end;
+
+function TStrHashTable.ReplaceValue (const Key: string; {OUn} NewValue: pointer; {out} var {OUn} OldValue: pointer): boolean;
+var
+{U} Item:            PStrHashTableItem;
+    ItemInd:         integer;
+    PreprocessedKey: string;
+
+begin
+  {!} Assert(Self.IsValidValue(NewValue));
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+
+  if Item <> nil then begin
+    OldValue   := Item.Value;
+    Item.Value := NewValue;
+  end;
+end;
+
+procedure MergeArrays (Destination, Source: TStrHashTable);
+var
+{OUn} Value: pointer;
+      Key:   string;
+
+begin
+  {!} Assert(Source <> nil);
+  {!} Assert(not Destination.OwnsItems or (Destination.ItemsAreObjects and Source.ItemsAreObjects), 'Incompatible hash tables for merging due to items type and ownage');
+  Source.BeginIterate;
+
+  while Source.IterateNext(Key, Value) do begin
+    {!} Assert(Destination.IsValidValue(Value));
+
+    if Destination.OwnsItems then begin
+      {!} Assert(TObject(Value) is Utils.TCloneable, 'Cannot merge array with non-clonable items. Got item: ' + TObject(Value).ClassName);
+      Destination.SetValue(Key, Utils.TCloneable(Value).Clone);
+    end else begin
+      Destination.SetValue(Key, Value);
+    end;
+  end;
+
+  Source.EndIterate;
+end;
+
+function TStrHashTable.DeleteItem (const Key: string): boolean;
+var
+{Un} PrevItem:        PStrHashTableItem;
+{Un} Item:            PStrHashTableItem;
      PreprocessedKey: string;
      ItemInd:         integer;
      StartInd:        integer;
@@ -438,26 +505,26 @@ begin
       Self.Shrink;
     end;
   end; // .if
-end; // .function THashTable.DeleteItem
+end; // .function TStrHashTable.DeleteItem
 
-procedure THashTable.Grow;
+procedure TStrHashTable.Grow;
 begin
   Self.Rehash(Self.fCapacity * GROWTH_FACTOR);
 end;
 
-procedure THashTable.Shrink;
+procedure TStrHashTable.Shrink;
 begin
   Self.Rehash(Self.fCapacity div GROWTH_FACTOR);
 end;
 
-procedure THashTable.Rehash (NewCapacity: integer);
+procedure TStrHashTable.Rehash (NewCapacity: integer);
 var
-  OldItems:        THashTableItems;
-  OldItemsEnd:     PHashTableItem;
-  OldItem:         PHashTableItem;
-  Item:            PHashTableItem;
+  OldItems:        TStrHashTableItems;
+  OldItemsEnd:     PStrHashTableItem;
+  OldItem:         PStrHashTableItem;
+  Item:            PStrHashTableItem;
   ItemInd:         integer;
-  NewItem:         THashTableItem;
+  NewItem:         TStrHashTableItem;
   ModCapacityMask: integer;
 
 begin
@@ -501,18 +568,18 @@ begin
 
   // All old items strings must be '' and OldItems.RefCount = 1
   // Fast items deallocation without calling finalizer for each item to free string memory
-  THashTableItemsUnmanaged(OldItems) := nil;
-end; // .procedure THashTable.Rehash
+  TStrHashTableItemsUnmanaged(OldItems) := nil;
+end; // .procedure TStrHashTable.Rehash
 
-procedure THashTable.BeginIterate;
+procedure TStrHashTable.BeginIterate;
 begin
   Self.fIterPos := 0;
   Self.fLocked  := true;
 end;
 
-function THashTable.IterateNext (out Key: string; out {Un} Value: pointer): boolean;
+function TStrHashTable.IterateNext (out Key: string; out {Un} Value: pointer): boolean;
 var
-{Un} Item: PHashTableItem;
+{Un} Item: PStrHashTableItem;
 
 begin
   {!} Assert(Self.fLocked);
@@ -532,12 +599,52 @@ begin
   end;
 end;
 
-procedure THashTable.EndIterate;
+procedure TStrHashTable.EndIterate;
 begin
   Self.fLocked := false;
 end;
 
-function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; {n} ItemType: TClass; AllowNil: boolean): THashTable;
+procedure TStrHashTable.Assign (Source: Utils.TCloneable);
+var
+{U} SrcTable: TStrHashTable;
+    Item:     PStrHashTableItem;
+    ItemsEnd: PStrHashTableItem;
+
+begin
+  {!} Assert(Source <> nil);
+  {!} Assert(not Self.fLocked);
+  SrcTable := Source as TStrHashTable;
+  // * * * * * //
+  if Self <> Source then begin
+    {!} Assert(not SrcTable.fOwnsItems or SrcTable.fItemsAreObjects, 'Improssible to clone hash table if it contains owned non-object pointers');
+    Self.FreeValues;
+    Self.fHashFunc          := SrcTable.fHashFunc;
+    Self.fKeyPreprocessFunc := SrcTable.fKeyPreprocessFunc;
+    Self.fOwnsItems         := SrcTable.fOwnsItems;
+    Self.fItemsAreObjects   := SrcTable.fItemsAreObjects;
+    Self.fItemGuardProc     := SrcTable.fItemGuardProc;
+    Self.fItemGuard         := SrcTable.fItemGuard.Clone;
+    Self.fSize              := SrcTable.fSize;
+    Self.fCapacity          := SrcTable.fCapacity;
+    Self.OnChangeCapacity;
+    Self.fItems             := Copy(SrcTable.fItems);
+
+    if Self.fOwnsItems and Self.fItemsAreObjects then begin
+      Item     := @Self.fItems[0];
+      ItemsEnd := @Self.fItems[Self.fCapacity];
+
+      while cardinal(Item) < cardinal(ItemsEnd) do begin
+        if Item.Value <> nil then begin
+          Item.Value := (TObject(Item.Value) as Utils.TCloneable).Clone;
+        end;
+
+        Inc(Item);
+      end;
+    end; // .if
+  end; // .if
+end; // .procedure TStrHashTable.Assign
+
+function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; {n} ItemType: TClass; AllowNil: boolean): TStrHashTable;
 var
 {O} ItemGuard: Utils.TDefItemGuard;
 
@@ -547,7 +654,7 @@ begin
   // * * * * * //
   ItemGuard.ItemType := ItemType;
   ItemGuard.AllowNil := AllowNil;
-  result             := THashTable.Create(HashFunc, KeyPreprocessFunc, OwnsItems, ItemsAreObjects, Utils.DefItemGuardProc, ItemGuard);
+  result             := TStrHashTable.Create(HashFunc, KeyPreprocessFunc, OwnsItems, ItemsAreObjects, Utils.DefItemGuardProc, ItemGuard);
 end;
 
 end.
