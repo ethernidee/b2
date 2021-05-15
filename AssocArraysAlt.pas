@@ -16,6 +16,12 @@ Rebalancing is done by converting tree to linear node array and inserting nodes 
 
 *)
 
+(*
+@todo
+.SearchDistance = EMPTY_ITEM_SEARCH_DISTANCE => IsEmpty
+
+*)
+
 
 (***)  interface  (***)
 
@@ -23,6 +29,7 @@ Rebalancing is done by converting tree to linear node array and inserting nodes 
 uses
   SysUtils,
   Math, // FIXME DELETEME
+  DlgMes, //FIXME DELETEME
 
   Alg,
   Crypto,
@@ -102,7 +109,7 @@ type
     // function  HasKey (const Key: string): boolean;
     // function  GetExistingValue (const Key: string; out {Un} Res: pointer): boolean;
     procedure SetValue (const Key: string; {OUn} NewValue: pointer);
-    // function  DeleteItem (const Key: string): boolean;
+    function  DeleteItem (const Key: string): boolean;
 
     // (* Returns value with specified key and NILify it in the array *)
     // function  TakeValue (Key: string; out {OUn} Value: pointer): boolean;
@@ -246,7 +253,7 @@ var
   Item:            PHashTableItem;
   SearchDistance:  integer;
   ModCapacityMask: integer;
-  ItemIndTemp:     integer;
+  //ItemIndTemp:     integer;
 
 label
   Quit;
@@ -254,36 +261,39 @@ label
 begin
   result          := nil;
   ModCapacityMask := Self.fModCapacityMask;
-  ItemIndTemp     := Hash and ModCapacityMask;
+  ItemInd     := Hash and ModCapacityMask;
   Item            := @Self.fItems[ItemInd];
   SearchDistance  := 1;
 
   while true do begin
     if (Item.SearchDistance = EMPTY_ITEM_SEARCH_DISTANCE) or (SearchDistance > Item.SearchDistance) then begin
-      goto Quit;
+      //inc(Self.fTotalSearchDistance, SearchDistance);
+      //Self.fMaxSearchDistance := Max(Self.fMaxSearchDistance, SearchDistance);
+      exit;
     end;
 
     if (Item.Hash = Hash) and (Item.PreprocessedKey = PreprocessedKey) then begin
-      // inc(fTotalSearchDistance, SearchDistance);
-      // fMaxSearchDistance := Max(fMaxSearchDistance, SearchDistance);
+      //inc(fTotalSearchDistance, SearchDistance);
+      //Self.fMaxSearchDistance := Max(Self.fMaxSearchDistance, SearchDistance);
       result := Item;
-      goto Quit;
+      exit;
     end;
 
     // ItemInd не нужен вообще, вычислить MaxItemInd как @Self.fItems[Self.fCapacity] и проверять на него
     // ModCapacityMask будет использовать только один раз в этом случае
 
-    Inc(SearchDistance);
-    ItemIndTemp := (ItemIndTemp + 1) and ModCapacityMask;
     Inc(Item);
+    Inc(SearchDistance);
 
-    if ItemIndTemp = 0 then begin
+    ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+    if ItemInd = 0 then begin
       Item := @Self.fItems[0];
     end;
   end;
 
 Quit:
-  ItemInd := ItemIndTemp;
+  //ItemInd := ItemIndTemp;
 end; // .function THashTable.FindItem
 
 procedure THashTable.SetValue (const Key: string; {OUn} NewValue: pointer);
@@ -329,12 +339,12 @@ begin
       NewItem.Exchange(Item^);
     end;
 
+    Inc(Item);
     Inc(NewItem.SearchDistance);
+
     ItemInd := (ItemInd + 1) and ModCapacityMask;
 
-    if ItemInd <> 0 then begin
-      Inc(Item);
-    end else begin
+    if ItemInd = 0 then begin
       Item := @Self.fItems[0];
     end;
   end;
@@ -385,6 +395,8 @@ begin
   Self.fModCapacityMask := Self.CalcModCapacityMask;
   ModCapacityMask    := Self.fModCapacityMask;
   SetLength(Self.fItems, Self.fCapacity);
+
+
   NewItem.Key := '';
   NewItem.PreprocessedKey := '';
   // TNotManagedHashTableItems(OldItems) := nil; Fast clear old items if they do not contain any string !!!
@@ -408,12 +420,12 @@ begin
           NewItem.Exchange(Item^);
         end;
 
+        Inc(Item);
         Inc(NewItem.SearchDistance);
+
         ItemInd := (ItemInd + 1) and ModCapacityMask;
 
-        if ItemInd <> 0 then begin
-          Inc(Item);
-        end else begin
+        if ItemInd = 0 then begin
           Item := @Self.fItems[0];
         end;
       end;
@@ -425,6 +437,55 @@ begin
 
   THashTableItemsUnmanaged(OldItems) := nil; //UNSAFE IF ANY OLD ITEM HAD STRINGS
 end;
+
+function THashTable.DeleteItem (const Key: string): boolean;
+var
+{Un} PrevItem:        PHashTableItem;
+{Un} Item:            PHashTableItem;
+     PreprocessedKey: string;
+     ItemInd:         integer;
+     StartInd:        integer;
+     ModCapacityMask: integer;
+
+begin
+  {!} Assert(not Self.fLocked);
+  ModCapacityMask := Self.fModCapacityMask;
+  PreprocessedKey := Self.GetPreprocessedKey(Key);
+  PrevItem        := nil;
+  Item            := Self.FindItem(Self.fHashFunc(PreprocessedKey), PreprocessedKey, ItemInd);
+  result          := Item <> nil;
+
+  if result then begin
+    Self.FreeItemValue(Item);
+    Item.MakeEmpty;
+    Dec(Self.fSize);
+    StartInd := (ItemInd + 1) and ModCapacityMask;
+
+    while true do begin
+      PrevItem := Item;
+      Inc(Item);
+
+      ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+      if ItemInd = 0 then begin
+        Item := @Self.fItems[0];
+      end;
+
+      // Chain is ended, because this item is empty or on its own place
+      if Item.SearchDistance <= 1 then begin
+        break;
+      end;
+
+      Dec(Item.SearchDistance);
+      System.Move(Item^, PrevItem^, sizeof(Item^));
+    end; // .while
+
+    // If displacement took place, the previous item is the moved one, we need to erase it memory
+    if ItemInd <> StartInd then begin
+      System.FillChar(PrevItem^, sizeof(PrevItem^), #0);
+    end;
+  end; // .if
+end; // .function THashTable.DeleteItem
 
 function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; {n} ItemType: TClass; AllowNil: boolean): THashTable;
 var
