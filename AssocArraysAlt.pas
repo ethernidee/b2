@@ -22,6 +22,10 @@ Rebalancing is done by converting tree to linear node array and inserting nodes 
 
 *)
 
+// Grow, Shrink, Rehash, Shrink load factor is delete + load factor = max load factor / 4, but no less min
+// Add shrink check to addvalue too
+// Do not shrink in DeleteItem during iteration
+
 
 (***)  interface  (***)
 
@@ -64,7 +68,7 @@ type
   THashTable = class (Utils.TCloneable)
    const
     MIN_CAPACITY    = 16; // Must be power of 2
-    MAX_LOAD_FACTOR = 0.8;
+    MAX_LOAD_FACTOR = 0.85;
     GROWTH_FACTOR   = 2;  // Must be power of 2
 
    protected
@@ -79,6 +83,7 @@ type
     {n}  fKeyPreprocessFunc: TKeyPreprocessFunc;
     {On} fItemGuard:         Utils.TItemGuard;
          fItemGuardProc:     Utils.TItemGuardProc;
+         fIterPos:           integer;
     //       fIterNodes:         array of {U} PAssocArrayNode;
     // {U}   fIterCurrItem:      PAssocArrayItem;
     //       fIterNodeInd:       integer;
@@ -124,9 +129,9 @@ type
 
     // procedure Merge (Source: THashTable);
 
-    // procedure BeginIterate;
-    // function  IterateNext (out Key: string; out {Un} Value: pointer): boolean;
-    // procedure EndIterate;
+    procedure BeginIterate;
+    function  IterateNext (out Key: string; out {Un} Value: pointer): boolean;
+    procedure EndIterate;
 
     // property  HashFunc:          THashFunc read fHashFunc;
     // property  KeyPreprocessFunc: TKeyPreprocessFunc read fKeyPreprocessFunc;
@@ -261,7 +266,7 @@ label
 begin
   result          := nil;
   ModCapacityMask := Self.fModCapacityMask;
-  ItemInd     := Hash and ModCapacityMask;
+  ItemInd         := Hash and ModCapacityMask;
   Item            := @Self.fItems[ItemInd];
   SearchDistance  := 1;
 
@@ -326,6 +331,7 @@ var
   NewItem:         THashTableItem;
 
 begin
+  {!} Assert(not Self.fLocked);
   Item                    := @Self.fItems[ItemInd];
   ModCapacityMask         := Self.fModCapacityMask;
   NewItem.Hash            := Hash;
@@ -486,6 +492,39 @@ begin
     end;
   end; // .if
 end; // .function THashTable.DeleteItem
+
+procedure THashTable.BeginIterate;
+begin
+  Self.fIterPos := 0;
+  Self.fLocked  := true;
+end;
+
+function THashTable.IterateNext (out Key: string; out {Un} Value: pointer): boolean;
+var
+{Un} Item: PHashTableItem;
+
+begin
+  {!} Assert(Self.fLocked);
+  Item := @Self.fItems[Self.fIterPos];
+
+  while (Self.fIterPos < Self.fCapacity) and (Item.SearchDistance = EMPTY_ITEM_SEARCH_DISTANCE) do begin
+    Inc(Item);
+    Inc(Self.fIterPos);
+  end;
+
+  result := Self.fIterPos < Self.fCapacity;
+
+  if result then begin
+    Value := Item.Value;
+    Key   := Item.Key;
+    Inc(Self.fIterPos);
+  end;
+end;
+
+procedure THashTable.EndIterate;
+begin
+  Self.fLocked := false;
+end;
 
 function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; {n} ItemType: TClass; AllowNil: boolean): THashTable;
 var
