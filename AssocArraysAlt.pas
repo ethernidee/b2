@@ -31,13 +31,14 @@ Rebalancing is done by converting tree to linear node array and inserting nodes 
 
 
 uses
+  Math,
   SysUtils,
-  Math, // FIXME DELETEME
-  DlgMes, //FIXME DELETEME
 
   Alg,
   Crypto,
   Utils;
+
+{_DEFINE INSPECT_SEARCH_DISTANCE}
 
 const
   NO_KEY_PREPROCESS_FUNC = nil;
@@ -61,44 +62,54 @@ type
     procedure Exchange (var OtherItem: THashTableItem); inline;
   end;
 
-  THashTableItems = array of THashTableItem;
-  THashTableItemUnmanaged = array [0..sizeof(THashTableItem) - 1] of byte;
+  THashTableItems          = array of THashTableItem;
+  THashTableItemUnmanaged  = array [0..sizeof(THashTableItem) - 1] of byte;
   THashTableItemsUnmanaged = array of THashTableItemUnmanaged;
 
   THashTable = class (Utils.TCloneable)
    const
-    MIN_CAPACITY    = 16; // Must be power of 2
+    MIN_CAPACITY    = 16;                  // Must be power of 2
     MAX_LOAD_FACTOR = 0.85;
-    GROWTH_FACTOR   = 2;  // Must be power of 2
+    MIN_LOAD_FACTOR = MAX_LOAD_FACTOR / 4;
+    GROWTH_FACTOR   = 2;                   // Must be power of 2
 
    protected
          fItems:             THashTableItems;
-         fSize:              integer;
          fCapacity:          integer;
-         fCritCapacity:      integer;
-         fModCapacityMask:   integer; // X and fModCapacityMask = X mod fCapacity
-         fHashFunc:          THashFunc;
+         fModCapacityMask:   integer; // (X and fModCapacityMask) = (X mod fCapacity)
+         fSize:              integer;
+         fMinSize:           integer;
+         fMaxSize:           integer;
          fOwnsItems:         boolean;
          fItemsAreObjects:   boolean;
+         fHashFunc:          THashFunc;
     {n}  fKeyPreprocessFunc: TKeyPreprocessFunc;
     {On} fItemGuard:         Utils.TItemGuard;
          fItemGuardProc:     Utils.TItemGuardProc;
          fIterPos:           integer;
-    //       fIterNodes:         array of {U} PAssocArrayNode;
-    // {U}   fIterCurrItem:      PAssocArrayItem;
-    //       fIterNodeInd:       integer;
          fLocked:            boolean;
 
     function GetPreprocessedKey (const Key: string): string; inline;
-    function CalcModCapacityMask: integer; inline;
     procedure FreeItemValue (Item: PHashTableItem);
+    procedure FreeValues;
+
+    (* Discards existing storage and recreates the new one. Be sure to free/move values first *)
+    procedure CreateNewStorage (NewCapacity: integer);
+
+    (* On failure ItemInd is index to continue checking for possible displacement *)
     function FindItem (Hash: integer; const PreprocessedKey: string; var ItemInd: integer): {Un} PHashTableItem;
+
     procedure AddValue (Hash: integer; const Key, PreprocessedKey: string; {OUn} NewValue: pointer; ItemInd: integer);
+    procedure Rehash (NewCapacity: integer);
     procedure Grow;
+    procedure Shrink;
 
    public
-    fTotalSearchDistance: integer;
-    fMaxSearchDistance: integer;
+    {$IFDEF INSPECT_SEARCH_DISTANCE}
+      TotalSearchDistance: integer; // Increased by item search distance during items search only, not on rehashing
+      MaxSearchDistance:   integer; // Maximum search distance, met during items search
+    {$ENDIF}
+
     constructor Create (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; ItemGuardProc: Utils.TItemGuardProc;
                         {On} ItemGuard: Utils.TItemGuard);
 
@@ -133,15 +144,15 @@ type
     function  IterateNext (out Key: string; out {Un} Value: pointer): boolean;
     procedure EndIterate;
 
-    // property  HashFunc:          THashFunc read fHashFunc;
-    // property  KeyPreprocessFunc: TKeyPreprocessFunc read fKeyPreprocessFunc;
-    // property  OwnsItems:         boolean read fOwnsItems;
-    // property  ItemsAreObjects:   boolean read fItemsAreObjects;
-    property  ItemCount:         integer read fSize;
+    property HashFunc:          THashFunc read fHashFunc;
+    property KeyPreprocessFunc: TKeyPreprocessFunc read fKeyPreprocessFunc;
+    property OwnsItems:         boolean read fOwnsItems;
+    property ItemsAreObjects:   boolean read fItemsAreObjects;
+    property ItemCount:         integer read fSize;
     // property  ItemGuardProc:     Utils.TItemGuardProc read fItemGuardProc;
     // property  Locked:            boolean read fLocked;
-    property  Items[const Key: string]: pointer read {n} GetValue write {OUn} SetValue; default;
-    property Count: integer read fSize;
+    property Items[const Key: string]: pointer read {n} GetValue write {OUn} SetValue; default;
+
   end; // .class THashTable
 
   TAssocArray = THashTable;
@@ -164,12 +175,8 @@ end;
 procedure THashTableItem.Exchange (var OtherItem: THashTableItem);
 var
   TempBuf: THashTableItemUnmanaged;
-  // Temp: THashTableItem;
 
 begin
-  // Temp      := Self;
-  // Self      := OtherItem;
-  // OtherItem := Temp;
   System.Move(Self,      TempBuf,   sizeof(Self));
   System.Move(OtherItem, Self,      sizeof(Self));
   System.Move(TempBuf,   OtherItem, sizeof(Self));
@@ -186,39 +193,60 @@ begin
   Self.fItemsAreObjects   := ItemsAreObjects;
   Self.fItemGuardProc     := ItemGuardProc;
   Self.fItemGuard         := ItemGuard;
-  Self.fCapacity          := Self.MIN_CAPACITY;
-  Self.fCritCapacity      := trunc(Self.MIN_CAPACITY * Self.MAX_LOAD_FACTOR) - 1;
-  Self.fModCapacityMask   := Self.CalcModCapacityMask;
-  SetLength(Self.fItems, Self.MIN_CAPACITY);
-end; // .constructor THashTable.Create
+  Self.CreateNewStorage(Self.MIN_CAPACITY);
+end;
 
 destructor THashTable.Destroy;
 begin
-  Self.Clear;
+  Self.FreeValues;
   SysUtils.FreeAndNil(Self.fItemGuard);
 end;
 
-procedure THashTable.Clear;
+procedure THashTable.FreeItemValue (Item: PHashTableItem);
+begin
+  if Self.fOwnsItems then begin
+    if Self.fItemsAreObjects then begin
+      TObject(Item.Value).Free;
+    end else begin
+      FreeMem(Item.Value);
+    end;
+  end;
+end;
+
+procedure THashTable.FreeValues;
 var
-  Item: PHashTableItem;
-  i:    integer;
+  Item:     PHashTableItem;
+  ItemsEnd: PHashTableItem;
 
 begin
-  //
-  // Values are not freed at all if owned and strings can be deallocated automatically.
-  //
+  if Self.fOwnsItems then begin
+    Item     := @Self.fItems[0];
+    ItemsEnd := @Self.fItems[Self.fCapacity];
 
-  Item := @Self.fItems[0];
-
-  for i := 0 to Self.fCapacity - 1 do begin
-    Item.MakeEmpty;
-    Inc(Item);
+    while cardinal(Item) < cardinal(ItemsEnd) do begin
+      Self.FreeItemValue(Item);
+      Inc(Item);
+    end;
   end;
+end;
 
-  Self.fSize         := 0;
-  Self.fCapacity     := Self.MIN_CAPACITY;
-  Self.fCritCapacity := trunc(Self.MIN_CAPACITY * Self.MAX_LOAD_FACTOR) - 1;
-  SetLength(Self.fItems, Self.MIN_CAPACITY);
+procedure THashTable.CreateNewStorage (NewCapacity: integer);
+begin
+  // Disallow null-capacity hash tables and non power of 2 capacities
+  {!} Assert((NewCapacity > 0) and ((1 shl Alg.IntLog2(NewCapacity)) = NewCapacity));
+
+  Self.fCapacity        := NewCapacity;
+  Self.fMinSize         := Math.Max(Self.MIN_CAPACITY, trunc(Self.fCapacity * Self.MIN_LOAD_FACTOR));
+  Self.fMaxSize         := trunc(Self.fCapacity * Self.MAX_LOAD_FACTOR) - 1;
+  Self.fModCapacityMask := (1 shl Alg.IntLog2(Self.fCapacity)) - 1;
+  Self.fItems           := nil;
+  SetLength(Self.fItems, Self.fCapacity);
+end;
+
+procedure THashTable.Clear;
+begin
+  Self.FreeValues;
+  Self.CreateNewStorage(Self.MIN_CAPACITY);
 end;
 
 function THashTable.IsValidValue ({n} Value: pointer): boolean;
@@ -235,33 +263,11 @@ begin
   end;
 end;
 
-function THashTable.CalcModCapacityMask: integer;
-begin
-  result := (1 shl Alg.IntLog2(Self.fCapacity)) - 1;
-end;
-
-procedure THashTable.FreeItemValue (Item: PHashTableItem);
-begin
-  {!} Assert(Item <> nil);
-
-  if Self.fOwnsItems then begin
-    if Self.fItemsAreObjects then begin
-      TObject(Item.Value).Free;
-    end else begin
-      FreeMem(Item.Value);
-    end;
-  end;
-end;
-
 function THashTable.FindItem (Hash: integer; const PreprocessedKey: string; var ItemInd: integer): {Un} PHashTableItem;
 var
   Item:            PHashTableItem;
   SearchDistance:  integer;
   ModCapacityMask: integer;
-  //ItemIndTemp:     integer;
-
-label
-  Quit;
 
 begin
   result          := nil;
@@ -272,20 +278,23 @@ begin
 
   while true do begin
     if (Item.SearchDistance = EMPTY_ITEM_SEARCH_DISTANCE) or (SearchDistance > Item.SearchDistance) then begin
-      //inc(Self.fTotalSearchDistance, SearchDistance);
-      //Self.fMaxSearchDistance := Max(Self.fMaxSearchDistance, SearchDistance);
+      {$IFDEF INSPECT_SEARCH_DISTANCE}
+        Inc(Self.TotalSearchDistance, SearchDistance);
+        Self.MaxSearchDistance := Max(Self.MaxSearchDistance, SearchDistance);
+      {$ENDIF}
+
       exit;
     end;
 
     if (Item.Hash = Hash) and (Item.PreprocessedKey = PreprocessedKey) then begin
-      //inc(fTotalSearchDistance, SearchDistance);
-      //Self.fMaxSearchDistance := Max(Self.fMaxSearchDistance, SearchDistance);
+      {$IFDEF INSPECT_SEARCH_DISTANCE}
+        Inc(Self.TotalSearchDistance, SearchDistance);
+        Self.MaxSearchDistance := Max(Self.MaxSearchDistance, SearchDistance);
+      {$ENDIF}
+
       result := Item;
       exit;
     end;
-
-    // ItemInd не нужен вообще, вычислить MaxItemInd как @Self.fItems[Self.fCapacity] и проверять на него
-    // ModCapacityMask будет использовать только один раз в этом случае
 
     Inc(Item);
     Inc(SearchDistance);
@@ -295,10 +304,7 @@ begin
     if ItemInd = 0 then begin
       Item := @Self.fItems[0];
     end;
-  end;
-
-Quit:
-  //ItemInd := ItemIndTemp;
+  end; // .while
 end; // .function THashTable.FindItem
 
 procedure THashTable.SetValue (const Key: string; {OUn} NewValue: pointer);
@@ -360,7 +366,7 @@ begin
 
   Inc(Self.fSize);
 
-  if Self.fSize >= Self.fCritCapacity then begin
+  if Self.fSize >= Self.fMaxSize then begin
     Self.Grow;
   end;
 end; // .procedure THashTable.AddValue
@@ -379,69 +385,6 @@ begin
   if Item <> nil then begin
     result := Item.Value;
   end;
-end;
-
-procedure THashTable.Grow;
-var
-  OldCapacity:     integer;
-  OldItems:        THashTableItems;
-  OldItem:         PHashTableItem;
-  Item:            PHashTableItem;
-  ItemInd:         integer;
-  NewItem:         THashTableItem;
-  ModCapacityMask: integer;
-  i:               integer;
-
-begin
-  OldItems           := Self.fItems;
-  Self.fItems        := nil;
-  OldCapacity        := Self.fCapacity;
-  Self.fCapacity     := Self.fCapacity * GROWTH_FACTOR;
-  Self.fCritCapacity := trunc(Self.fCapacity * Self.MAX_LOAD_FACTOR) - 1;
-  Self.fModCapacityMask := Self.CalcModCapacityMask;
-  ModCapacityMask    := Self.fModCapacityMask;
-  SetLength(Self.fItems, Self.fCapacity);
-
-
-  NewItem.Key := '';
-  NewItem.PreprocessedKey := '';
-  // TNotManagedHashTableItems(OldItems) := nil; Fast clear old items if they do not contain any string !!!
-
-  for i := 0 to OldCapacity - 1 do begin
-    OldItem := @OldItems[i];
-
-    if OldItem.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE then begin
-      NewItem.Exchange(OldItem^);
-      ItemInd := NewItem.Hash and ModCapacityMask;
-      Item    := @Self.fItems[ItemInd];
-
-      // NewItem.Hash            := Hash;
-      // NewItem.Key             := Key;
-      // NewItem.PreprocessedKey := PreprocessedKey;
-      // NewItem.Value           := NewValue;
-      NewItem.SearchDistance := 1;
-
-      while Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE do begin
-        if NewItem.SearchDistance > Item.SearchDistance then begin
-          NewItem.Exchange(Item^);
-        end;
-
-        Inc(Item);
-        Inc(NewItem.SearchDistance);
-
-        ItemInd := (ItemInd + 1) and ModCapacityMask;
-
-        if ItemInd = 0 then begin
-          Item := @Self.fItems[0];
-        end;
-      end;
-
-      // Finally swap with empty item
-      NewItem.Exchange(Item^);
-    end; // .if
-  end; // .for
-
-  THashTableItemsUnmanaged(OldItems) := nil; //UNSAFE IF ANY OLD ITEM HAD STRINGS
 end;
 
 function THashTable.DeleteItem (const Key: string): boolean;
@@ -490,8 +433,76 @@ begin
     if ItemInd <> StartInd then begin
       System.FillChar(PrevItem^, sizeof(PrevItem^), #0);
     end;
+
+    if Self.fSize <= Self.fMinSize then begin
+      Self.Shrink;
+    end;
   end; // .if
 end; // .function THashTable.DeleteItem
+
+procedure THashTable.Grow;
+begin
+  Self.Rehash(Self.fCapacity * GROWTH_FACTOR);
+end;
+
+procedure THashTable.Shrink;
+begin
+  Self.Rehash(Self.fCapacity div GROWTH_FACTOR);
+end;
+
+procedure THashTable.Rehash (NewCapacity: integer);
+var
+  OldItems:        THashTableItems;
+  OldItemsEnd:     PHashTableItem;
+  OldItem:         PHashTableItem;
+  Item:            PHashTableItem;
+  ItemInd:         integer;
+  NewItem:         THashTableItem;
+  ModCapacityMask: integer;
+
+begin
+  OldItems        := Self.fItems;
+  OldItem         := @OldItems[0];
+  OldItemsEnd     := @OldItems[Self.fCapacity];
+  Self.CreateNewStorage(NewCapacity);
+  ModCapacityMask := Self.fModCapacityMask;
+
+  NewItem.MakeEmpty;
+
+  while cardinal(OldItem) < cardinal(OldItemsEnd) do begin
+    if OldItem.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE then begin
+      NewItem.Exchange(OldItem^);
+      NewItem.SearchDistance := 1;
+
+      ItemInd := NewItem.Hash and ModCapacityMask;
+      Item    := @Self.fItems[ItemInd];
+
+      while Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE do begin
+        if NewItem.SearchDistance > Item.SearchDistance then begin
+          NewItem.Exchange(Item^);
+        end;
+
+        Inc(Item);
+        Inc(NewItem.SearchDistance);
+
+        ItemInd := (ItemInd + 1) and ModCapacityMask;
+
+        if ItemInd = 0 then begin
+          Item := @Self.fItems[0];
+        end;
+      end;
+
+      // Finally swap with empty item
+      NewItem.Exchange(Item^);
+    end; // .if
+
+    Inc(OldItem);
+  end; // .for
+
+  // All old items strings must be '' and OldItems.RefCount = 1
+  // Fast items deallocation without calling finalizer for each item to free string memory
+  THashTableItemsUnmanaged(OldItems) := nil;
+end; // .procedure THashTable.Rehash
 
 procedure THashTable.BeginIterate;
 begin
