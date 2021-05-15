@@ -1,17 +1,25 @@
 unit AssocArrays;
-{
-DESCRIPTION:  Associative array implementation
-AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
-}
+(*
+  DESCRIPTION:  Associative array implementation
+  AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+*)
 
 (*
-The implementation uses binary tree and (in case of array with string keys) user provided hash function to store and retrieve data.
-Tree is automatically rebalanced when critical search depth is met which is equal to 2X of balanced tree height.
-Rebalancing is done by converting tree to linear node array and inserting nodes in empty tree.
+  The implementation uses binary tree and (in case of array with string keys) user provided hash function to store and retrieve data.
+  Tree is automatically rebalanced when critical search depth is met which is equal to 2X of balanced tree height.
+  Rebalancing is done by converting tree to linear node array and inserting nodes in empty tree.
+  Possible improvement: compare hash first and preprocessed key then, thus getting rid of item chains and leaving nodes only.
+  In this case no O(n^2) performance is possible.
 *)
 
 (***)  interface  (***)
-uses SysUtils, Utils, Alg, Crypto;
+uses
+  Math,
+  SysUtils,
+
+  Alg,
+  Crypto,
+  Utils;
 
 const
   LEFT_CHILD  = false;
@@ -21,36 +29,36 @@ const
 
 
 type
-  TChildNodeSide  = boolean;
-
-  PAssocArrayItem = ^TAssocArrayItem;
-  TAssocArrayItem = record
-          Key:      string;
-    {OUn} Value:    pointer;
-    {On}  NextItem: PAssocArrayItem;
-  end; // .record TAssocArrayItem
-
-  PAssocArrayNode = ^TAssocArrayNode;
-  TAssocArrayNode = record
-        Hash:       integer;
-    {O} Item:       PAssocArrayItem;
-        ChildNodes: array [LEFT_CHILD..RIGHT_CHILD] of {On} PAssocArrayNode;
-  end;
-
   THashFunc          = function (const Str: string): integer;
   TKeyPreprocessFunc = function (const OrigKey: string): string;
 
-  TNodeArray = array of {O} PAssocArrayNode;
+  TChildNodeSide = boolean;
 
-  TLinearNodeArray  = record
-    NodeArray: TNodeArray; // Nodes are sorted by hash
+  PStrBinTreeItem = ^TStrBinTreeItem;
+  TStrBinTreeItem = record
+         Key:      string;
+    {OUn}Value:    pointer;
+    {On} NextItem: PStrBinTreeItem;
+  end;
+
+  PStrBinTreeNode = ^TStrBinTreeNode;
+  TStrBinTreeNode = record
+        Hash:       integer;
+    {O} Item:       PStrBinTreeItem;
+        ChildNodes: array [LEFT_CHILD..RIGHT_CHILD] of {On} PStrBinTreeNode;
+  end;
+
+  TStrBinTreeNodeArray = array of {O} PStrBinTreeNode;
+
+  TStrBinTreeLinearNodeArray = record
+    NodeArray: TStrBinTreeNodeArray; // Nodes are sorted by hash
     NodeCount: integer;
     ItemCount: integer;
   end;
 
-  TAssocArray = class (Utils.TCloneable)
+  TStrBinTree = class (Utils.TCloneable)
     (***) protected (***)
-      {On}  fRoot:              PAssocArrayNode;
+      {On}  fRoot:              PStrBinTreeNode;
             fHashFunc:          THashFunc;
       {n}   fKeyPreprocessFunc: TKeyPreprocessFunc;
             fOwnsItems:         boolean;
@@ -59,39 +67,39 @@ type
       {On}  fItemGuard:         Utils.TItemGuard;
             fItemCount:         integer;
             fNodeCount:         integer;
-            fIterNodes:         array of {U} PAssocArrayNode;
-      {U}   fIterCurrItem:      PAssocArrayItem;
+            fIterNodes:         array of {U} PStrBinTreeNode;
+      {U}   fIterCurrItem:      PStrBinTreeItem;
             fIterNodeInd:       integer;
             fLocked:            boolean;
 
 
-      function  CloneItem (Item: PAssocArrayItem): {O} PAssocArrayItem;
-      function  CloneNode ({n} Node: PAssocArrayNode): {On} PAssocArrayNode;
-      procedure FreeItemValue (Item: PAssocArrayItem);
-      procedure FreeNode ({IN} var {n} Node: PAssocArrayNode);
-      procedure RemoveNode ({n} ParentNode: PAssocArrayNode; ItemNode: PAssocArrayNode);
+      function  CloneItem (Item: PStrBinTreeItem): {O} PStrBinTreeItem;
+      function  CloneNode ({n} Node: PStrBinTreeNode): {On} PStrBinTreeNode;
+      procedure FreeItemValue (Item: PStrBinTreeItem);
+      procedure FreeNode ({IN} var {n} Node: PStrBinTreeNode);
+      procedure RemoveNode ({n} ParentNode: PStrBinTreeNode; ItemNode: PStrBinTreeNode);
       procedure RemoveItem
       (
-        {n} ParentNode: PAssocArrayNode;
-            ItemNode:   PAssocArrayNode;
-        {n} ParentItem: PAssocArrayItem;
-            Item:       PAssocArrayItem
+        {n} ParentNode: PStrBinTreeNode;
+            ItemNode:   PStrBinTreeNode;
+        {n} ParentItem: PStrBinTreeItem;
+            Item:       PStrBinTreeItem
       );
 
       (*
         All nodes are placed in NodeArray and disconnected from each other.
         Original binary tree is emptied. Nodes are sorted by hash.
       *)
-      procedure ConvertToLinearNodeArray (out Res: TLinearNodeArray);
+      procedure ConvertToLinearNodeArray (out Res: TStrBinTreeLinearNodeArray);
 
       function  FindItem
       (
                     Hash:       integer;
               const Key:        string;
-        out {ni}    ParentNode: PAssocArrayNode;
-        out {ni}    ItemNode:   PAssocArrayNode;
-        out {ni}    ParentItem: PAssocArrayItem;
-        out {ni}    Item:       PAssocArrayItem
+        out {ni}    ParentNode: PStrBinTreeNode;
+        out {ni}    ItemNode:   PStrBinTreeNode;
+        out {ni}    ParentItem: PStrBinTreeItem;
+        out {ni}    Item:       PStrBinTreeItem
       ): boolean;
 
     (***) public (***)
@@ -130,7 +138,7 @@ type
         out {OUn} OldValue: pointer
       ): boolean;
 
-      procedure Merge (Source: TAssocArray);
+      procedure Merge (Source: TStrBinTree);
 
       procedure BeginIterate;
       function  IterateNext (out Key: string; out {Un} Value: pointer): boolean;
@@ -145,52 +153,52 @@ type
       property  NodeCount:         integer read fNodeCount;
       property  Locked:            boolean read fLocked;
       property  Items[const Key: string]: pointer read {n} GetValue write {OUn} SetValue; default;
-  end; // .class TAssocArray
+  end; // .class TStrBinTree
 
-  PObjArrayNode = ^TObjArrayNode;
-  TObjArrayNode = record
+  PObjBinTreeNode = ^TObjBinTreeNode;
+  TObjBinTreeNode = record
           Hash:       integer;  // Hash is encoded {U} Key: pointer
     {OUn} Value:      pointer;
-          ChildNodes: array [LEFT_CHILD..RIGHT_CHILD] of {On} PObjArrayNode;
-  end; // .record TObjArrayItem
+          ChildNodes: array [LEFT_CHILD..RIGHT_CHILD] of {On} PObjBinTreeNode;
+  end;
 
-  TObjNodeArray = array of {O} PObjArrayNode;
+  TObjBinTreeNodeArray = array of {O} PObjBinTreeNode;
 
-  TLinearObjNodeArray = record
-    NodeArray:  TObjNodeArray;  // Nodes are sorted by hash
-    NodeCount:  integer;
-  end; // .record TLinearObjNodeArray
+  TObjBinTreeLinearNodeArray = record
+    NodeArray: TObjBinTreeNodeArray; // Nodes are sorted by hash
+    NodeCount: integer;
+  end;
 
   TObjArray = class (Utils.TCloneable)
     (***) protected (***)
-      {On}  fRoot:            PObjArrayNode;
+      {On}  fRoot:            PObjBinTreeNode;
             fOwnsItems:       boolean;
             fItemsAreObjects: boolean;
             fItemGuardProc:   Utils.TItemGuardProc;
       {On}  fItemGuard:       Utils.TItemGuard;
             fNodeCount:       integer;
-            fIterNodes:       array of {U} PObjArrayNode;
+            fIterNodes:       array of {U} PObjBinTreeNode;
             fIterNodeInd:     integer;
             fLocked:          boolean;
 
       function  HashToKey (Hash: integer): {n} pointer;
       function  KeyToHash (Key: {n} pointer): integer;
-      procedure FreeNodeValue (Node: PObjArrayNode);
-      procedure FreeNode ({IN} var {n} Node: PObjArrayNode);
-      procedure RemoveNode ({n} ParentNode: PObjArrayNode; Node: PObjArrayNode);
-      function  CloneNode (Node: PObjArrayNode): {O} PObjArrayNode;
+      procedure FreeNodeValue (Node: PObjBinTreeNode);
+      procedure FreeNode ({IN} var {n} Node: PObjBinTreeNode);
+      procedure RemoveNode ({n} ParentNode: PObjBinTreeNode; Node: PObjBinTreeNode);
+      function  CloneNode (Node: PObjBinTreeNode): {O} PObjBinTreeNode;
 
       (*
         All nodes are placed in NodeArray and disconnected from each other.
         Original binary tree is emptied. Nodes are sorted by hash.
       *)
-      procedure ConvertToLinearNodeArray (out Res: TLinearObjNodeArray);
+      procedure ConvertToLinearNodeArray (out Res: TObjBinTreeLinearNodeArray);
 
       function  FindItem
       (
             {n}   Key:        pointer;
-        out {ni}  ParentNode: PObjArrayNode;
-        out {ni}  ItemNode:   PObjArrayNode
+        out {ni}  ParentNode: PObjBinTreeNode;
+        out {ni}  ItemNode:   PObjBinTreeNode
       ): boolean;
 
     (***) public (***)
@@ -236,33 +244,14 @@ type
       property  Items[{n} Key: pointer]:  {OUn} pointer read GetValue write SetValue; default;
   end; // .class TObjArray
 
-function  NewAssocArr
-(
-      HashFunc:           THashFunc;
-  {n} KeyPreprocessFunc:  TKeyPreprocessFunc;
-      OwnsItems:          boolean;
-      ItemsAreObjects:    boolean;
-      ItemType:           TClass;
-      AllowNIL:           boolean
-): TAssocArray;
+function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TStrBinTree;
+function NewSimpleAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TStrBinTree;
 
-function  NewSimpleAssocArr
-(
-      HashFunc:           THashFunc;
-  {n} KeyPreprocessFunc:  TKeyPreprocessFunc
-): TAssocArray;
+function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TStrBinTree;
+function NewObjArr (OwnsItems, ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TObjArray;
 
-function  NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TAssocArray;
-function  NewObjArr
-(
-  OwnsItems:        boolean;
-  ItemsAreObjects:  boolean;
-  ItemType:         TClass;
-  AllowNIL:         boolean
-): TObjArray;
-
-function  NewSimpleObjArr: TObjArray;
-function  NewStrictObjArr ({n} TypeGuard: TClass): TObjArray;
+function NewSimpleObjArr: TObjArray;
+function NewStrictObjArr ({n} TypeGuard: TClass): TObjArray;
 
 
 (***)  implementation  (***)
@@ -272,7 +261,7 @@ const
   DEBUG_BUILD = false;
 
 
-constructor TAssocArray.Create
+constructor TStrBinTree.Create
 (
                 HashFunc:           THashFunc;
             {n} KeyPreprocessFunc:  TKeyPreprocessFunc;
@@ -293,15 +282,15 @@ begin
   Self.fItemCount         :=  0;
   Self.fNodeCount         :=  0;
   ItemGuard               :=  nil;
-end; // .constructor TAssocArray.Create
+end; // .constructor TStrBinTree.Create
 
-destructor TAssocArray.Destroy;
+destructor TStrBinTree.Destroy;
 begin
   Self.Clear;
   SysUtils.FreeAndNil(Self.fItemGuard);
-end; // .destructor TAssocArray.Destroy
+end; // .destructor TStrBinTree.Destroy
 
-function TAssocArray.CloneItem (Item: PAssocArrayItem): {O} PAssocArrayItem;
+function TStrBinTree.CloneItem (Item: PStrBinTreeItem): {O} PStrBinTreeItem;
 begin
   {!} Assert(Item <> nil);
   {!} Assert(Self.IsValidValue(Item.Value));
@@ -321,9 +310,9 @@ begin
     {!} Assert(TObject(Item.Value) IS Utils.TCloneable);
     result.Value := Utils.TCloneable(Item.Value).Clone;
   end;
-end; // .function TAssocArray.CloneItem
+end; // .function TStrBinTree.CloneItem
 
-function TAssocArray.CloneNode ({n} Node: PAssocArrayNode): {On} PAssocArrayNode;
+function TStrBinTree.CloneNode ({n} Node: PStrBinTreeNode): {On} PStrBinTreeNode;
 begin
   if Node = nil then begin
     result  := nil;
@@ -334,16 +323,16 @@ begin
     result.ChildNodes[LEFT_CHILD]  := Self.CloneNode(Node.ChildNodes[LEFT_CHILD]);
     result.ChildNodes[RIGHT_CHILD] := Self.CloneNode(Node.ChildNodes[RIGHT_CHILD]);
   end;
-end; // .function TAssocArray.CloneNode
+end; // .function TStrBinTree.CloneNode
 
-procedure TAssocArray.Assign (Source: Utils.TCloneable);
+procedure TStrBinTree.Assign (Source: Utils.TCloneable);
 var
-{U} SrcArr: TAssocArray;
+{U} SrcArr: TStrBinTree;
 
 begin
   {!} Assert(not Self.Locked);
   {!} Assert(Source <> nil);
-  SrcArr  := Source AS TAssocArray;
+  SrcArr  := Source AS TStrBinTree;
   // * * * * * //
   if Self <> Source then begin
     Self.Clear;
@@ -357,9 +346,9 @@ begin
     Self.fNodeCount         := SrcArr.NodeCount;
     Self.fRoot              := Self.CloneNode(SrcArr.fRoot);
   end; // .if
-end; // .procedure TAssocArray.Assign
+end; // .procedure TStrBinTree.Assign
 
-procedure TAssocArray.FreeItemValue (Item: PAssocArrayItem);
+procedure TStrBinTree.FreeItemValue (Item: PStrBinTreeItem);
 begin
   {!} Assert(Item <> nil);
   if Self.OwnsItems then begin
@@ -371,12 +360,12 @@ begin
   end;
 
   Item.Value := nil;
-end; // .procedure TAssocArray.FreeItemValue
+end; // .procedure TStrBinTree.FreeItemValue
 
-procedure TAssocArray.RemoveNode ({n} ParentNode: PAssocArrayNode; ItemNode: PAssocArrayNode);
+procedure TStrBinTree.RemoveNode ({n} ParentNode: PStrBinTreeNode; ItemNode: PStrBinTreeNode);
 var
-{U} RightClosestNodeParent: PAssocArrayNode;
-{U} RightClosestNode:       PAssocArrayNode;
+{U} RightClosestNodeParent: PStrBinTreeNode;
+{U} RightClosestNode:       PStrBinTreeNode;
     ItemNodeIsRoot:         boolean;
     ItemNodeSide:           TChildNodeSide;
 
@@ -448,14 +437,14 @@ begin
       Self.RemoveNode(RightClosestNodeParent, RightClosestNode);
     end; // .else
   end; // .else
-end; // .procedure TAssocArray.RemoveNode
+end; // .procedure TStrBinTree.RemoveNode
 
-procedure TAssocArray.RemoveItem
+procedure TStrBinTree.RemoveItem
 (
-  {n} ParentNode: PAssocArrayNode;
-      ItemNode:   PAssocArrayNode;
-  {n} ParentItem: PAssocArrayItem;
-      Item:       PAssocArrayItem
+  {n} ParentNode: PStrBinTreeNode;
+      ItemNode:   PStrBinTreeNode;
+  {n} ParentItem: PStrBinTreeItem;
+      Item:       PStrBinTreeItem
 );
 
 begin
@@ -478,12 +467,12 @@ begin
 
   Dispose(Item); Item := nil;
   Dec(Self.fItemCount);
-end; // .procedure TAssocArray.RemoveItem
+end; // .procedure TStrBinTree.RemoveItem
 
-procedure TAssocArray.FreeNode ({IN} var {n} Node: PAssocArrayNode);
+procedure TStrBinTree.FreeNode ({IN} var {n} Node: PStrBinTreeNode);
 var
-{U} Item:     PAssocArrayItem;
-{U} NextItem: PAssocArrayItem;
+{U} Item:     PStrBinTreeItem;
+{U} NextItem: PStrBinTreeItem;
 
 begin
   Item    := nil;
@@ -503,9 +492,9 @@ begin
     Self.FreeNode(Node.ChildNodes[RIGHT_CHILD]);
     Dispose(Node); Node := nil;
   end; // .if
-end; // .procedure TAssocArray.FreeNode
+end; // .procedure TStrBinTree.FreeNode
 
-procedure TAssocArray.Clear;
+procedure TStrBinTree.Clear;
 begin
   {!} Assert(not Self.Locked);
   Self.FreeNode(Self.fRoot);
@@ -513,7 +502,7 @@ begin
   Self.fNodeCount := 0;
 end;
 
-function TAssocArray.GetPreprocessedKey (const Key: string): string;
+function TStrBinTree.GetPreprocessedKey (const Key: string): string;
 begin
   if @Self.KeyPreprocessFunc = nil then begin
     result := Key;
@@ -522,34 +511,34 @@ begin
   end;
 end;
 
-function TAssocArray.IsValidValue ({n} Value: pointer): boolean;
+function TStrBinTree.IsValidValue ({n} Value: pointer): boolean;
 begin
   result := Self.ItemGuardProc(Value, Self.ItemsAreObjects, Utils.TItemGuard(Self.fItemGuard));
 end;
 
-function TAssocArray.CalcCritDepth: integer;
+function TStrBinTree.CalcCritDepth: integer;
 begin
   result := Alg.IntLog2(Self.NodeCount + 1) shl 1;
 end;
 
 function AssocArrayCompareNodes (A, B: integer): integer;
 begin
-  if PAssocArrayNode(A).Hash > PAssocArrayNode(B).Hash then begin
+  if PStrBinTreeNode(A).Hash > PStrBinTreeNode(B).Hash then begin
     result := +1;
-  end else if PAssocArrayNode(A).Hash < PAssocArrayNode(B).Hash then begin
+  end else if PStrBinTreeNode(A).Hash < PStrBinTreeNode(B).Hash then begin
     result := -1;
   end else begin
     result := 0;
   end;
 end;
 
-procedure TAssocArray.ConvertToLinearNodeArray (out Res: TLinearNodeArray);
+procedure TStrBinTree.ConvertToLinearNodeArray (out Res: TStrBinTreeLinearNodeArray);
 var
     LeftInd:              integer;
     RightInd:             integer;
     RightCheckInd:        integer;
     NumNotProcessedNodes: integer;
-{U} CurrNode:             PAssocArrayNode;
+{U} CurrNode:             PStrBinTreeNode;
     i:                    integer;
 
 begin
@@ -593,17 +582,17 @@ begin
     Self.fItemCount :=  0;
     Alg.CustomQuickSort(pointer(Res.NodeArray), 0, Res.NodeCount - 1, AssocArrayCompareNodes);
   end; // .if
-end; // .procedure TAssocArray.ConvertToLinearNodeArray
+end; // .procedure TStrBinTree.ConvertToLinearNodeArray
 
-procedure TAssocArray.Rebuild;
+procedure TStrBinTree.Rebuild;
 var
-  LinearNodeArray:  TLinearNodeArray;
-  NodeArray:        TNodeArray;
+  LinearNodeArray:  TStrBinTreeLinearNodeArray;
+  NodeArray:        TStrBinTreeNodeArray;
 
-  procedure InsertNode (InsNode: PAssocArrayNode);
+  procedure InsertNode (InsNode: PStrBinTreeNode);
   var
-  {U} ParentNode: PAssocArrayNode;
-  {U} CurrNode:   PAssocArrayNode;
+  {U} ParentNode: PStrBinTreeNode;
+  {U} CurrNode:   PStrBinTreeNode;
 
   begin
     {!} Assert(InsNode <> nil);
@@ -620,7 +609,7 @@ var
 
   procedure InsertNodeRange (MinInd, MaxInd: integer);
   var
-  {U} InsNode:    PAssocArrayNode;
+  {U} InsNode:    PStrBinTreeNode;
       RangeLen:   integer;
       MiddleInd:  integer;
 
@@ -655,16 +644,16 @@ begin
     NodeArray       :=  LinearNodeArray.NodeArray;
     InsertNodeRange(0, Self.NodeCount - 1);
   end;
-end; // .procedure TAssocArray.Rebuild
+end; // .procedure TStrBinTree.Rebuild
 
-function TAssocArray.FindItem
+function TStrBinTree.FindItem
 (
            Hash:       integer;
      const Key:        string;
-  out {ni} ParentNode: PAssocArrayNode;
-  out {ni} ItemNode:   PAssocArrayNode;
-  out {ni} ParentItem: PAssocArrayItem;
-  out {ni} Item:       PAssocArrayItem
+  out {ni} ParentNode: PStrBinTreeNode;
+  out {ni} ItemNode:   PStrBinTreeNode;
+  out {ni} ParentItem: PStrBinTreeItem;
+  out {ni} Item:       PStrBinTreeItem
 ): boolean;
 
 var
@@ -710,14 +699,14 @@ begin
       result := Item <> nil;
     end; // .elseif
   end; // .if
-end; // .function TAssocArray.FindItem
+end; // .function TStrBinTree.FindItem
 
-function TAssocArray.GetValue (const Key: string): {n} pointer;
+function TStrBinTree.GetValue (const Key: string): {n} pointer;
 var
-{U} ItemNode:        PAssocArrayNode;
-{U} ParentNode:      PAssocArrayNode;
-{U} Item:            PAssocArrayItem;
-{U} ParentItem:      PAssocArrayItem;
+{U} ItemNode:        PStrBinTreeNode;
+{U} ParentNode:      PStrBinTreeNode;
+{U} Item:            PStrBinTreeItem;
+{U} ParentItem:      PStrBinTreeItem;
     PreprocessedKey: string;
 
 begin
@@ -733,14 +722,14 @@ begin
   if Self.FindItem(Self.HashFunc(PreprocessedKey), PreprocessedKey, ParentNode, ItemNode, ParentItem, Item) then begin
     result := Item.Value;
   end;
-end; // .function TAssocArray.GetValue
+end; // .function TStrBinTree.GetValue
 
-function TAssocArray.HasKey (const Key: string): boolean;
+function TStrBinTree.HasKey (const Key: string): boolean;
 var
-{U} ItemNode:        PAssocArrayNode;
-{U} ParentNode:      PAssocArrayNode;
-{U} Item:            PAssocArrayItem;
-{U} ParentItem:      PAssocArrayItem;
+{U} ItemNode:        PStrBinTreeNode;
+{U} ParentNode:      PStrBinTreeNode;
+{U} Item:            PStrBinTreeItem;
+{U} ParentItem:      PStrBinTreeItem;
     PreprocessedKey: string;
 
 begin
@@ -754,12 +743,12 @@ begin
   result          := Self.FindItem(Self.HashFunc(PreprocessedKey), PreprocessedKey, ParentNode, ItemNode, ParentItem, Item);
 end;
 
-function TAssocArray.GetExistingValue (const Key: string; out {Un} Res: pointer): boolean;
+function TStrBinTree.GetExistingValue (const Key: string; out {Un} Res: pointer): boolean;
 var
-{U} ItemNode:        PAssocArrayNode;
-{U} ParentNode:      PAssocArrayNode;
-{U} Item:            PAssocArrayItem;
-{U} ParentItem:      PAssocArrayItem;
+{U} ItemNode:        PStrBinTreeNode;
+{U} ParentNode:      PStrBinTreeNode;
+{U} Item:            PStrBinTreeItem;
+{U} ParentItem:      PStrBinTreeItem;
     PreprocessedKey: string;
 
 begin
@@ -776,16 +765,16 @@ begin
   if result then begin
     Res := Item.Value;
   end;
-end; // .function TAssocArray.GetExistingValue
+end; // .function TStrBinTree.GetExistingValue
 
-procedure TAssocArray.SetValue (const Key: string; {OUn} NewValue: pointer);
+procedure TStrBinTree.SetValue (const Key: string; {OUn} NewValue: pointer);
 var
-{U} ItemNode:         PAssocArrayNode;
-{U} ParentNode:       PAssocArrayNode;
-{U} Item:             PAssocArrayItem;
-{U} ParentItem:       PAssocArrayItem;
-{O} NewItem:          PAssocArrayItem;
-{O} NewNode:          PAssocArrayNode;
+{U} ItemNode:         PStrBinTreeNode;
+{U} ParentNode:       PStrBinTreeNode;
+{U} Item:             PStrBinTreeItem;
+{U} ParentItem:       PStrBinTreeItem;
+{O} NewItem:          PStrBinTreeItem;
+{O} NewNode:          PStrBinTreeNode;
     PreprocessedKey:  string;
     Hash:             integer;
 
@@ -807,6 +796,7 @@ begin
       Item.Value := NewValue;
     end;
   end else begin
+    {!} Assert(not Self.Locked);
     New(NewItem);
     NewItem.Key      := Key;
     NewItem.Value    := NewValue;
@@ -830,14 +820,14 @@ begin
       end;
     end; // .else
   end; // .else
-end; // .procedure TAssocArray.SetValue
+end; // .procedure TStrBinTree.SetValue
 
-function TAssocArray.DeleteItem (const Key: string): boolean;
+function TStrBinTree.DeleteItem (const Key: string): boolean;
 var
-{U} ParentNode:      PAssocArrayNode;
-{U} ItemNode:        PAssocArrayNode;
-{U} ParentItem:      PAssocArrayItem;
-{U} Item:            PAssocArrayItem;
+{U} ParentNode:      PStrBinTreeNode;
+{U} ItemNode:        PStrBinTreeNode;
+{U} ParentItem:      PStrBinTreeItem;
+{U} Item:            PStrBinTreeItem;
     PreprocessedKey: string;
 
 begin
@@ -853,36 +843,36 @@ begin
   if result then begin
     Self.RemoveItem(ParentNode, ItemNode, ParentItem, Item);
   end;
-end; // .function TAssocArray.DeleteItem
+end; // .function TStrBinTree.DeleteItem
 
-function TAssocArray.TakeValue (Key: string; out {OUn} Value: pointer): boolean;
+function TStrBinTree.TakeValue (Key: string; out {OUn} Value: pointer): boolean;
 var
-{U} ParentNode:       PAssocArrayNode;
-{U} ItemNode:         PAssocArrayNode;
-{U} ParentItem:       PAssocArrayItem;
-{U} Item:             PAssocArrayItem;
-    Hash:             integer;
+{U} ParentNode: PStrBinTreeNode;
+{U} ItemNode:   PStrBinTreeNode;
+{U} ParentItem: PStrBinTreeItem;
+{U} Item:       PStrBinTreeItem;
+    Hash:       integer;
 
 
 begin
   {!} Assert(Value = nil);
-  ItemNode          :=  nil;
-  ParentNode        :=  nil;
-  Item              :=  nil;
-  ParentItem        :=  nil;
+  ItemNode   := nil;
+  ParentNode := nil;
+  Item       := nil;
+  ParentItem := nil;
   // * * * * * //
-  Key     :=  Self.GetPreprocessedKey(Key);
-  Hash    :=  Self.HashFunc(Key);
-  result  :=  Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
+  Key    := Self.GetPreprocessedKey(Key);
+  Hash   := Self.HashFunc(Key);
+  result := Self.FindItem(Hash, Key, ParentNode, ItemNode, ParentItem, Item);
 
   if result then begin
-    Value :=  Item.Value;
+    Value := Item.Value;
     {!} Assert(Self.IsValidValue(nil));
-    Item.Value  :=  nil;
+    Item.Value := nil;
   end;
-end; // .function TAssocArray.TakeValue
+end; // .function TStrBinTree.TakeValue
 
-function TAssocArray.ReplaceValue
+function TStrBinTree.ReplaceValue
 (
             Key:      string;
       {OUn} NewValue: pointer;
@@ -890,10 +880,10 @@ function TAssocArray.ReplaceValue
 ): boolean;
 
 var
-{U} ParentNode: PAssocArrayNode;
-{U} ItemNode:   PAssocArrayNode;
-{U} ParentItem: PAssocArrayItem;
-{U} Item:       PAssocArrayItem;
+{U} ParentNode: PStrBinTreeNode;
+{U} ItemNode:   PStrBinTreeNode;
+{U} ParentItem: PStrBinTreeItem;
+{U} Item:       PStrBinTreeItem;
     Hash:       integer;
 
 begin
@@ -912,9 +902,9 @@ begin
     OldValue   := Item.Value;
     Item.Value := NewValue;
   end;
-end; // .function TAssocArray.ReplaceValue
+end; // .function TStrBinTree.ReplaceValue
 
-procedure TAssocArray.Merge (Source: TAssocArray);
+procedure TStrBinTree.Merge (Source: TStrBinTree);
 var
 {OUn} Value: pointer;
       Key:   string;
@@ -938,13 +928,13 @@ begin
   Source.EndIterate;
 end;
 
-procedure TAssocArray.EndIterate;
+procedure TStrBinTree.EndIterate;
 begin
   {!} Assert(Self.fLocked);
   Self.fLocked := false;
 end;
 
-procedure TAssocArray.BeginIterate;
+procedure TStrBinTree.BeginIterate;
 var
   OptimalNumIterNodes: integer;
 
@@ -966,11 +956,11 @@ begin
   end;
 
   Self.fLocked  :=  true;
-end; // .procedure TAssocArray.BeginIterate
+end; // .procedure TStrBinTree.BeginIterate
 
-function TAssocArray.IterateNext (out Key: string; out {Un} Value: pointer): boolean;
+function TStrBinTree.IterateNext (out Key: string; out {Un} Value: pointer): boolean;
 var
-{U} IterNode: PAssocArrayNode;
+{U} IterNode: PStrBinTreeNode;
 
 begin
   {!} Assert(Self.Locked);
@@ -999,7 +989,7 @@ begin
     Value               :=  Self.fIterCurrItem.Value;
     Self.fIterCurrItem  :=  Self.fIterCurrItem.NextItem;
   end; // .if
-end; // .function TAssocArray.IterateNext
+end; // .function TStrBinTree.IterateNext
 
 constructor TObjArray.Create
 (
@@ -1045,7 +1035,7 @@ begin
   result := Alg.IntLog2(Self.NodeCount + 1) shl 1;
 end;
 
-procedure TObjArray.FreeNodeValue (Node: PObjArrayNode);
+procedure TObjArray.FreeNodeValue (Node: PObjBinTreeNode);
 begin
   {!} Assert(Node <> nil);
   if Self.OwnsItems then begin
@@ -1059,7 +1049,7 @@ begin
   Node.Value := nil;
 end; // .procedure TObjArray.FreeNodeValue
 
-procedure TObjArray.FreeNode ({IN} var {n} Node: PObjArrayNode);
+procedure TObjArray.FreeNode ({IN} var {n} Node: PObjBinTreeNode);
 begin
   if Node <> nil then begin
     Self.FreeNodeValue(Node);
@@ -1069,10 +1059,10 @@ begin
   end;
 end;
 
-procedure TObjArray.RemoveNode ({n} ParentNode: PObjArrayNode; Node: PObjArrayNode);
+procedure TObjArray.RemoveNode ({n} ParentNode: PObjBinTreeNode; Node: PObjBinTreeNode);
 var
-{U} RightClosestNodeParent: PObjArrayNode;
-{U} RightClosestNode:       PObjArrayNode;
+{U} RightClosestNodeParent: PObjBinTreeNode;
+{U} RightClosestNode:       PObjBinTreeNode;
     NodeIsRoot:             boolean;
     NodeSide:               TChildNodeSide;
 
@@ -1150,7 +1140,7 @@ begin
   Self.fNodeCount := 0;
 end;
 
-function TObjArray.CloneNode ({n} Node: PObjArrayNode): {On} PObjArrayNode;
+function TObjArray.CloneNode ({n} Node: PObjBinTreeNode): {On} PObjBinTreeNode;
 begin
   if Node = nil then begin
     result := nil;
@@ -1194,22 +1184,22 @@ end; // .procedure TObjArray.Assign
 
 function ObjArrayCompareNodes (A, B: integer): integer;
 begin
-  if PObjArrayNode(A).Hash > PObjArrayNode(B).Hash then begin
+  if PObjBinTreeNode(A).Hash > PObjBinTreeNode(B).Hash then begin
     result  :=  +1;
-  end else if PObjArrayNode(A).Hash < PObjArrayNode(B).Hash then begin
+  end else if PObjBinTreeNode(A).Hash < PObjBinTreeNode(B).Hash then begin
     result  :=  -1;
   end else begin
     result  :=  0;
   end;
 end;
 
-procedure TObjArray.ConvertToLinearNodeArray (out Res: TLinearObjNodeArray);
+procedure TObjArray.ConvertToLinearNodeArray (out Res: TObjBinTreeLinearNodeArray);
 var
     LeftInd:              integer;
     RightInd:             integer;
     RightCheckInd:        integer;
     NumNotProcessedNodes: integer;
-{U} CurrNode:             PObjArrayNode;
+{U} CurrNode:             PObjBinTreeNode;
     i:                    integer;
 
 begin
@@ -1255,13 +1245,13 @@ end; // .procedure TObjArray.ConvertToLinearNodeArray
 
 procedure TObjArray.Rebuild;
 var
-  LinearNodeArray:  TLinearObjNodeArray;
-  NodeArray:        TObjNodeArray;
+  LinearNodeArray:  TObjBinTreeLinearNodeArray;
+  NodeArray:        TObjBinTreeNodeArray;
 
-  procedure InsertNode (InsNode: PObjArrayNode);
+  procedure InsertNode (InsNode: PObjBinTreeNode);
   var
-  {U} ParentNode: PObjArrayNode;
-  {U} CurrNode:   PObjArrayNode;
+  {U} ParentNode: PObjBinTreeNode;
+  {U} CurrNode:   PObjBinTreeNode;
 
   begin
     {!} Assert(InsNode <> nil);
@@ -1280,7 +1270,7 @@ var
   var
       RangeLen:  integer;
       MiddleInd: integer;
-  {U} InsNode:   PObjArrayNode;
+  {U} InsNode:   PObjBinTreeNode;
 
   begin
     RangeLen  := MaxInd - MinInd + 1;
@@ -1317,8 +1307,8 @@ end; // .procedure TObjArray.Rebuild
 function TObjArray.FindItem
 (
       {n}   Key:        pointer;
-  out {ni}  ParentNode: PObjArrayNode;
-  out {ni}  ItemNode:   PObjArrayNode
+  out {ni}  ParentNode: PObjBinTreeNode;
+  out {ni}  ItemNode:   PObjBinTreeNode
 ): boolean;
 
 var
@@ -1356,8 +1346,8 @@ end; // .function TObjArray.FindItem
 
 function TObjArray.GetValue ({n} Key: pointer): {n} pointer;
 var
-{U} ItemNode:   PObjArrayNode;
-{U} ParentNode: PObjArrayNode;
+{U} ItemNode:   PObjBinTreeNode;
+{U} ParentNode: PObjBinTreeNode;
 
 begin
   ItemNode    :=  nil;
@@ -1372,8 +1362,8 @@ end; // .function TObjArray.GetValue
 
 function TObjArray.GetExistingValue ({n} Key: pointer; out {Un} Res: pointer): boolean;
 var
-{U} ItemNode:   PObjArrayNode;
-{U} ParentNode: PObjArrayNode;
+{U} ItemNode:   PObjBinTreeNode;
+{U} ParentNode: PObjBinTreeNode;
 
 begin
   {!} Assert(Res = nil);
@@ -1389,9 +1379,9 @@ end; // .function TObjArray.GetExistingValue
 
 procedure TObjArray.SetValue ({n} Key: pointer; {OUn} NewValue: pointer);
 var
-{U} ItemNode:   PObjArrayNode;
-{U} ParentNode: PObjArrayNode;
-{O} NewNode:    PObjArrayNode;
+{U} ItemNode:   PObjBinTreeNode;
+{U} ParentNode: PObjBinTreeNode;
+{O} NewNode:    PObjBinTreeNode;
 
 begin
   ItemNode   := nil;
@@ -1422,8 +1412,8 @@ end; // .procedure TObjArray.SetValue
 
 function TObjArray.DeleteItem ({n} Key: pointer): boolean;
 var
-{U} ParentNode: PObjArrayNode;
-{U} ItemNode:   PObjArrayNode;
+{U} ParentNode: PObjBinTreeNode;
+{U} ItemNode:   PObjBinTreeNode;
 
 begin
   {!} Assert(not Self.Locked);
@@ -1440,8 +1430,8 @@ end; // .function TObjArray.DeleteItem
 
 function TObjArray.TakeValue ({n} Key: pointer; out {OUn} Value: pointer): boolean;
 var
-{U} ParentNode: PObjArrayNode;
-{U} ItemNode:   PObjArrayNode;
+{U} ParentNode: PObjBinTreeNode;
+{U} ItemNode:   PObjBinTreeNode;
 
 begin
   {!} Assert(Value = nil);
@@ -1459,8 +1449,8 @@ end; // .function TObjArray.TakeValue
 
 function TObjArray.ReplaceValue ({n} Key: pointer; {OUn} NewValue: pointer; out {OUn} OldValue: pointer): boolean;
 var
-{U} ParentNode: PObjArrayNode;
-{U} ItemNode:   PObjArrayNode;
+{U} ParentNode: PObjBinTreeNode;
+{U} ItemNode:   PObjBinTreeNode;
 
 begin
   {!} Assert(OldValue = nil);
@@ -1506,7 +1496,7 @@ end; // .procedure TObjArray.BeginIterate
 
 function TObjArray.IterateNext (out {Un} Key: pointer; out {Un} Value: pointer): boolean;
 var
-{U} IterNode: PObjArrayNode;
+{U} IterNode: PObjBinTreeNode;
 
 begin
   {!} Assert(Self.Locked);
@@ -1535,79 +1525,34 @@ begin
   end; // .if
 end; // .function TObjArray.IterateNext
 
-function NewAssocArr
-(
-      HashFunc:           THashFunc;
-  {n} KeyPreprocessFunc:  TKeyPreprocessFunc;
-      OwnsItems:          boolean;
-      ItemsAreObjects:    boolean;
-      ItemType:           TClass;
-      AllowNIL:           boolean
-): TAssocArray;
-
+function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems,ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TStrBinTree;
 var
-{O} ItemGuard:  Utils.TDefItemGuard;
+{O} ItemGuard: Utils.TDefItemGuard;
 
 begin
   {!} Assert(ItemsAreObjects or (ItemType = Utils.NO_TYPEGUARD));
   ItemGuard := Utils.TDefItemGuard.Create;
   // * * * * * //
   ItemGuard.ItemType := ItemType;
-  ItemGuard.AllowNIL := AllowNIL;
-  result             := TAssocArray.Create
-  (
-    HashFunc,
-    KeyPreprocessFunc,
-    OwnsItems,
-    ItemsAreObjects,
-    @Utils.DefItemGuardProc,
-    Utils.TItemGuard(ItemGuard)
-  );
-end; // .function NewAssocArr
+  ItemGuard.AllowNil := AllowNil;
+  result             := TStrBinTree.Create(HashFunc, KeyPreprocessFunc, OwnsItems, ItemsAreObjects, @Utils.DefItemGuardProc, Utils.TItemGuard(ItemGuard));
+end;
 
-function NewSimpleAssocArr
-(
-      HashFunc:          THashFunc;
-  {n} KeyPreprocessFunc: TKeyPreprocessFunc
-): TAssocArray;
-
+function NewSimpleAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TStrBinTree;
 var
-{O} ItemGuard:  Utils.TCloneable;
+{O} ItemGuard: Utils.TCloneable;
 
 begin
   ItemGuard := nil;
-  // * * * * * //
-  result := TAssocArray.Create
-  (
-    HashFunc,
-    KeyPreprocessFunc,
-    not Utils.OWNS_ITEMS,
-    not Utils.ITEMS_ARE_OBJECTS,
-    @Utils.NoItemGuardProc,
-    ItemGuard
-  );
-end; // .function NewSimpleAssocArr
+  result    := TStrBinTree.Create (HashFunc, KeyPreprocessFunc, not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
+end;
 
-function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TAssocArray;
+function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TStrBinTree;
 begin
-  result := NewAssocArr
-  (
-    Crypto.FastAnsiHash,
-    SysUtils.AnsiLowerCase,
-    OwnsItems,
-    Utils.ITEMS_ARE_OBJECTS,
-    TypeGuard,
-    Utils.ALLOW_NIL
-  );
-end; // .function NewStrictAssocArr
+  result := NewAssocArr(Crypto.FastAnsiHash, SysUtils.AnsiLowerCase, OwnsItems, Utils.ITEMS_ARE_OBJECTS, TypeGuard, Utils.ALLOW_NIL);
+end;
 
-function NewObjArr
-(
-  OwnsItems:       boolean;
-  ItemsAreObjects: boolean;
-  ItemType:        TClass;
-  AllowNIL:        boolean
-): TObjArray;
+function NewObjArr (OwnsItems, ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TObjArray;
 
 var
 {O} ItemGuard: Utils.TDefItemGuard;
@@ -1617,30 +1562,17 @@ begin
   ItemGuard :=  Utils.TDefItemGuard.Create;
   // * * * * * //
   ItemGuard.ItemType := ItemType;
-  ItemGuard.AllowNIL := AllowNIL;
-  result             := TObjArray.Create
-  (
-    OwnsItems,
-    ItemsAreObjects,
-    @Utils.DefItemGuardProc,
-    Utils.TItemGuard(ItemGuard)
-  );
+  ItemGuard.AllowNil := AllowNil;
+  result             := TObjArray.Create(OwnsItems, ItemsAreObjects, @Utils.DefItemGuardProc, Utils.TItemGuard(ItemGuard));
 end; // .function NewObjArr
 
 function NewSimpleObjArr: TObjArray;
 var
-{O} ItemGuard:  Utils.TCloneable;
+{O} ItemGuard: Utils.TCloneable;
 
 begin
   ItemGuard :=  nil;
-  // * * * * * //
-  result := TObjArray.Create
-  (
-    not Utils.OWNS_ITEMS,
-    not Utils.ITEMS_ARE_OBJECTS,
-    @Utils.NoItemGuardProc,
-    ItemGuard
-  );
+  result    := TObjArray.Create (not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
 end; // .function NewSimpleObjArr
 
 function NewStrictObjArr ({n} TypeGuard: TClass): TObjArray;
