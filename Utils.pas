@@ -4,7 +4,7 @@ DESCRIPTION:  Addition to System unit
 AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 }
 
-{$ASSERTIONS ON}
+{$asSERTIONS ON}
 
 (***)  interface  (***)
 uses Math, SysUtils, Windows;
@@ -92,7 +92,7 @@ type
 
   TDefItemGuard = class (TCloneable)
     ItemType: TClass;
-    AllowNIL: boolean;
+    AllowNil: boolean;
 
     procedure Assign (Source: TCloneable); override;
   end; // .class TDefItemGuard
@@ -448,10 +448,10 @@ var
 
 begin
   {!} Assert(Source <> nil);
-  SrcItemGuard := Source AS TDefItemGuard;
+  SrcItemGuard := Source as TDefItemGuard;
   // * * * * * //
   Self.ItemType := SrcItemGuard.ItemType;
-  Self.AllowNIL := SrcItemGuard.AllowNIL;
+  Self.AllowNil := SrcItemGuard.AllowNil;
 end;
 
 function Even (Num: integer): boolean;
@@ -466,15 +466,16 @@ end;
 
 function DefItemGuardProc ({n} Item: pointer; ItemIsObject: boolean; {n} Guard: TCloneable): boolean;
 var
-(* U *) MyGuard:  TDefItemGuard;
+(* U *) MyGuard: TDefItemGuard;
 
 begin
   {!} Assert(Guard <> nil);
-  MyGuard :=  Guard AS TDefItemGuard;
+  MyGuard :=  Guard as TDefItemGuard;
   // * * * * * //
-  result := (Item <> nil) or (MyGuard.AllowNIL);
+  result := (Item <> nil) or (MyGuard.AllowNil);
+
   if ItemIsObject and (Item <> nil) and (MyGuard.ItemType <> NO_TYPEGUARD) then begin
-    result := result and (TObject(Item) IS MyGuard.ItemType);
+    result := result and (TObject(Item) is MyGuard.ItemType);
   end;
 end; // .function DefItemGuardProc
 
