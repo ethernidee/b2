@@ -1781,7 +1781,10 @@ begin
     ItemsEnd := @Self.fItems[Self.fCapacity];
 
     while cardinal(Item) < cardinal(ItemsEnd) do begin
-      Self.FreeItemValue(Item);
+      if Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE then begin
+        Self.FreeItemValue(Item);
+      end;
+
       Inc(Item);
     end;
   end;
@@ -2290,7 +2293,10 @@ begin
     ItemsEnd := @Self.fItems[Self.fCapacity];
 
     while cardinal(Item) < cardinal(ItemsEnd) do begin
-      Self.FreeItemValue(Item);
+      if Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE then begin
+        Self.FreeItemValue(Item);
+      end;
+
       Inc(Item);
     end;
   end;
