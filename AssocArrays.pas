@@ -1911,6 +1911,10 @@ begin
   NewItem.Value           := NewValue;
   NewItem.SearchDistance  := ItemInd - (Hash and ModCapacityMask) + 1;
 
+  if NewItem.SearchDistance <= 0 then begin
+    Inc(NewItem.SearchDistance, Self.fCapacity);
+  end;
+
   while Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE do begin
     if NewItem.SearchDistance > Item.SearchDistance then begin
       NewItem.Exchange(Item^);
@@ -2063,7 +2067,7 @@ begin
       System.FillChar(PrevItem^, sizeof(PrevItem^), #0);
     end;
 
-    if Self.fSize <= Self.fMinSize then begin
+    if (Self.fSize <= Self.fMinSize) and (Self.fCapacity > Self.MIN_CAPACITY) then begin
       Self.Shrink;
     end;
   end; // .if
@@ -2410,6 +2414,10 @@ begin
   NewItem.Value          := NewValue;
   NewItem.SearchDistance := ItemInd - (Hash and ModCapacityMask) + 1;
 
+  if NewItem.SearchDistance <= 0 then begin
+    Inc(NewItem.SearchDistance, Self.fCapacity);
+  end;
+
   while Item.SearchDistance <> EMPTY_ITEM_SEARCH_DISTANCE do begin
     if NewItem.SearchDistance > Item.SearchDistance then begin
       NewItem.Exchange(Item^);
@@ -2548,7 +2556,7 @@ begin
       System.FillChar(PrevItem^, sizeof(PrevItem^), #0);
     end;
 
-    if Self.fSize <= Self.fMinSize then begin
+    if (Self.fSize <= Self.fMinSize) and (Self.fCapacity > Self.MIN_CAPACITY) then begin
       Self.Shrink;
     end;
   end; // .if
