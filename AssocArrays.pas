@@ -1812,6 +1812,7 @@ procedure TStrHashTable.Clear;
 begin
   Self.FreeValues;
   Self.CreateNewStorage(Self.MIN_CAPACITY);
+  Self.fSize := 0;
 end;
 
 function TStrHashTable.IsValidValue ({n} Value: pointer): boolean;
@@ -2328,6 +2329,7 @@ procedure TObjHashTable.Clear;
 begin
   Self.FreeValues;
   Self.CreateNewStorage(Self.MIN_CAPACITY);
+  Self.fSize := 0;
 end;
 
 function TObjHashTable.IsValidValue ({n} Value: pointer): boolean;
