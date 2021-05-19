@@ -444,6 +444,8 @@ function NewObjArr (OwnsItems, ItemsAreObjects: boolean; ItemType: TClass; Allow
 function NewSimpleObjArr: TObjArray;
 function NewStrictObjArr ({n} TypeGuard: TClass): TObjArray;
 
+function NewSimpleStrBinTree (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TStrBinTree;
+
 procedure MergeAssocArrays (Destination, Source: TAssocArray);
 procedure MergeObjArrays (Destination, Source: TObjArray);
 
@@ -1792,7 +1794,7 @@ end;
 
 procedure TStrHashTable.OnChangeCapacity;
 begin
-  Self.fMinSize         := Math.Max(Self.MIN_CAPACITY, trunc(Self.fCapacity * Self.MIN_LOAD_FACTOR));
+  Self.fMinSize         := trunc(Self.fCapacity * Self.MIN_LOAD_FACTOR);
   Self.fMaxSize         := trunc(Self.fCapacity * Self.MAX_LOAD_FACTOR) - 1;
   Self.fModCapacityMask := (1 shl Alg.IntLog2(Self.fCapacity)) - 1;
 end;
@@ -1811,8 +1813,8 @@ end;
 procedure TStrHashTable.Clear;
 begin
   Self.FreeValues;
-  Self.CreateNewStorage(Self.MIN_CAPACITY);
   Self.fSize := 0;
+  Self.CreateNewStorage(Self.MIN_CAPACITY);
 end;
 
 function TStrHashTable.IsValidValue ({n} Value: pointer): boolean;
@@ -2076,12 +2078,12 @@ end; // .function TStrHashTable.DeleteItem
 
 procedure TStrHashTable.Grow;
 begin
-  Self.Rehash(Self.fCapacity * GROWTH_FACTOR);
+  Self.Rehash(Self.fCapacity * Self.GROWTH_FACTOR);
 end;
 
 procedure TStrHashTable.Shrink;
 begin
-  Self.Rehash(Self.fCapacity div GROWTH_FACTOR);
+  Self.Rehash(Self.fCapacity div Self.GROWTH_FACTOR);
 end;
 
 procedure TStrHashTable.Rehash (NewCapacity: integer);
@@ -2183,7 +2185,7 @@ begin
   SrcTable := Source as TStrHashTable;
   // * * * * * //
   if Self <> Source then begin
-    {!} Assert(not SrcTable.fOwnsItems or SrcTable.fItemsAreObjects, 'Improssible to clone hash table if it contains owned non-object pointers');
+    {!} Assert(not SrcTable.fOwnsItems or SrcTable.fItemsAreObjects, 'Impossible to clone hash table if it contains owned non-object pointers');
     Self.FreeValues;
     Self.fHashFunc          := SrcTable.fHashFunc;
     Self.fKeyPreprocessFunc := SrcTable.fKeyPreprocessFunc;
@@ -2309,7 +2311,7 @@ end;
 
 procedure TObjHashTable.OnChangeCapacity;
 begin
-  Self.fMinSize         := Math.Max(Self.MIN_CAPACITY, trunc(Self.fCapacity * Self.MIN_LOAD_FACTOR));
+  Self.fMinSize         := trunc(Self.fCapacity * Self.MIN_LOAD_FACTOR);
   Self.fMaxSize         := trunc(Self.fCapacity * Self.MAX_LOAD_FACTOR) - 1;
   Self.fModCapacityMask := (1 shl Alg.IntLog2(Self.fCapacity)) - 1;
 end;
@@ -2328,8 +2330,8 @@ end;
 procedure TObjHashTable.Clear;
 begin
   Self.FreeValues;
-  Self.CreateNewStorage(Self.MIN_CAPACITY);
   Self.fSize := 0;
+  Self.CreateNewStorage(Self.MIN_CAPACITY);
 end;
 
 function TObjHashTable.IsValidValue ({n} Value: pointer): boolean;
@@ -2566,12 +2568,12 @@ end; // .function TObjHashTable.DeleteItem
 
 procedure TObjHashTable.Grow;
 begin
-  Self.Rehash(Self.fCapacity * GROWTH_FACTOR);
+  Self.Rehash(Self.fCapacity * Self.GROWTH_FACTOR);
 end;
 
 procedure TObjHashTable.Shrink;
 begin
-  Self.Rehash(Self.fCapacity div GROWTH_FACTOR);
+  Self.Rehash(Self.fCapacity div Self.GROWTH_FACTOR);
 end;
 
 procedure TObjHashTable.Rehash (NewCapacity: integer);
@@ -2669,7 +2671,7 @@ begin
   SrcTable := Source as TObjHashTable;
   // * * * * * //
   if Self <> Source then begin
-    {!} Assert(not SrcTable.fOwnsItems or SrcTable.fItemsAreObjects, 'Improssible to clone hash table if it contains owned non-object pointers');
+    {!} Assert(not SrcTable.fOwnsItems or SrcTable.fItemsAreObjects, 'Impossible to clone hash table if it contains owned non-object pointers');
     Self.FreeValues;
     Self.fOwnsItems       := SrcTable.fOwnsItems;
     Self.fItemsAreObjects := SrcTable.fItemsAreObjects;
@@ -2768,6 +2770,15 @@ begin
   ItemGuard :=  nil;
   result    := TObjArray.Create (not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
 end; // .function NewSimpleObjArr
+
+function NewSimpleStrBinTree (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TStrBinTree;
+var
+{O} ItemGuard: Utils.TCloneable;
+
+begin
+  ItemGuard := nil;
+  result    := TStrBinTree.Create (HashFunc, KeyPreprocessFunc, not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
+end;
 
 function NewStrictObjArr ({n} TypeGuard: TClass): TObjArray;
 begin
