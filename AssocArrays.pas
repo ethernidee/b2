@@ -442,7 +442,7 @@ function NewStrictAssocArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): T
 function NewObjArr (OwnsItems, ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TObjArray;
 
 function NewSimpleObjArr: TObjArray;
-function NewStrictObjArr ({n} TypeGuard: TClass): TObjArray;
+function NewStrictObjArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TObjArray;
 
 function NewSimpleStrBinTree (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TStrBinTree;
 
@@ -2780,9 +2780,9 @@ begin
   result    := TStrBinTree.Create (HashFunc, KeyPreprocessFunc, not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
 end;
 
-function NewStrictObjArr ({n} TypeGuard: TClass): TObjArray;
+function NewStrictObjArr ({n} TypeGuard: TClass; OwnsItems: boolean = true): TObjArray;
 begin
-  result := NewObjArr(Utils.OWNS_ITEMS, Utils.ITEMS_ARE_OBJECTS, TypeGuard, Utils.ALLOW_NIL);
+  result := NewObjArr(OwnsItems, Utils.ITEMS_ARE_OBJECTS, TypeGuard, Utils.ALLOW_NIL);
 end;
 
 end.

@@ -5,7 +5,16 @@ AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
 }
 
 (***)  interface  (***)
-uses Windows, SysUtils, Math, WinWrappers, Utils, Log, CFiles;
+
+uses
+  Math,
+  SysUtils,
+  Windows,
+
+  CFiles,
+  Log,
+  Utils,
+  WinWrappers;
 
 const
   (* IMPORT *)
@@ -13,21 +22,24 @@ const
   MODE_READ       = CFiles.MODE_READ;
   MODE_WRITE      = CFiles.MODE_WRITE;
   MODE_READWRITE  = CFiles.MODE_READWRITE;
-  
+
   (* Scan function settings *)
   faNotDirectory  = SysUtils.faAnyFile and not SysUtils.faDirectory;
   ANY_EXT         = '';
+
+  PATH_SEPARATORS       = ['/', '\'];
+  DISK_LETTER_SEPARATOR = ':';
 
 type
   (* IMPORT *)
   TDeviceMode = CFiles.TDeviceMode;
   TItemInfo   = CFiles.TItemInfo;
-  
+
   TFixedBuf = class (CFiles.TAbstractFile)
     (***) protected (***)
       {OUn} fBuf:     pointer;
             fOwnsMem: boolean;
-    
+
     (***) public (***)
       destructor  Destroy; override;
       procedure Open ({n} Buf: pointer; BufSize: integer; DeviceMode: TDeviceMode);
@@ -36,16 +48,16 @@ type
       function  ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean; override;
       function  WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: integer): boolean; override;
       function  Seek (NewPos: integer): boolean; override;
-      
+
       property  Buf:      pointer read fBuf;
       property  OwnsMem:  boolean read fOwnsMem;
   end; // .class TFixedBuf
-  
+
   TFile = class (CFiles.TAbstractFile)
     (***) protected (***)
       fhFile:     integer;
       fFilePath:  string;
-      
+
     (***) public (***)
       destructor  Destroy; override;
       function  Open (const FilePath: string; DeviceMode: TDeviceMode): boolean;
@@ -56,25 +68,25 @@ type
       function  ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: integer): boolean; override;
       function  WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: integer): boolean; override;
       function  Seek (NewPos: integer): boolean; override;
-      
+
       property  hFile:    integer read fhFile;
       property  FilePath: string read fFilePath;
   end; // .class TFile
-  
+
   TFileItemInfo = class (CFiles.TItemInfo)
     Data: Windows.TWin32FindData;
   end; // .class TFileItemInfo
-  
+
   TFileLocator  = class (CFiles.TAbstractLocator)
     (***) protected (***)
       fOpened:        boolean;
       fSearchHandle:  integer;
       fFindData:      Windows.TWin32FindData;
       fDirPath:       string;
-      
+
     (***) public (***)
       destructor  Destroy; override;
-    
+
       procedure FinitSearch; override;
       procedure InitSearch (const Mask: string); override;
       function  GetNextItem (out ItemInfo: TItemInfo): string; override;
@@ -82,13 +94,13 @@ type
 
       property  DirPath:  string read fDirPath write fDirPath;
   end; // .class TFileLocator
-  
+
   TScanCallback = function (var SearchRes: SysUtils.TSearchRec): boolean;
 
 
   (*  High level directory scanning
       Files are strictly matched against template with wildcards  *)
-  
+
   PSearchRec = ^TSearchRec;
   TSearchRec = record
     Rec: SysUtils.TSearchRec;
@@ -98,7 +110,7 @@ type
   end;
 
   TSearchSubj = (ONLY_FILES, ONLY_DIRS, FILES_AND_DIRS);
-  
+
   ILocator = interface
     procedure Locate (const MaskedPath: string; SearchSubj: TSearchSubj);
     function  FindNext: boolean;
@@ -106,12 +118,25 @@ type
     function  GetFoundName: string;
     function  GetFoundPath: string;
     function  GetFoundRec:  {U} PSearchRec;
-    
+
     property FoundName: string read GetFoundName;
     property FoundPath: string read GetFoundPath;
     property FoundRec:  PSearchRec read GetFoundRec;
   end; // .interface ILocator
 
+
+function  HasPathSeparators (const FileName: string): boolean;
+function  IsBaseName (const FileName: string): boolean;
+function  IsAbsPath (const FilePath: string): boolean;
+
+(* Replaces '/' with '\' and after that replaces all repeating '\' with single '\', unless it's leading double backslash like '\\?\' *)
+function NormalizePathSeparators (const Path: string): string;
+
+(* Normalizes paths and converts  main path to relative path. Returns empty string on failure *)
+function ToRelativePath (FilePath, BasePath: string): string;
+
+(* Converts path to relative if possible. Returns original path unmodified on failure *)
+function ToRelativePathIfPossible (FilePath, BasePath: string): string;
 
 function  ReadFileContents (const FilePath: string; out FileContents: string): boolean; overload;
 function  ReadFileContents (FileHandle: integer; out FileContents: string): boolean; overload;
@@ -119,6 +144,7 @@ function  WriteFileContents (const FileContents, FilePath: string): boolean;
 function  AppendFileContents (const FileContents, FilePath: string): boolean;
 function  DeleteDir (const DirPath: string): boolean;
 function  GetFileSize (const FilePath: string; out Res: integer): boolean;
+
 function  Scan
 (
   const FileMask:         string;
@@ -127,11 +153,20 @@ function  Scan
         Callback:         TScanCallback
 ): boolean;
 
-function  DirExists (const FilePath: string): boolean;
+function FileExists (const FilePath: string): boolean;
+function DirExists  (const FilePath: string): boolean;
+
 (* Safe replacement for SysUtils.ForceDirectories, not raising exceptions *)
 function  ForcePath (const DirPath: string): boolean;
+
+(* Converts file name into name, used internally by file system in order to apply search mask afterwards *)
+function FileNameToFsInternalFileName (const Name: string): string;
+
+(* Converts file name mask into mask, suited for internal file system names *)
+function MaskToFsInternalMask (const Mask: string): string;
+
 function  Locate (const MaskedPath: string; SearchSubj: TSearchSubj): ILocator;
-  
+
 
 (***) implementation (***)
 uses StrLib;
@@ -149,13 +184,13 @@ type
       fFileMask:      string;
       fSearchSubj:    TSearchSubj;
       fFoundRec:      SysUtils.TSearchRec;
-      
+
       function  MatchResult: boolean;
-    
+
     public
       constructor Create;
       destructor  Destroy; override;
-    
+
       procedure Locate (const MaskedPath: string; SearchSubj: TSearchSubj);
       function  FindNext: boolean;
       procedure FindClose;
@@ -164,6 +199,118 @@ type
       function  GetFoundRec:  {U} PSearchRec;
   end; // .class TLocator
 
+
+function HasPathSeparators (const FileName: string): boolean;
+var
+  i: integer;
+
+begin
+  result := false;
+
+  for i := 1 to Length(FileName) do begin
+    if FileName[i] in PATH_SEPARATORS then begin
+      result := true;
+
+      exit;
+    end;
+  end;
+end;
+
+function IsBaseName (const FileName: string): boolean;
+begin
+  result := not HasPathSeparators(FileName);
+end;
+
+function IsAbsPath (const FilePath: string): boolean;
+begin
+  result := (FilePath <> '') and ((FilePath[1] in PATH_SEPARATORS) or ((Length(FilePath) >= 2) and (FilePath[2] = DISK_LETTER_SEPARATOR)));
+end;
+
+function NormalizePathSeparators (const Path: string): string;
+var
+  PrevWasPathDelim: boolean;
+  StartPos:         integer;
+  i, j:             integer;
+
+begin
+  result           := Path;
+  StartPos         := 1;
+  PrevWasPathDelim := false;
+
+  if (Length(result) >= 2) and (result[1] in PATH_SEPARATORS) and (result[2] in PATH_SEPARATORS) then begin
+    result[1]        := '\';
+    result[2]        := '\';
+    PrevWasPathDelim := true;
+    StartPos         := 3;
+  end;
+
+  j := StartPos;
+
+  for i := StartPos to Length(result) do begin
+    if not (result[i] in PATH_SEPARATORS) then begin
+      result[j]        := result[i];
+      PrevWasPathDelim := false;
+      Inc(j);
+    end else if not PrevWasPathDelim then begin
+      result[j]        := '\';
+      PrevWasPathDelim := true;
+      Inc(j);
+    end;
+  end;
+
+  if (j - 1) <> Length(result) then begin
+    SetLength(result, j - 1);
+  end;
+end; // .function NormalizePathSeparators
+
+function ToRelativePath (FilePath, BasePath: string): string;
+var
+  FilePathLen: integer;
+  BasePathLen: integer;
+
+begin
+  FilePath    := SysUtils.ExpandFileName(FilePath);
+  BasePath    := SysUtils.ExpandFileName(BasePath);
+  FilePathLen := Length(FilePath);
+  BasePathLen := Length(BasePath);
+  result      := '';
+
+  if (FilePath = '') or (BasePath = '') then begin
+    exit;
+  end;
+
+  if FilePath[FilePathLen] in PATH_SEPARATORS then begin
+    Dec(FilePathLen);
+  end;
+
+  if BasePath[BasePathLen] in PATH_SEPARATORS then begin
+    Dec(BasePathLen);
+  end;
+
+  if FilePath < BasePath then begin
+    exit;
+  end;
+
+  if
+    SysUtils.CompareMem(pchar(SysUtils.AnsiLowerCase(FilePath)), pchar(SysUtils.AnsiLowerCase(BasePath)), BasePathLen) and
+    ((FilePathLen = BasePathLen) or (FilePath[BasePathLen + 1] in PATH_SEPARATORS))
+  then begin
+    result := System.Copy(FilePath, BasePathLen + 1 + ord(FilePath[BasePathLen + 1] in PATH_SEPARATORS));
+
+    if result = '' then begin
+      result := '.';
+    end;
+  end;
+end; // .function ToRelativePath
+
+function ToRelativePathIfPossible (FilePath, BasePath: string): string;
+begin
+  result := ToRelativePath(FilePath, BasePath);
+
+  if result = '' then begin
+    result := FilePath;
+  end;
+end;
 
 destructor TFixedBuf.Destroy;
 begin
@@ -197,7 +344,7 @@ end;
 procedure TFixedBuf.CreateNew (BufSize: integer);
 var
 (* on *)  NewBuf: pointer;
-  
+
 begin
   {!} Assert(BufSize >= 0);
   NewBuf  :=  nil;
@@ -259,17 +406,17 @@ begin
   {!} Assert(DeviceMode <> MODE_OFF);
   Self.Close;
   Self.fhFile := WinWrappers.INVALID_HANDLE;
-  
-  case DeviceMode of 
+
+  case DeviceMode of
     MODE_READ:      OpeningMode :=  SysUtils.fmOpenRead or SysUtils.fmShareDenyWrite;
     MODE_WRITE:     OpeningMode :=  SysUtils.fmOpenWrite or SysUtils.fmShareExclusive;
     MODE_READWRITE: OpeningMode :=  SysUtils.fmOpenReadWrite or SysUtils.fmShareExclusive;
   else
     OpeningMode :=  0;
   end;
-  
+
   result := WinWrappers.FileOpen(FilePath, OpeningMode, Self.fhFile) and WinWrappers.GetFileSize(Self.hFile, FileSizeL, FileSizeH) and (FileSizeH = 0);
-  
+
   if result then begin
     Self.fMode         := DeviceMode;
     Self.fSize         := FileSizeL;
@@ -290,7 +437,7 @@ begin
   Self.Close;
   Self.fhFile := FileHandle;
   result      := FileHandle <> WinWrappers.INVALID_HANDLE;
-  
+
   if result then begin
     Self.fMode         := MODE_READWRITE;
     Self.fSize         := 0;
@@ -323,7 +470,7 @@ function TFile.CreateNew (const FilePath: string): boolean;
 begin
   Self.Close;
   result := WinWrappers.FileCreate(FilePath, Self.fhFile);
-  
+
   if result then begin
     Self.fMode         := MODE_READWRITE;
     Self.fSize         := 0;
@@ -339,10 +486,10 @@ function TFile.ReadUpTo (Count: integer; {n} Buf: pointer; out BytesRead: intege
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result  :=  ((Self.Mode = MODE_READ) or (Self.Mode = MODE_READWRITE)) and (not Self.EOF);
-  
+
   if result then begin
     BytesRead := SysUtils.FileRead(Self.hFile, Buf^, Count);
-    result    := BytesRead > 0;    
+    result    := BytesRead > 0;
     Self.fPos := Self.Pos + BytesRead;
     Self.fEOF := (Self.fHasKnownSize and (Self.Pos = Self.Size)) or (BytesRead <= 0);
   end;
@@ -352,7 +499,7 @@ function TFile.WriteUpTo (Count: integer; {n} Buf: pointer; out ByteWritten: int
 begin
   {!} Assert(Utils.IsValidBuf(Buf, Count));
   result := (Self.Mode = MODE_WRITE) or (Self.Mode = MODE_READWRITE);
-  
+
   if result then begin
     ByteWritten := SysUtils.FileWrite(Self.hFile, Buf^, Count);
     result      := ByteWritten > 0;
@@ -369,7 +516,7 @@ var
 begin
   {!} Assert(NewPos >= 0);
   result  :=  Self.Mode <> MODE_OFF;
-  
+
   if result then begin
     SeekRes := SysUtils.FileSeek(Self.hFile, NewPos, 0);
     result  := SeekRes <> -1;
@@ -378,7 +525,7 @@ begin
       Self.fPos := SeekRes;
       result    := SeekRes = NewPos;
     end;
-    
+
     Self.fEOF := Self.Pos = Self.Size;
   end; // .if
 end; // .function TFile.Seek
@@ -409,12 +556,12 @@ begin
   FileInfo := TFileItemInfo.Create;
   // * * * * * //
   FileInfo.IsDir := (Self.fFindData.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0;
-  
+
   if not FileInfo.IsDir and (Self.fFindData.nFileSizeHigh = 0) and (Self.fFindData.nFileSizeLow < $7FFFFFFF) then begin
     FileInfo.HasKnownSize := true;
     FileInfo.FileSize     := Self.fFindData.nFileSizeLow;
   end;
-  
+
   FileInfo.Data := Self.fFindData;
   ItemInfo      := FileInfo; FileInfo  :=  nil;
   result        := Self.fFindData.cFileName;
@@ -568,10 +715,10 @@ function Scan
 ): boolean;
 
 var
-  SearchRec:  SysUtils.TSearchRec;
+  SearchRec: SysUtils.TSearchRec;
 
 begin
-  result  :=  true;
+  result := true;
 
   if SysUtils.FindFirst(FileMask, AdditionalAttrs, SearchRec) = 0 then begin
     repeat
@@ -582,18 +729,27 @@ begin
         result  :=  Callback(SearchRec);
       end;
     until SysUtils.FindNext(SearchRec) <> 0;
-    
+
     SysUtils.FindClose(SearchRec);
   end; // .if
 end; // .function Scan
+
+function FileExists (const FilePath: string): boolean;
+var
+  Attrs:  integer;
+
+begin
+  Attrs  := Windows.GetFileAttributes(pchar(FilePath));
+  result := (Attrs <> - 1) and ((Attrs and Windows.FILE_ATTRIBUTE_DIRECTORY) = 0);
+end;
 
 function DirExists (const FilePath: string): boolean;
 var
   Attrs:  integer;
 
 begin
-  Attrs   :=  Windows.GetFileAttributes(pchar(FilePath));
-  result  :=  (Attrs <> - 1) and ((Attrs and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0);
+  Attrs  := Windows.GetFileAttributes(pchar(FilePath));
+  result := (Attrs <> - 1) and ((Attrs and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0);
 end;
 
 function ForcePath (const DirPath: string): boolean;
@@ -619,7 +775,7 @@ begin
           if TestPath <> '' then begin
             TestPath := TestPath + '\';
           end;
-          
+
           TestPath := TestPath + PathParts[i];
 
           if not DirExists(TestPath) then begin
@@ -634,6 +790,36 @@ begin
     end; // .if
   end; // .else
 end; // .function ForcePath
+
+function MaskToFsInternalMask (const Mask: string): string;
+var
+  i: integer;
+
+begin
+  result := SysUtils.AnsiLowerCase(Mask);
+  i      := Length(result);
+
+  while ((i > 0) and (result[i] = '*')) do begin
+    Dec(i);
+  end;
+
+  // Almost each file name ends with "." internally in file system,
+  // thus "test" mask should be actually "test."
+  if (i > 0) and (result[i] <> '.') then begin
+    result := result + '.';
+  end;
+end;
+
+function FileNameToFsInternalFileName (const Name: string): string;
+begin
+  result := SysUtils.AnsiLowerCase(Name);
+
+  // Almost each file name ends with "." internally in file system,
+  // thus "test" is actually "test."
+  if (result <> '') and (result[Length(result)] <> '.') then begin
+    result := result + '.';
+  end;
+end;
 
 function TSearchRec.IsFile: boolean;
 begin
@@ -666,50 +852,23 @@ begin
 end;
 
 function TLocator.MatchResult: boolean;
-  function CanonicMask (const Mask: string): string;
-  var
-    i: integer;
-  
-  begin
-    result := Mask;
-    i := Length(result);
-    
-    while ((i > 0) and (result[i] = '*')) do begin
-      Dec(i);
-    end;
-  
-    if (i > 0) and (result[i] <> '.') then begin
-      result := result + '.';
-    end;
-  end; // .function CanonicMask
-  
-  function CanonicName (const Name: string): string;
-  begin
-    result := Name;
-  
-    if (result <> '') and (result[Length(result)] <> '.') then begin
-      result := result + '.';
-    end;
-  end;
-
 begin
   {!} Assert(Self.fSearchStarted and Self.fLastOperRes);
-  result  :=  false;
-  
-  case Self.fSearchSubj of 
-    ONLY_FILES:     result  :=  (Self.fFoundRec.Attr and SysUtils.faDirectory) = 0;
-    ONLY_DIRS:      result  :=  (Self.fFoundRec.Attr and SysUtils.faDirectory) <> 0;
-    FILES_AND_DIRS: result  :=  true;
+  result := false;
+
+  case Self.fSearchSubj of
+    ONLY_FILES:     result := (Self.fFoundRec.Attr and SysUtils.faDirectory) = 0;
+    ONLY_DIRS:      result := (Self.fFoundRec.Attr and SysUtils.faDirectory) <> 0;
+    FILES_AND_DIRS: result := true;
   else
     {!} Assert(false);
-  end; // .SWITCH 
-  
-  result  :=  result and StrLib.Match(CanonicName(SysUtils.AnsiLowercase(Self.fFoundRec.Name)),
-                                      CanonicMask(SysUtils.AnsiLowerCase(Self.fFileMask)));
-  
+  end;
+
+  result := result and StrLib.Match(FileNameToFsInternalFileName(Self.fFoundRec.Name), MaskToFsInternalMask(Self.fFileMask));
+
   if FILES_EXTRA_DEBUG then begin
     Log.Write('Files', 'TLocator.MatchResult', 'Match "' + Self.fFoundRec.Name + '" to "' +
-                                               Self.fFileMask + '" is ' + IntToStr(ORD(result)));
+                                               Self.fFileMask + '" is ' + IntToStr(ord(result)));
   end;
 end; // .function TLocator.MatchResult
 
@@ -717,7 +876,7 @@ function TLocator.FindNext: boolean;
 begin
   {!} Assert(Self.fLastOperRes);
   result := false;
-  
+
   if not Self.fSearchStarted then begin
     Self.fLastOperRes   := SysUtils.FindFirst(Self.fDir + '\*', SysUtils.faAnyFile, Self.fFoundRec) = 0;
     Self.fSearchStarted := Self.fLastOperRes;
@@ -728,7 +887,7 @@ begin
     while not result and (SysUtils.FindNext(Self.fFoundRec) = 0) do begin
       result := Self.MatchResult;
     end;
-    
+
     Self.fLastOperRes := result;
   end;
 end; // .function TLocator.FindNext

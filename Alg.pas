@@ -21,6 +21,8 @@ type
     function  CompareToPivot (Ind: integer): integer; virtual; abstract;
   end;
 
+function Max3 (A, B, C: integer): integer; inline;
+function Min3 (A, B, C: integer): integer; inline;
 
 (* Rounds integer to given boundary. If ceil is true, rounding is performed to higher value, otherwise to lower one.
    Example: f(21, 4, true) = 24 *)
@@ -67,6 +69,32 @@ function  CustomBinarySearch (Arr: PEndlessIntArr; MinInd, MaxInd: integer; Need
 const
   Pow10Table: array [0..8] of integer = (10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000);
 
+
+function Max3 (A, B, C: integer): integer;
+begin
+  result := A;
+
+  if B > A then begin
+    result := B;
+  end;
+
+  if C > result then begin
+    result := C;
+  end;
+end;
+
+function Min3 (A, B, C: integer): integer;
+begin
+  result := A;
+
+  if B < A then begin
+    result := B;
+  end;
+
+  if C < result then begin
+    result := C;
+  end;
+end;
 
 function IntRoundToBoundary (Value, Boundary: integer; Ceil: boolean = true): integer;
 begin
