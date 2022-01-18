@@ -7,7 +7,10 @@ unit RandMt;
 
 (***)  interface  (***)
 
-uses Windows;
+uses
+  Windows,
+
+  WinUtils;
 
 const
   N          = 624;
@@ -28,7 +31,6 @@ type
 
   TRngMt = class
    protected
-       fInited:      boolean;
    {O} fCritSection: Windows.TRtlCriticalSection;
        mt:           TRngStateVector;
        mti:          word;
@@ -61,18 +63,6 @@ const
   mag01: array [0..1] of integer = (0, MATRIX_A);
 
 
-function GetMicroTime: integer;
-var
-  SysTime:  Windows.TSystemTime;
-  FileTime: Windows.TFileTime;
-
-begin
-  Windows.GetSystemTime(SysTime);
-  Windows.SystemTimeToFileTime(SysTime, FileTime);
-
-  result := FileTime.dwLowDateTime;
-end;
-
 constructor TRngMt.Create;
 begin
   Windows.InitializeCriticalSection(Self.fCritSection);
@@ -97,8 +87,15 @@ begin
 end;
 
 procedure TRngMt.Init;
+var
+  Seed: integer;
+
 begin
-  Self.Init(GetMicroTime);
+  if not WinUtils.RtlGenRandom(@Seed, sizeof(Seed)) then begin
+    Seed := WinUtils.GetMicroTime;
+  end;
+
+  Self.Init(Seed);
 end;
 
 procedure TRngMt.Init (Seed: integer);
