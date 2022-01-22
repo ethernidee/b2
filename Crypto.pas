@@ -163,7 +163,7 @@ Init  : 0xFFFFFFFF
 Revert: true
 XorOut: 0xFFFFFFFF
 Check : 0xCBF43926  ("123456789")
-MaxLen: 268 435 455 байт (2 147 483 647 бит) - detects single, double, packet and all odd errors
+MaxLen: 268 435 455 bytes (2 147 483 647 bit) - detects single, double, packet and all odd errors
 }
 function  Crc32 (PStr: pchar; StrLen: integer): integer;
 function  AnsiCrc32 (const Str: string): integer;
