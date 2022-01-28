@@ -58,6 +58,9 @@ function WaitForObjects (Objects: array of THandle; out ResObject: THandle; Time
 (* Returns UTC time in msec since Jan 1, 1970 *)
 function GetMicroTime: Int64;
 
+(* Returns UTC time in seconds since Jan 1, 1970 *)
+function GetUnixTime: Int64;
+
 (* Returns path to system directory or empty string on error *)
 function GetSysDirW: WideString;
 
@@ -365,7 +368,12 @@ var
 
 begin
   Windows.GetSystemTimeAsFileTime(Time);
-  result := PInt64(@Time)^ + Int64(116444736000000000);
+  result := (PInt64(@Time)^ + Int64(116444736000000000)) div 10000;
+end;
+
+function GetUnixTime: Int64;
+begin
+  result := GetMicroTime div 1000;
 end;
 
 function GetSysDirW: WideString;
