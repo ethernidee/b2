@@ -47,7 +47,7 @@ type
     procedure WriteWord (Value: word);
     procedure WriteInt (Value: integer);
     function  BuildStr: string;
-    function  BuildBuf: TArrayOfByte;
+    function  BuildBuf: Utils.TArrayOfByte;
     procedure BuildTo ({n} Buf: pointer; BufSize: integer);
     procedure Clear;
   end; // .interface IStrBuilder
@@ -72,7 +72,7 @@ type
     procedure WriteInt (Value: integer);
     function  BuildStr: string;
     function  BuildWideStr: WideString;
-    function  BuildBuf: TArrayOfByte;
+    function  BuildBuf: Utils.TArrayOfByte;
     procedure BuildTo ({n} Buf: pointer; BufSize: integer);
     procedure Clear;
 
@@ -110,6 +110,8 @@ type
 
   IByteMapper = interface
     function GetSource: IByteSource;
+    function ReadByte: byte;
+    function ReadWord: word;
     function ReadInt: integer;
     function ReadStr (StrLen: integer): string;
     function ReadStrWithLenField (StrLenFieldSize: integer): string;
@@ -124,6 +126,8 @@ type
     constructor Create (ByteSource: IByteSource);
 
     function GetSource: IByteSource;
+    function ReadByte: byte;
+    function ReadWord: word;
     function ReadInt: integer;
     function ReadStr (StrLen: integer): string;
     function ReadStrWithLenField (StrLenFieldSize: integer): string;
@@ -470,9 +474,19 @@ begin
   result := fByteSource;
 end;
 
+function TByteMapper.ReadByte: byte;
+begin
+  {!} Assert(fByteSource.Read(sizeof(result), @result) = sizeof(result));
+end;
+
+function TByteMapper.ReadWord: word;
+begin
+  {!} Assert(fByteSource.Read(sizeof(result), @result) = sizeof(result));
+end;
+
 function TByteMapper.ReadInt: integer;
 begin
-  {!} Assert(fByteSource.Read(sizeof(integer), @result) = sizeof(integer));
+  {!} Assert(fByteSource.Read(sizeof(result), @result) = sizeof(result));
 end;
 
 function TByteMapper.ReadStr (StrLen: integer): string;
