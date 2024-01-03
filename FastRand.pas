@@ -41,7 +41,7 @@ type
     function RandomRange (MinValue, MaxValue: integer): integer; override;
   end;
 
-  TMulberry32Rng = class (TRng)
+  TSplitMix32Rng = class (TRng)
    protected
     fState: integer;
 
@@ -101,39 +101,40 @@ begin
   result := FastRand.RandomRange(Self, MinValue, MaxValue);
 end;
 
-constructor TMulberry32Rng.Create (Seed: integer);
+constructor TSplitMix32Rng.Create (Seed: integer);
 begin
   inherited Create;
 
   Self.fState := Seed;
 end;
 
-procedure TMulberry32Rng.Seed (NewSeed: integer);
+procedure TSplitMix32Rng.Seed (NewSeed: integer);
 begin
   Self.fState := NewSeed;
 end;
 
-function TMulberry32Rng.Random: integer;
+function TSplitMix32Rng.Random: integer;
 begin
-  Inc(Self.fState, integer($6D2B79F5));
-  result := Self.fState;
-  result := (result xor (result shr 15)) * (result or 1);
-  result := result xor (result + (result xor (result shr 7)) * (result or 61));
-  result := result xor (result shr 14);
+  Inc(Self.fState, integer($9E3779B9));
+  result := Self.fState xor (Self.fState shr 15);
+  result := result * integer($85EBCA6B);
+  result := result xor (result shr 13);
+  result := result * integer($C2B2AE35);
+  result := result xor (result shr 16);
 end;
 
-function TMulberry32Rng.GetStateSize: integer;
+function TSplitMix32Rng.GetStateSize: integer;
 begin
   result := sizeof(Self.fState);
 end;
 
-procedure TMulberry32Rng.ReadState (Buf: pointer);
+procedure TSplitMix32Rng.ReadState (Buf: pointer);
 begin
   {!} Assert(Buf <> nil);
   Utils.CopyMem(sizeof(Self.fState), Buf, @Self.fState);
 end;
 
-procedure TMulberry32Rng.WriteState (Buf: pointer);
+procedure TSplitMix32Rng.WriteState (Buf: pointer);
 begin
   {!} Assert(Buf <> nil);
   Utils.CopyMem(sizeof(Self.fState), @Self.fState, Buf);
@@ -159,9 +160,6 @@ begin
 end;
 
 function TCLangRng.RandomRange (MinValue, MaxValue: integer): integer;
-var
-  RangeLen: integer;
-
 begin
   if MinValue >= MaxValue then begin
     result := MinValue;
@@ -198,7 +196,7 @@ constructor TXoroshiro128Rng.Create (Seed: integer);
 begin
   inherited Create;
 
-  Self.fSeeder := TMulberry32Rng.Create(Seed);
+  Self.fSeeder := TSplitMix32Rng.Create(Seed);
   Self.Seed(Seed);
 end;
 
