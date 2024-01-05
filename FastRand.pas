@@ -366,10 +366,14 @@ begin
 end;
 
 function RandomRange (Rng: TRng; MinValue, MaxValue: integer): integer;
+const
+  MAX_UNBIAS_ATTEMPTS = 100;
+
 var
-  Interval:    cardinal;
-  IntervalCap: cardinal;
-  Mask:        cardinal;
+  RangeLen:         cardinal;
+  BiasedRangeLen:   cardinal;
+  MaxUnbiasedValue: cardinal;
+  i:                integer;
 
 begin
   {!} Assert(Rng <> nil);
@@ -379,29 +383,26 @@ begin
     exit;
   end;
 
-  if (MinValue = Low(integer)) and (MaxValue = High(integer)) then begin
-    result := Rng.Random;
-    exit;
-  end;
+  result := Rng.Random;
 
-  Interval := cardinal(MaxValue - MinValue) + 1;
-  Mask     := $ffffffff;
+  if (MinValue > Low(integer)) or (MaxValue < High(integer)) then begin
+    i                := 2;
+    RangeLen         := cardinal(MaxValue - MinValue) + 1;
+    BiasedRangeLen   := High(cardinal) mod RangeLen + 1;
 
-  if Interval < (cardinal(1) shl 31) then begin
-    IntervalCap := 1;
-
-    while IntervalCap < Interval do begin
-      IntervalCap := IntervalCap shl 1;
+    if BiasedRangeLen = RangeLen then begin
+      BiasedRangeLen := 0;
     end;
 
-    Mask := IntervalCap - 1;
+    MaxUnbiasedValue := High(cardinal) - BiasedRangeLen;
+
+    while (cardinal(result) > MaxUnbiasedValue) and (i <= MAX_UNBIAS_ATTEMPTS) do begin
+      result := Rng.Random;
+      Inc(i);
+    end;
+
+    result := MinValue + integer(cardinal(result) mod RangeLen);
   end;
-
-  repeat
-    result := Rng.Random and Mask;
-  until cardinal(result) < Interval;
-
-  Inc(result, MinValue);
-end; // .function RandomRange
+end;
 
 end.
