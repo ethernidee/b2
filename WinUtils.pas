@@ -53,6 +53,7 @@ function GetCurrentDirW: WideString;
 function SetCurrentDirW (const DirPath: WideString): boolean;
 function GetLongPathNameW (lpszShortPath, lpszLongPath: PWideChar; cchBuffer: integer): integer; stdcall; external 'kernel32.dll';
 function GetLongPathW (const FilePath: WideString; Success: pboolean = nil): WideString;
+function GetComputerNameW: WideString;
 function WaitForObjects (Objects: array of THandle; out ResObject: THandle; TimeoutMsec: integer = integer(INFINITE); WaitAll: boolean = false): TWaitResult;
 
 (* Returns UTC time in msec since Jan 1, 1970 *)
@@ -317,6 +318,20 @@ begin
     result := FilePath;
   end;
 end; // .function GetLongPathW
+
+function GetComputerNameW: WideString;
+var
+  Buffer: array [0..31] of WideChar;
+  BufLen: cardinal;
+
+begin
+  result := '';
+  BufLen := Length(Buffer);
+
+  if Windows.GetComputerNameW(@Buffer, BufLen) then begin
+    result := PWideChar(@Buffer);
+  end;
+end;
 
 function WaitForObjects (Objects: array of THandle; out ResObject: THandle; TimeoutMsec: integer = integer(INFINITE); WaitAll: boolean = false): TWaitResult;
 var

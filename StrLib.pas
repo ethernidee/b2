@@ -2,6 +2,8 @@ unit StrLib;
 (*
   DESCRIPTION: Strings processing
   AUTHOR:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+  WARNING:     The unit uses asserts for meaningfull operations, which will lead to bugs if assertions will be turned off.
+               Such assertions should probably be replaced with custom exception generating function, not dependent on compiler flags.
 *)
 
 (***)  interface  (***)
@@ -50,7 +52,7 @@ type
     function  BuildBuf: Utils.TArrayOfByte;
     procedure BuildTo ({n} Buf: pointer; BufSize: integer);
     procedure Clear;
-  end; // .interface IStrBuilder
+  end;
 
   TStrBuilder = class (TInterfacedObject, IStrBuilder)
    protected
@@ -67,6 +69,7 @@ type
     procedure Append (const Str: string);
     procedure AppendWide (const Str: WideString);
     procedure AppendBuf (BufSize: integer; {n} Buf: pointer);
+    procedure AppendWithLenField (const Str: string; StrLenFieldSize: integer = sizeof(integer));
     procedure WriteByte (Value: byte);
     procedure WriteWord (Value: word);
     procedure WriteInt (Value: integer);
@@ -110,11 +113,12 @@ type
 
   IByteMapper = interface
     function GetSource: IByteSource;
+    procedure ReadToBuf (Count: integer; {n} Buf: pointer);
     function ReadByte: byte;
     function ReadWord: word;
     function ReadInt: integer;
     function ReadStr (StrLen: integer): string;
-    function ReadStrWithLenField (StrLenFieldSize: integer): string;
+    function ReadStrWithLenField (StrLenFieldSize: integer = sizeof(integer)): string;
   end;
 
   (* All methods assert reading success *)
@@ -126,11 +130,12 @@ type
     constructor Create (ByteSource: IByteSource);
 
     function GetSource: IByteSource;
+    procedure ReadToBuf (Count: integer; {n} Buf: pointer);
     function ReadByte: byte;
     function ReadWord: word;
     function ReadInt: integer;
     function ReadStr (StrLen: integer): string;
-    function ReadStrWithLenField (StrLenFieldSize: integer): string;
+    function ReadStrWithLenField (StrLenFieldSize: integer = sizeof(integer)): string;
   end; // .TByteMapper
 
 function  MakeStr: IStrBuilder;
@@ -260,6 +265,17 @@ end; // .destructor TStrBuilder.Destroy
 procedure TStrBuilder.Append (const Str: string);
 begin
   Self.AppendBuf(Length(Str), pointer(Str));
+end;
+
+procedure TStrBuilder.AppendWithLenField (const Str: string; StrLenFieldSize: integer = sizeof(integer));
+var
+  StrLen: integer;
+
+begin
+ {!} Assert(StrLenFieldSize in [1, 2, 4, sizeof(integer)]);
+  StrLen := Length(Str);
+  Self.AppendBuf(StrLenFieldSize, @StrLen);
+  Self.AppendBuf(StrLen, pointer(Str));
 end;
 
 procedure TStrBuilder.AppendWide (const Str: WideString);
@@ -474,6 +490,11 @@ begin
   result := fByteSource;
 end;
 
+procedure TByteMapper.ReadToBuf (Count: integer; {n} Buf: pointer);
+begin
+  {!} Assert(fByteSource.Read(Count, Buf) = Count);
+end;
+
 function TByteMapper.ReadByte: byte;
 begin
   {!} Assert(fByteSource.Read(sizeof(result), @result) = sizeof(result));
@@ -499,7 +520,7 @@ begin
   end;
 end;
 
-function TByteMapper.ReadStrWithLenField (StrLenFieldSize: integer): string;
+function TByteMapper.ReadStrWithLenField (StrLenFieldSize: integer = sizeof(integer)): string;
 var
   StrLen: integer;
 
@@ -514,7 +535,7 @@ begin
     SetLength(result, StrLen);
     {!} Assert(fByteSource.Read(StrLen, @result[1]) = StrLen);
   end;
-end; // .function TByteMapper.ReadStrWithLenField
+end;
 
 function MakeStr: IStrBuilder;
 begin
