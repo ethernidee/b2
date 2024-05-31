@@ -504,9 +504,9 @@ begin
   result := TClass(TMethod(Method).Data);
 end;
 
-function IfThen (const Condition: boolean; const SuccessResult, FailureResult: string): string; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
-function IfThen (const Condition: boolean; const SuccessResult, FailureResult: integer): integer; inline; overload;     begin if Condition then result := SuccessResult else result := FailureResult; end;
-function IfThen (const Condition: boolean; const SuccessResult, FailureResult: pointer): pointer; inline; overload;     begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (const Condition: boolean; const SuccessResult, FailureResult: string): string; inline; overload;   begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (const Condition: boolean; const SuccessResult, FailureResult: integer): integer; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
+function IfThen (const Condition: boolean; const SuccessResult, FailureResult: pointer): pointer; inline; overload; begin if Condition then result := SuccessResult else result := FailureResult; end;
 
 function InterlockedCompareExchange (var Destination: integer; NewValue, Comperand: integer): integer; stdcall; external 'kernel32' name 'InterlockedCompareExchange';
 function InterlockedIncrement       (var Value: integer): integer; stdcall; external 'kernel32' name 'InterlockedIncrement';
