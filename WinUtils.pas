@@ -44,6 +44,7 @@ type
     property Height: integer read fHeight;
   end; // .class TRawImage
 
+  TExceptionHandler = function (ExceptionPtrs: Windows.TExceptionPointers): integer;
   TWaitResult = (WR_WAITED, WR_ABANDONED_MUTEX, WR_TIMEOUT, WR_FAILED, WR_UNKNOWN);
 
 function IsValidHandle (Handle: THandle): boolean; inline;
@@ -55,6 +56,7 @@ function GetLongPathNameW (lpszShortPath, lpszLongPath: PWideChar; cchBuffer: in
 function GetLongPathW (const FilePath: WideString; Success: pboolean = nil): WideString;
 function GetComputerNameW: WideString;
 function WaitForObjects (Objects: array of THandle; out ResObject: THandle; TimeoutMsec: integer = integer(INFINITE); WaitAll: boolean = false): TWaitResult;
+function AddVectoredExceptionHandler (First: LONGBOOL; Handler: TExceptionHandler): Windows.THandle; stdcall; external 'kernel32.dll';
 
 (* Returns UTC time in msec since Jan 1, 1970 *)
 function GetMicroTime: Int64;
