@@ -545,7 +545,7 @@ begin
     result := result + Disasm.Len;
     Code   := Utils.PtrOfs(Code, Disasm.Len);
   end;
-end; // .function CalcHookSize
+end;
 
 function ApiHook (HandlerAddr: pointer; HookType: integer; CodeAddr: pointer): {n} pointer;
 begin
