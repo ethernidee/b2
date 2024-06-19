@@ -17,7 +17,7 @@ uses
   WinWrappers;
 
 const
-  (* IMPORT *)
+  (* Import *)
   MODE_OFF        = CFiles.MODE_OFF;
   MODE_READ       = CFiles.MODE_READ;
   MODE_WRITE      = CFiles.MODE_WRITE;
@@ -31,7 +31,7 @@ const
   DISK_LETTER_SEPARATOR = ':';
 
 type
-  (* IMPORT *)
+  (* Import *)
   TDeviceMode = CFiles.TDeviceMode;
   TItemInfo   = CFiles.TItemInfo;
 
@@ -143,6 +143,7 @@ function  ReadFileContents (FileHandle: integer; out FileContents: string): bool
 function  WriteFileContents (const FileContents, FilePath: string): boolean;
 function  AppendFileContents (const FileContents, FilePath: string): boolean;
 function  DeleteDir (const DirPath: string): boolean;
+function  ClearDir (const DirPath: string): boolean;
 function  GetFileSize (const FilePath: string; out Res: integer): boolean;
 
 function  Scan
@@ -659,7 +660,7 @@ begin
   SysUtils.FreeAndNil(MyFile);
 end; // .function AppendFileContents
 
-function DeleteDir (const DirPath: string): boolean;
+function ClearDir (const DirPath: string): boolean;
 var
 {O} Locator:  TFileLocator;
 {O} FileInfo: TFileItemInfo;
@@ -667,29 +668,39 @@ var
     FilePath: string;
 
 begin
-  Locator   :=  TFileLocator.Create;
-  FileInfo  :=  nil;
+  Locator  := TFileLocator.Create;
+  FileInfo := nil;
   // * * * * * //
-  result          :=  true;
-  Locator.DirPath :=  DirPath;
+  result          := true;
+  Locator.DirPath := DirPath;
   Locator.InitSearch('*');
+
   while result and Locator.NotEnd do begin
-    FileName  :=  Locator.GetNextItem(CFiles.TItemInfo(FileInfo));
+    FileName := Locator.GetNextItem(CFiles.TItemInfo(FileInfo));
+
     if (FileName <> '.') and (FileName <> '..') then begin
-      FilePath  :=  DirPath + '\' + FileName;
+      FilePath := DirPath + '\' + FileName;
+
       if (FileInfo.Data.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0 then begin
-        result  :=  DeleteDir(FilePath);
+        result := DeleteDir(FilePath);
       end else begin
-        result  :=  SysUtils.DeleteFile(FilePath);
+        result := SysUtils.DeleteFile(FilePath);
       end;
     end;
+
     SysUtils.FreeAndNil(FileInfo);
-  end; // .while
+  end;
+
   Locator.FinitSearch;
-  result  :=  result and SysUtils.RemoveDir(DirPath);
   // * * * * * //
   SysUtils.FreeAndNil(Locator);
-end; // .function DeleteDir
+end; // .function ClearDir
+
+function DeleteDir (const DirPath: string): boolean;
+begin
+  ClearDir(DirPath);
+  result := SysUtils.RemoveDir(DirPath);
+end;
 
 function GetFileSize (const FilePath: string; out Res: integer): boolean;
 var
