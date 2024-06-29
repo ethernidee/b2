@@ -241,7 +241,7 @@ begin
     end; // .for
   end; // .if
 
-  result  :=  Files.WriteFileContents(StrBuilder.BuildStr, FilePath);
+  result := Files.WriteFileContents(StrBuilder.BuildStr, FilePath);
   // * * * * * //
   SysUtils.FreeAndNil(StrBuilder);
   SysUtils.FreeAndNil(SectionNames);
