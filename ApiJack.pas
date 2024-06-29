@@ -1,4 +1,4 @@
-﻿unit ApiJack;
+unit ApiJack;
 (*
   Description: Code/data patching utilities and API hooking.
                All hooks are thread-safe.
@@ -67,8 +67,12 @@ type
 function StdSplice (OrigFunc, HandlerFunc: pointer; CallingConv: TCallingConv; NumArgs: integer; {n} CustomParam: pinteger = nil; {n} AppliedPatch: PAppliedPatch = nil): pointer;
 
 (* Writes call to user handler at specified location. If handler returns true, overwritten commands are executed
-   in original way. Otherwise they are skipped and Context.RetAddr is used to determine return address. *)
+   in original way. Otherwise they are skipped and Context.RetAddr is used to determine return address.
+   Returns address to a default code bridge *)
 function HookCode (Addr: pointer; HandlerFunc: THookHandler; {n} AppliedPatch: PAppliedPatch = nil): pointer;
+
+(* Calculates the size of the code block, which will be overwritten during hook/splice placement *)
+function CalcHookSize (Addr: pointer): integer;
 
 (* Installs new code writing routine. Returns the previous one or nil *)
 function SetCodeWriter (CodeWriter: TWriteAtCode): {n} TWriteAtCode;
@@ -365,7 +369,7 @@ begin
   result := pointer(p.Pos);
 
   // Write original code bridge
-  OverwrittenCodeSize := PatchForge.GetCodeSize(Addr, sizeof(PatchForge.TJumpCall32Rec));
+  OverwrittenCodeSize := CalcHookSize(Addr);
   p.WriteCode(Addr, PatchForge.TFixedCodeSizeDetector.Create(OverwrittenCodeSize));
   p.Jump(PatchForge.JMP, Utils.PtrOfs(Addr, OverwrittenCodeSize));
 
@@ -398,6 +402,11 @@ begin
   // * * * * * //
   p.Release;
 end; // .function HookCode
+
+function CalcHookSize (Addr: pointer): integer;
+begin
+  result := PatchForge.GetCodeSize(Addr, sizeof(PatchForge.TJumpCall32Rec));
+end;
 
 procedure TAppliedPatch.Rollback;
 begin
