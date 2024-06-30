@@ -479,7 +479,7 @@ begin
   HookRec.Ofs := integer(HandlerAddr) - integer(CodeAddr) - sizeof(THookRec);
 
   if not WriteAtCode(sizeof(THookRec), @HookRec, CodeAddr) then begin
-    {!} Assert(false, SysUtils.Format('Failed to write hook at %h', [integer(CodeAddr)]));
+    {!} Assert(false, SysUtils.Format('Failed to write hook at %x', [integer(CodeAddr)]));
   end;
 
   NopCount := PatchSize - sizeof(THookRec);
@@ -488,7 +488,7 @@ begin
     FillChar(NopBuf[0], NopCount, Chr(OPCODE_NOP));
 
     if not WriteAtCode(NopCount, @NopBuf[0], Utils.PtrOfs(CodeAddr, sizeof(THookRec))) then begin
-      {!} Assert(false, SysUtils.Format('Failed to write hook at %h', [integer(CodeAddr)]));
+      {!} Assert(false, SysUtils.Format('Failed to write hook at %x', [integer(CodeAddr)]));
     end;
   end;
 end; // .function Hook
