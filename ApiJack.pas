@@ -44,14 +44,37 @@ type
     procedure Rollback;
   end;
 
+  PStackArg = ^TStackArg;
+  TStackArg = packed record
+    case byte of
+      0: (int:      integer);
+      1: (ptr:      pointer);
+      2: (pchar:    pchar);
+      3: (byte:     byte);
+      4: (bool:     boolean);
+      5: (word:     word);
+      6: (float:    single);
+      7: (longbool: longbool);
+      8: (ppointer: ppointer);
+  end;
+
   PHookContext = ^THookContext;
 
   THookContext = packed record
     EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX: integer;
     RetAddr:                                pointer;
+
+    // Returns N-th argument address, starting from zero
+    function GetCdeclArg (ArgN: integer): PStackArg;
+    function GetThiscallArg (ArgN: integer): PStackArg;
+    function GetFastcallArg (ArgN: integer): PStackArg;
+
+    property CdeclArgs[ArgN: integer]:    PStackArg read GetCdeclArg;
+    property ThiscallArgs[ArgN: integer]: PStackArg read GetThiscallArg;
+    property FastcallArgs[ArgN: integer]: PStackArg read GetFastcallArg;
   end;
 
-  THookHandler = function (Context: PHookContext): LONGBOOL;
+  THookHandler = function (Context: PHookContext): LONGBOOL; stdcall;
 
   (* Writes arbitrary data to any write-protected section *)
   TWriteAtCode = function (NumBytes: integer; {n} Src, {n} Dst: pointer): boolean; stdcall;
@@ -72,7 +95,7 @@ function StdSplice (OrigFunc, HandlerFunc: pointer; CallingConv: TCallingConv; N
 function HookCode (Addr: pointer; HandlerFunc: THookHandler; {n} AppliedPatch: PAppliedPatch = nil): pointer;
 
 (* Calculates the size of the code block, which will be overwritten during hook/splice placement *)
-function CalcHookSize (Addr: pointer): integer;
+function CalcHookPatchSize (Addr: pointer): integer;
 
 (* Installs new code writing routine. Returns the previous one or nil *)
 function SetCodeWriter (CodeWriter: TWriteAtCode): {n} TWriteAtCode;
@@ -80,6 +103,9 @@ function SetCodeWriter (CodeWriter: TWriteAtCode): {n} TWriteAtCode;
 
 (***)  implementation  (***)
 
+
+const
+  RET_ADDR_SIZE = sizeof(integer);
 
 type
   (* Import *)
@@ -369,7 +395,7 @@ begin
   result := pointer(p.Pos);
 
   // Write original code bridge
-  OverwrittenCodeSize := CalcHookSize(Addr);
+  OverwrittenCodeSize := CalcHookPatchSize(Addr);
   p.WriteCode(Addr, PatchForge.TFixedCodeSizeDetector.Create(OverwrittenCodeSize));
   p.Jump(PatchForge.JMP, Utils.PtrOfs(Addr, OverwrittenCodeSize));
 
@@ -403,9 +429,34 @@ begin
   p.Release;
 end; // .function HookCode
 
-function CalcHookSize (Addr: pointer): integer;
+function CalcHookPatchSize (Addr: pointer): integer;
 begin
   result := PatchForge.GetCodeSize(Addr, sizeof(PatchForge.TJumpCall32Rec));
+end;
+
+function THookContext.GetCdeclArg (ArgN: integer): PStackArg;
+begin
+  result := Ptr(Self.ESP + (RET_ADDR_SIZE + sizeof(integer) * ArgN));
+end;
+
+function THookContext.GetThiscallArg (ArgN: integer): PStackArg;
+begin
+  if ArgN = 0 then begin
+    result := @Self.ECX;
+  end else begin
+    result := Ptr(Self.ESP + (RET_ADDR_SIZE + sizeof(integer) * (ArgN - 1)));
+  end;
+end;
+
+function THookContext.GetFastcallArg (ArgN: integer): PStackArg;
+begin
+  if ArgN = 0 then begin
+    result := @Self.ECX;
+  end else if ArgN = 1 then begin
+    result := @Self.EDX;
+  end else begin
+    result := Ptr(Self.ESP + (RET_ADDR_SIZE + sizeof(integer) * (ArgN - 2)));
+  end;
 end;
 
 procedure TAppliedPatch.Rollback;
