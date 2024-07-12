@@ -191,7 +191,7 @@ function  IsEmpty ({n} Buf: pchar): boolean; overload;
   Example: f('Hello, ~UserName~. You are ~Years~ years old.', ['Years', '20', 'UserName', 'Bob'], '~') =>
   => 'Hello, Bob. You are 20 years old'.
 *)
-function  BuildStr (const Template: string; TemplArgs: array of string; TemplChar: char): string;
+function  BuildStr (const Template: string; const TemplArgs: array of string; TemplChar: char): string;
 function  CharsetToStr (const Charset: Utils.TCharSet): string;
 function  IntToRoman (Value: integer): string;
 function  CharToLower (c: char): char;
@@ -1061,7 +1061,7 @@ begin
   end;
 end;
 
-function BuildStr (const Template: string; TemplArgs: array of string; TemplChar: char): string;
+function BuildStr (const Template: string; const TemplArgs: array of string; TemplChar: char): string;
 var
   TemplTokens:    TArrayOfStr;
   NumTemplTokens: integer;
@@ -1086,7 +1086,7 @@ var
     end;
 
     result := TemplChar + ParamName + TemplChar;
-  end; // .function GetParam
+  end;
 
 begin
   NumTemplArgs := Length(TemplArgs);
