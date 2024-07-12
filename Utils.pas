@@ -71,6 +71,7 @@ type
 
   TArrayOfByte     = array of byte;
   TArrayOfInt      = array of integer;
+  TArrayOfChar     = array of char;
   TArrayOfStr      = array of string;
   TArrayOfWideChar = array of WideChar;
 
