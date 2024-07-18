@@ -75,6 +75,20 @@ type
   TArrayOfStr      = array of string;
   TArrayOfWideChar = array of WideChar;
 
+  PInt32Value = ^TInt32Value;
+  TInt32Value = packed record
+    case byte of
+      0: (int:      integer);
+      1: (ptr:      pointer);
+      2: (pchar:    pchar);
+      3: (byte:     byte);
+      4: (bool:     boolean);
+      5: (word:     word);
+      6: (float:    single);
+      7: (longbool: longbool);
+      8: (ppointer: ppointer);
+  end;
+
   TCharSet  = set of char;
 
   TEmptyRec = packed record end;
