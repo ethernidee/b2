@@ -7,8 +7,12 @@ unit ApiJack;
 (***)  interface  (***)
 
 uses
-  Windows, SysUtils, Math,
-  Utils, PatchForge;
+  Math,
+  SysUtils,
+  Windows,
+
+  PatchForge,
+  Utils;
 
 type
   TCallingConv = (
@@ -44,20 +48,6 @@ type
     procedure Rollback;
   end;
 
-  PStackArg = ^TStackArg;
-  TStackArg = packed record
-    case byte of
-      0: (int:      integer);
-      1: (ptr:      pointer);
-      2: (pchar:    pchar);
-      3: (byte:     byte);
-      4: (bool:     boolean);
-      5: (word:     word);
-      6: (float:    single);
-      7: (longbool: longbool);
-      8: (ppointer: ppointer);
-  end;
-
   PHookContext = ^THookContext;
 
   THookContext = packed record
@@ -65,13 +55,13 @@ type
     RetAddr:                                pointer;
 
     // Returns N-th argument address, starting from zero
-    function GetCdeclArg (ArgN: integer): PStackArg;
-    function GetThiscallArg (ArgN: integer): PStackArg;
-    function GetFastcallArg (ArgN: integer): PStackArg;
+    function GetCdeclArg (ArgN: integer): PInt32Value;
+    function GetThiscallArg (ArgN: integer): PInt32Value;
+    function GetFastcallArg (ArgN: integer): PInt32Value;
 
-    property CdeclArgs[ArgN: integer]:    PStackArg read GetCdeclArg;
-    property ThiscallArgs[ArgN: integer]: PStackArg read GetThiscallArg;
-    property FastcallArgs[ArgN: integer]: PStackArg read GetFastcallArg;
+    property CdeclArgs[ArgN: integer]:    PInt32Value read GetCdeclArg;
+    property ThiscallArgs[ArgN: integer]: PInt32Value read GetThiscallArg;
+    property FastcallArgs[ArgN: integer]: PInt32Value read GetFastcallArg;
   end;
 
   THookHandler = function (Context: PHookContext): LONGBOOL; stdcall;
@@ -434,12 +424,12 @@ begin
   result := PatchForge.GetCodeSize(Addr, sizeof(PatchForge.TJumpCall32Rec));
 end;
 
-function THookContext.GetCdeclArg (ArgN: integer): PStackArg;
+function THookContext.GetCdeclArg (ArgN: integer): PInt32Value;
 begin
   result := Ptr(Self.ESP + (RET_ADDR_SIZE + sizeof(integer) * ArgN));
 end;
 
-function THookContext.GetThiscallArg (ArgN: integer): PStackArg;
+function THookContext.GetThiscallArg (ArgN: integer): PInt32Value;
 begin
   if ArgN = 0 then begin
     result := @Self.ECX;
@@ -448,7 +438,7 @@ begin
   end;
 end;
 
-function THookContext.GetFastcallArg (ArgN: integer): PStackArg;
+function THookContext.GetFastcallArg (ArgN: integer): PInt32Value;
 begin
   if ArgN = 0 then begin
     result := @Self.ECX;
