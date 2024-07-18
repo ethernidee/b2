@@ -2737,7 +2737,7 @@ begin
   Source.EndIterate;
 end;
 
-function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems,ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TAssocArray;
+function NewAssocArr (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc; OwnsItems, ItemsAreObjects: boolean; ItemType: TClass; AllowNil: boolean): TAssocArray;
 var
 {O} ItemGuard: Utils.TDefItemGuard;
 
@@ -2776,16 +2776,16 @@ begin
   ItemGuard.ItemType := ItemType;
   ItemGuard.AllowNil := AllowNil;
   result             := TObjArray.Create(OwnsItems, ItemsAreObjects, @Utils.DefItemGuardProc, Utils.TItemGuard(ItemGuard));
-end; // .function NewObjArr
+end;
 
 function NewSimpleObjArr: TObjArray;
 var
 {O} ItemGuard: Utils.TCloneable;
 
 begin
-  ItemGuard :=  nil;
-  result    := TObjArray.Create (not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
-end; // .function NewSimpleObjArr
+  ItemGuard := nil;
+  result    := TObjArray.Create(not Utils.OWNS_ITEMS, not Utils.ITEMS_ARE_OBJECTS, @Utils.NoItemGuardProc, ItemGuard);
+end;
 
 function NewSimpleStrBinTree (HashFunc: THashFunc; {n} KeyPreprocessFunc: TKeyPreprocessFunc): TStrBinTree;
 var
