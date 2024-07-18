@@ -1,13 +1,20 @@
 unit DataLib;
-{
-DESCRIPTION:  Convinient and widely used data structures
-AUTHOR:       Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
-}
+(*
+  Description: Convinient and widely used data structures
+  Author:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+*)
 
 (***)  interface  (***)
+
 uses
   SysUtils,
-  Utils, Crypto, Lists, AssocArrays, StrLib, TypeWrappers;
+
+  AssocArrays,
+  Crypto,
+  Lists,
+  StrLib,
+  TypeWrappers,
+  Utils;
 
 const
   CASE_SENSITIVE   = FALSE;
@@ -15,11 +22,12 @@ const
 
 
 type
-  TDict     = AssocArrays.TAssocArray {OF TObject};
-  TObjDict  = AssocArrays.TObjArray {OF TObject};
-  TList     = Lists.TList {OF TObject};
-  TStrList  = Lists.TStringList {OF TObject};
-  TString   = TypeWrappers.TString;
+  TAssocArray = AssocArrays.TAssocArray {OF pointer};
+  TDict       = AssocArrays.TAssocArray {OF TObject};
+  TObjDict    = AssocArrays.TObjArray {OF TObject};
+  TList       = Lists.TList {OF TObject};
+  TStrList    = Lists.TStringList {OF TObject};
+  TString     = TypeWrappers.TString;
 
   (*  Combines access speed of TDict and order of TStrList  *)
   THashedList = class abstract
@@ -79,6 +87,7 @@ type
 
 function  NewDict (OwnsItems, CaseInsensitive: boolean): {O} TDict;
 function  NewObjDict (OwnsItems: boolean): {O} TObjDict;
+function  NewAssocArray (OwnsItems, CaseInsensitive: boolean): {O} TAssocArray;
 function  NewList (OwnsItems: boolean): {O} TList;
 function  NewStrList (OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 function  NewStrListFromStrArr (StrArr: Utils.TArrayOfStr;
@@ -173,26 +182,26 @@ begin
     KeyPreprocessFunc := nil;
   end;
 
-  result := AssocArrays.NewAssocArr
-  (
-    Crypto.FastAnsiHash,
-    KeyPreprocessFunc,
-    OwnsItems,
-    Utils.ITEMS_ARE_OBJECTS and OwnsItems,
-    Utils.NO_TYPEGUARD,
-    Utils.ALLOW_NIL
-  );
-end; // .function NewDict
+  result := AssocArrays.NewAssocArr(Crypto.FastAnsiHash, KeyPreprocessFunc, OwnsItems, Utils.ITEMS_ARE_OBJECTS and OwnsItems, Utils.NO_TYPEGUARD, Utils.ALLOW_NIL);
+end;
+
+function NewAssocArray (OwnsItems, CaseInsensitive: boolean): {O} TAssocArray;
+var
+  KeyPreprocessFunc:  AssocArrays.TKeyPreprocessFunc;
+
+begin
+  if CaseInsensitive then begin
+    KeyPreprocessFunc := SysUtils.AnsiLowerCase;
+  end else begin
+    KeyPreprocessFunc := nil;
+  end;
+
+  result := AssocArrays.NewAssocArr(Crypto.FastAnsiHash, KeyPreprocessFunc, OwnsItems, not Utils.ITEMS_ARE_OBJECTS, Utils.NO_TYPEGUARD, Utils.ALLOW_NIL);
+end;
 
 function NewObjDict (OwnsItems: boolean): {O} TObjDict;
 begin
-  result := AssocArrays.NewObjArr
-  (
-    OwnsItems,
-    Utils.ITEMS_ARE_OBJECTS and OwnsItems,
-    Utils.NO_TYPEGUARD,
-    Utils.ALLOW_NIL
-  );
+  result := AssocArrays.NewObjArr(OwnsItems, Utils.ITEMS_ARE_OBJECTS and OwnsItems, Utils.NO_TYPEGUARD, Utils.ALLOW_NIL);
 end;
 
 function NewList (OwnsItems: boolean): {O} TList;
@@ -204,7 +213,7 @@ function NewStrList (OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList
 begin
   result                 := Lists.NewStrList(OwnsItems, Utils.ITEMS_ARE_OBJECTS and OwnsItems, Utils.NO_TYPEGUARD, Utils.ALLOW_NIL);
   result.CaseInsensitive := CaseInsensitive;
-end; // .function NewStrList
+end;
 
 function NewStrListFromStrArr (StrArr: Utils.TArrayOfStr; OwnsItems: boolean; CaseInsensitive: boolean): {O} TStrList;
 var
