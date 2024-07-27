@@ -125,7 +125,7 @@ type
 function WriteAtCode (Count: integer; Src, Dst: pointer): boolean; stdcall;
 
 (* For HOOKTYPE_BRIDGE hook functions return address to call original routine. It's expected that PatchSize covers integer number of commands *)
-function  Hook (CodeAddr: pointer; HookType: integer; HandlerAddr: pointer): {n} pointer; stdcall;
+function  Hook (CodeAddr: pointer; HookType: integer; HandlerAddr: pointer; MinPatchSize: integer = 0): {n} pointer; stdcall;
 
 procedure KillThisProcess;
 procedure GenerateException;
@@ -450,7 +450,7 @@ begin
   end;
 end;
 
-function Hook (CodeAddr: pointer; HookType: integer; HandlerAddr: pointer): {n} pointer;
+function Hook (CodeAddr: pointer; HookType: integer; HandlerAddr: pointer; MinPatchSize: integer = 0): {n} pointer;
 var
   NopBuf:    array [0..63] of byte;
   NopCount:  integer;
@@ -463,7 +463,7 @@ begin
   {!} Assert(HandlerAddr <> nil);
   // * * * * * //
   if HookType = HOOKTYPE_BRIDGE then begin
-    result := ApiJack.HookCode(CodeAddr, HandlerAddr);
+    result := ApiJack.HookCode(CodeAddr, HandlerAddr, nil, MinPatchSize);
     exit;
   end;
 
@@ -475,7 +475,7 @@ begin
     HookRec.Opcode := OPCODE_CALL;
   end;
 
-  PatchSize   := ApiJack.CalcHookPatchSize(CodeAddr);
+  PatchSize   := Math.Max(MinPatchSize, ApiJack.CalcHookPatchSize(CodeAddr));
   HookRec.Ofs := integer(HandlerAddr) - integer(CodeAddr) - sizeof(THookRec);
 
   if not WriteAtCode(sizeof(THookRec), @HookRec, CodeAddr) then begin
