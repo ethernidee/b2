@@ -81,8 +81,8 @@ function StdSplice (OrigFunc, HandlerFunc: pointer; CallingConv: TCallingConv; N
 
 (* Writes call to user handler at specified location. If handler returns true, overwritten commands are executed
    in original way. Otherwise they are skipped and Context.RetAddr is used to determine return address.
-   Returns address to a default code bridge *)
-function HookCode (Addr: pointer; HandlerFunc: THookHandler; {n} AppliedPatch: PAppliedPatch = nil): pointer;
+   Returns address to a default code bridge. It's possible to specify minimum number of bytes to be overriden by hook patch or nopped *)
+function HookCode (Addr: pointer; HandlerFunc: THookHandler; {n} AppliedPatch: PAppliedPatch = nil; MinPatchSize: integer = 0): pointer;
 
 (* Calculates the size of the code block, which will be overwritten during hook/splice placement *)
 function CalcHookPatchSize (Addr: pointer): integer;
@@ -146,8 +146,8 @@ begin
     except
       result := false;
     end;
-  end; // .if
-end; // .function StdWriteAtCode
+  end;
+end;
 
 (* Writes patch to any write-protected section *)
 function WritePatchAtCode (PatchMaker: TPatchMaker; {n} Dst: pointer): boolean;
@@ -165,7 +165,7 @@ begin
     PatchMaker.ApplyPatch(pointer(Buf), Dst);
     result := WriteAtCode(Length(Buf), pointer(Buf), Dst);
   end;
-end; // .function WritePatchAtCode
+end;
 
 function StdSplice (OrigFunc, HandlerFunc: pointer; CallingConv: TCallingConv; NumArgs: integer; {n} CustomParam: pinteger = nil; {n} AppliedPatch: PAppliedPatch = nil): pointer;
 const
@@ -344,14 +344,13 @@ begin
   p.Release;
 end; // .function StdSplice
 
-function HookCode (Addr: pointer; HandlerFunc: THookHandler; {n} AppliedPatch: PAppliedPatch = nil): pointer;
+function HookCode (Addr: pointer; HandlerFunc: THookHandler; {n} AppliedPatch: PAppliedPatch = nil; MinPatchSize: integer = 0): pointer;
 const
   INSTR_PUSHAD       = $60;
   INSTR_PUSH_ESP     = $54;
   INSTR_TEST_EAX_EAX = $C085;
   INSTR_POPAD        = $61;
   INSTR_ADD_ESP_4    = $04C483;
-
 
 var
 {O}  p:                     PatchForge.TPatchHelper;
@@ -385,7 +384,7 @@ begin
   result := pointer(p.Pos);
 
   // Write original code bridge
-  OverwrittenCodeSize := CalcHookPatchSize(Addr);
+  OverwrittenCodeSize := Math.Max(MinPatchSize, CalcHookPatchSize(Addr));
   p.WriteCode(Addr, PatchForge.TFixedCodeSizeDetector.Create(OverwrittenCodeSize));
   p.Jump(PatchForge.JMP, Utils.PtrOfs(Addr, OverwrittenCodeSize));
 
