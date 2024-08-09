@@ -485,7 +485,7 @@ begin
   NopCount := PatchSize - sizeof(THookRec);
 
   if NopCount > 0 then begin
-    FillChar(NopBuf[0], NopCount, Chr(OPCODE_NOP));
+    FillChar(NopBuf, NopCount, Chr(OPCODE_NOP));
 
     if not WriteAtCode(NopCount, @NopBuf[0], Utils.PtrOfs(CodeAddr, sizeof(THookRec))) then begin
       {!} Assert(false, SysUtils.Format('Failed to write hook at %x', [integer(CodeAddr)]));
