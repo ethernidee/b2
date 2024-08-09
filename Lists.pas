@@ -790,40 +790,44 @@ var
 
 begin
   {!} Assert(Self.IsValidItem(Value));
+
   if Self.ForbidDuplicates or Self.Sorted then begin
-    KeyFound  :=  Self.Find(Key, KeyInd);
+    KeyFound := Self.Find(Key, KeyInd);
+
     if Self.ForbidDuplicates then begin
       {!} Assert(not KeyFound);
     end;
   end;
-  result                :=  Self.AddEmpty;
-  Self.fKeys[result]    :=  Key;
-  Self.fValues[result]  :=  Value;
+
+  result               := Self.AddEmpty;
+  Self.fKeys[result]   := Key;
+  Self.fValues[result] := Value;
+
   if Self.Sorted then begin
-    Self.fSorted  :=  false;
-    Self.Move(result, KeyInd);
-    result        :=  KeyInd;
-    Self.fSorted  :=  TRUE;
+    Self.fSorted := false;
+    Self.Move(result,KeyInd);
+    result       := KeyInd;
+    Self.fSorted := true;
   end;
-end; // .function TStringList.AddObj
+end;
 
 function TStringList.Add (const Key: string): integer;
 begin
-  result  :=  Self.AddObj(Key, nil);
+  result := Self.AddObj(Key, nil);
 end;
 
 function TStringList.Top: string;
 begin
   {!} Assert(Self.Count > 0);
-  result  :=  Self.fKeys[Self.Count - 1];
+  result := Self.fKeys[Self.Count - 1];
 end;
 
 function TStringList.Pop ((* OUn *) out Item: pointer): string;
 begin
   {!} Assert(Item = nil);
   {!} Assert(Self.Count > 0);
-  result  :=  Self.fKeys[Self.Count - 1];
-  Item    :=  Self.fValues[Self.Count - 1];
+  result := Self.fKeys[Self.Count - 1];
+  Item   := Self.fValues[Self.Count - 1];
   Dec(Self.fCount);
 end;
 

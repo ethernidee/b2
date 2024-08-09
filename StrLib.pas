@@ -1439,7 +1439,7 @@ begin
   if ReverseFindChar('.', result, DotPos) then begin
     SetLength(result, DotPos - 1);
   end;
-end; // .function ExtractBaseFileName
+end;
 
 function ExtractExt (const FilePath: string): string;
 var
