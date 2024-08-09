@@ -53,15 +53,6 @@ type
   THookContext = packed record
     EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX: integer;
     RetAddr:                                pointer;
-
-    // Returns N-th argument address, starting from zero
-    function GetCdeclArg (ArgN: integer): PInt32Value;
-    function GetThiscallArg (ArgN: integer): PInt32Value;
-    function GetFastcallArg (ArgN: integer): PInt32Value;
-
-    property CdeclArgs[ArgN: integer]:    PInt32Value read GetCdeclArg;
-    property ThiscallArgs[ArgN: integer]: PInt32Value read GetThiscallArg;
-    property FastcallArgs[ArgN: integer]: PInt32Value read GetFastcallArg;
   end;
 
   THookHandler = function (Context: PHookContext): LONGBOOL; stdcall;
@@ -421,31 +412,6 @@ end; // .function HookCode
 function CalcHookPatchSize (Addr: pointer): integer;
 begin
   result := PatchForge.GetCodeSize(Addr, sizeof(PatchForge.TJumpCall32Rec));
-end;
-
-function THookContext.GetCdeclArg (ArgN: integer): PInt32Value;
-begin
-  result := Ptr(Self.ESP + (RET_ADDR_SIZE + sizeof(integer) * ArgN));
-end;
-
-function THookContext.GetThiscallArg (ArgN: integer): PInt32Value;
-begin
-  if ArgN = 0 then begin
-    result := @Self.ECX;
-  end else begin
-    result := Ptr(Self.ESP + (RET_ADDR_SIZE + sizeof(integer) * (ArgN - 1)));
-  end;
-end;
-
-function THookContext.GetFastcallArg (ArgN: integer): PInt32Value;
-begin
-  if ArgN = 0 then begin
-    result := @Self.ECX;
-  end else if ArgN = 1 then begin
-    result := @Self.EDX;
-  end else begin
-    result := Ptr(Self.ESP + (RET_ADDR_SIZE + sizeof(integer) * (ArgN - 2)));
-  end;
 end;
 
 procedure TAppliedPatch.Rollback;
