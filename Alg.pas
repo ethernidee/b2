@@ -148,7 +148,7 @@ asm
   ret
 @ret0:
   xor eax, eax
-end; // .function IntLog2
+end;
 
 function CountDigits (Num: integer): integer;
 var
