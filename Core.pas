@@ -3,6 +3,7 @@ unit Core;
   Description: Low-level patching/debugging functions.
   Author:      Alexander Shostak aka Berserker
   Requires:    patcher_x86.dll by baratorch (maybe changed by replacing WriteAtCode with WriteAtCode_Standalone).
+  Todo:        Rename to Debug, move patching to another module
 *)
 
 (***)  interface  (***)
@@ -34,47 +35,17 @@ type
   TObjDict = DataLib.TObjDict;
 
 const
-  (*
-    Hook types
-
-    HOOKTYPE_BRIDGE has opcode OPCODE_CALL. Creates a bridge to high-level function.
-    function (Context: PHookContext): TExecuteDefaultCodeFlag; stdcall;
-    if default code should be executed, it can contain any commands except jumps.
-    The only jump opcodes allowed are: OPCODE_JUMP, OPCODE_CALL
-  *)
-  HOOKTYPE_JUMP   = 0; // jmp, 5 bytes
-  HOOKTYPE_CALL   = 1; // call, 5 bytes
-  HOOKTYPE_BRIDGE = 2; // call, 5 bytes
-
-  OPCODE_JUMP    = $E9;
-  OPCODE_CALL    = $E8;
   OPCODE_RET     = $C3;
   OPCODE_RET_IW  = $C2;
   OPCODE_RETF    = $CB;
   OPCODE_RETF_IW = $CA;
-  OPCODE_NOP     = $90;
 
   RET_OPCODES = [OPCODE_RET, OPCODE_RET_IW, OPCODE_RETF, OPCODE_RETF_IW];
-
-  EXEC_DEF_CODE   = true;
-  IGNORE_DEF_CODE = not EXEC_DEF_CODE;
 
   ANALYZE_DATA      = true;
   DONT_ANALYZE_DATA = not ANALYZE_DATA;
 
 type
-  THookRec = packed record
-    Opcode: byte;
-    Ofs:    integer;
-  end;
-
-  PHookContext = ^THookContext;
-
-  THookContext = packed record
-    EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX: integer;
-    RetAddr:                                pointer;
-  end;
-
   TModuleInfo = class
     Name:       string;  // evaluated: lower case without extension + capitalize
     FileName:   string;  // evaluated: lower case
@@ -122,11 +93,6 @@ type
   end; // .class TModuleContext
 
 
-function WriteAtCode (Count: integer; Src, Dst: pointer): boolean; stdcall;
-
-(* For HOOKTYPE_BRIDGE hook functions return address to call original routine. It's expected that PatchSize covers integer number of commands *)
-function  Hook (CodeAddr: pointer; HookType: integer; HandlerAddr: pointer; MinPatchSize: integer = 0): {n} pointer; stdcall;
-
 procedure KillThisProcess;
 procedure GenerateException;
 procedure NotifyError (const Err: string);
@@ -134,7 +100,6 @@ procedure FatalError (const Err: string);
 
 (* Returns address of assember ret-routine which will clean the arguments and return *)
 
-function  Ret (NumArgs: integer): pointer;
 procedure SetDebugMapsDir (const Dir: string);
 function  GetModuleList: TModuleList;
 function  FindModuleByAddr ({n} Addr: pointer; ModuleList: TModuleList; out ModuleInd: integer): boolean;
@@ -424,75 +389,6 @@ begin
   end; // .if
 end; // .function TModuleContext.AddrToStr
 
-function WriteAtCode (Count: integer; Src, Dst: pointer): boolean; stdcall;
-begin
-  {!} Assert(Utils.IsValidBuf(Dst, Count));
-  {!} Assert((Src <> nil) or (Count = 0));
-  result := (Count = 0) or p.Write(Dst, Src, Count, true).IsApplied();
-end;
-
-function WriteAtCode_Standalone (Count: integer; Src, Dst: pointer): boolean;
-var
-  OldPageProtect: integer;
-
-begin
-  {!} Assert(Utils.IsValidBuf(Dst, Count));
-  {!} Assert((Src <> nil) or (Count = 0));
-  result := Count = 0;
-
-  if not result then begin
-    result := Windows.VirtualProtect(Dst, Count, Windows.PAGE_EXECUTE_READWRITE, @OldPageProtect);
-
-    if result then begin
-      Utils.CopyMem(Count, Src, Dst);
-      result := Windows.VirtualProtect(Dst, Count, OldPageProtect, @OldPageProtect);
-    end;
-  end;
-end;
-
-function Hook (CodeAddr: pointer; HookType: integer; HandlerAddr: pointer; MinPatchSize: integer = 0): {n} pointer;
-var
-  NopBuf:    array [0..63] of byte;
-  NopCount:  integer;
-  HookRec:   THookRec;
-  PatchSize: integer;
-
-begin
-  {!} Assert(CodeAddr <> nil);
-  {!} Assert(Math.InRange(HookType, HOOKTYPE_JUMP, HOOKTYPE_BRIDGE));
-  {!} Assert(HandlerAddr <> nil);
-  // * * * * * //
-  if HookType = HOOKTYPE_BRIDGE then begin
-    result := ApiJack.HookCode(CodeAddr, HandlerAddr, nil, MinPatchSize);
-    exit;
-  end;
-
-  result := nil;
-
-  if HookType = HOOKTYPE_JUMP then begin
-    HookRec.Opcode := OPCODE_JUMP;
-  end else begin
-    HookRec.Opcode := OPCODE_CALL;
-  end;
-
-  PatchSize   := Math.Max(MinPatchSize, ApiJack.CalcHookPatchSize(CodeAddr));
-  HookRec.Ofs := integer(HandlerAddr) - integer(CodeAddr) - sizeof(THookRec);
-
-  if not WriteAtCode(sizeof(THookRec), @HookRec, CodeAddr) then begin
-    {!} Assert(false, SysUtils.Format('Failed to write hook at %x', [integer(CodeAddr)]));
-  end;
-
-  NopCount := PatchSize - sizeof(THookRec);
-
-  if NopCount > 0 then begin
-    FillChar(NopBuf, NopCount, Chr(OPCODE_NOP));
-
-    if not WriteAtCode(NopCount, @NopBuf[0], Utils.PtrOfs(CodeAddr, sizeof(THookRec))) then begin
-      {!} Assert(false, SysUtils.Format('Failed to write hook at %x', [integer(CodeAddr)]));
-    end;
-  end;
-end; // .function Hook
-
 procedure KillThisProcess; assembler;
 asm
   xor eax, eax   // zero register
@@ -520,69 +416,6 @@ begin
   DlgMes.MsgError(Err);
   GenerateException;
 end;
-
-procedure Ret0; assembler;
-asm
-  // RET
-end;
-
-procedure Ret4; assembler;
-asm
-  ret 4
-end;
-
-procedure Ret8; assembler;
-asm
-  ret 8
-end;
-
-procedure Ret12; assembler;
-asm
-  ret 12
-end;
-
-procedure Ret16; assembler;
-asm
-  ret 16
-end;
-
-procedure Ret20; assembler;
-asm
-  ret 20
-end;
-
-procedure Ret24; assembler;
-asm
-  ret 24
-end;
-
-procedure Ret28; assembler;
-asm
-  ret 28
-end;
-
-procedure Ret32; assembler;
-asm
-  ret 32
-end;
-
-function Ret (NumArgs: integer): pointer;
-begin
-  case NumArgs of
-    0: result := @Ret0;
-    1: result := @Ret4;
-    2: result := @Ret8;
-    3: result := @Ret12;
-    4: result := @Ret16;
-    5: result := @Ret20;
-    6: result := @Ret24;
-    7: result := @Ret28;
-    8: result := @Ret32;
-  else
-    result := nil;
-    {!} Assert(false);
-  end; // .SWITCH NumArgs
-end; // .function Ret
 
 function GetModuleList: TModuleList;
 var
