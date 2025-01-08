@@ -951,6 +951,7 @@ type
   var
     dll:            cardinal;
     GetPatcherFunc: TGetPatcherFunc;
+
   begin
     result := Patcher;
 
@@ -959,8 +960,9 @@ type
       {!} Assert(dll <> 0, 'Failed to load patcher_x86.dll');
       GetPatcherFunc := _ptr_(Windows.GetProcAddress(dll, '_GetPatcherX86@0'));
       {!} Assert(GetPatcherFunc <> NULL_PTR, '_GetPatcherX86@0 entry not found in patcher_x86.dll');
-      result := GetPatcherFunc();
-      {!} Assert(result <> nil, 'Failed to get global patcher_x86.dll object');
+      Patcher := GetPatcherFunc();
+      {!} Assert(Patcher <> nil, 'Failed to get global patcher_x86.dll object');
+      result := Patcher;
     end;
   end;
 
