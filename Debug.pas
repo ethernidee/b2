@@ -1,9 +1,7 @@
-unit Core;
+unit Debug;
 (*
-  Description: Low-level patching/debugging functions.
+  Description: Low-level debugging functions: process termination, warnings, mapping addresses to source code locations, etc.
   Author:      Alexander Shostak aka Berserker
-  Requires:    patcher_x86.dll by baratorch (maybe changed by replacing WriteAtCode with WriteAtCode_Standalone).
-  Todo:        Rename to Debug, move patching to another module
 *)
 
 (***)  interface  (***)
@@ -16,14 +14,11 @@ uses
   Windows,
 
   Alg,
-  ApiJack,
   Concur,
   DataLib,
   DebugMaps,
   DlgMes,
   Files,
-  hde32,
-  PatchApi,
   StrLib,
   Utils,
   WinWrappers;
@@ -97,9 +92,6 @@ procedure KillThisProcess;
 procedure GenerateException;
 procedure NotifyError (const Err: string);
 procedure FatalError (const Err: string);
-
-(* Returns address of assember ret-routine which will clean the arguments and return *)
-
 procedure SetDebugMapsDir (const Dir: string);
 function  GetModuleList: TModuleList;
 function  FindModuleByAddr ({n} Addr: pointer; ModuleList: TModuleList; out ModuleInd: integer): boolean;
@@ -107,14 +99,10 @@ function  FindModuleByAddr ({n} Addr: pointer; ModuleList: TModuleList; out Modu
 var
   AbortOnError: boolean = false; // if set to false, NotifyError does not terminate application after showing error message
 
-  (* Patching provider *)
-  GlobalPatcher: PatchApi.TPatcher;
-  p:             PatchApi.TPatcherInstance;
-
 {O} ModuleContext: TModuleContext; // Shareable between threads, use lock methods
 
 
-implementation
+(***)  implementation  (***)
 
 
 type
@@ -216,7 +204,7 @@ var
 
 begin
   if fModuleList = nil then begin
-    fModuleList := Core.GetModuleList;
+    fModuleList := Debug.GetModuleList;
     fModuleList.Sort;
     SetLength(fModulesOrderByAddr, fModuleList.Count);
 
@@ -481,9 +469,6 @@ begin
 end; // .function FindModuleByAddr
 
 begin
-  ApiJack.SetCodeWriter(WriteAtCode);
-  GlobalPatcher := PatchApi.GetPatcher;
-  p             := GlobalPatcher.CreateInstance(pchar(WinWrappers.GetModuleFileName(hInstance)));
   ModuleContext := TModuleContext.Create;
   Maps          := DataLib.NewDict(Utils.OWNS_ITEMS, DataLib.CASE_INSENSITIVE);
 end.
