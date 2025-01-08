@@ -48,7 +48,7 @@ type
 
     procedure Rollback;
     procedure Free;
-    function IsOverwritten (Addr: pointer): boolean;
+    function IsOverwritten: boolean;
   end;
 
   TPatcher = class (PatchForge.TPatchMaker)
@@ -521,13 +521,12 @@ begin
   end;
 end;
 
-function TAppliedPatch.IsOverwritten (Addr: pointer): boolean;
+function TAppliedPatch.IsOverwritten: boolean;
 begin
-  {!} Assert(Addr <> nil);
   result := false;
 
   if Self.NewBytes <> nil then begin
-    result := not SysUtils.CompareMem(Addr, pointer(Self.NewBytes), Length(Self.NewBytes));
+    result := not SysUtils.CompareMem(Self.Addr, pointer(Self.NewBytes), Length(Self.NewBytes));
   end;
 end;
 
