@@ -2,4 +2,4 @@
 Includes hde32.obj and hde32.pas. Required by Core unit.
 
 -) Patcher x86 by Alexander Barinov (aka baratorch).
-patcher_x86.dll is required by Core unit.
+patcher_x86.dll is required by PatchApi unit.
