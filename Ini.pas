@@ -39,11 +39,11 @@ function ReadStrFromIni (const Key: string; const SectionName: string; FilePath:
 (* Writes and entry to in-memory cache. Automatically loads ini file from disk if it's not cached yet *)
 function WriteStrToIni (const Key, Value, SectionName: string; FilePath: string): boolean;
 
-(* Loads and parses ini file. Creates in-memory cache for it to prevent further disk accesses. Returns true only if file existed, was successfully read and parsed.
+(* Loads and parses ini file. Creates in-memory cache for it to prevent further disk accesses. Returns true only if file existed, was successfully read and parsed
    Creates empty cache entry in case of any error *)
 function LoadIni (FilePath: string): boolean;
 
-(* Saves cached ini to the specified file on a disk. Automatically recreates all directories in a path to the file *)
+(* Saves cached ini to the specified file on a disk. Automatically recreates all directories in a path to the file. Loads file contents from disk if it was not cached earlier *)
 function SaveIni (FilePath: string): boolean;
 
 (* Loads two ini files and merges source ini entries with target ini entries in cache without overwriting existing entries *)
@@ -203,6 +203,11 @@ begin
   // * * * * * //
   FilePath  := SysUtils.ExpandFileName(FilePath);
   CachedIni := CachedIniFiles[FilePath];
+
+  if CachedIni = nil then begin
+    LoadIni(FilePath);
+    CachedIni := CachedIniFiles[FilePath];
+  end;
 
   if CachedIni <> nil then begin
     CachedIni.BeginIterate;
