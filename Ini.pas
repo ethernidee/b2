@@ -1,8 +1,8 @@
 unit Ini;
-{
-DESCRIPTION: Memory cached ini files management
-AUTHOR:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
-}
+(*
+  Description: Memory cached ini files management
+  Author:      Alexander Shostak (aka Berserker aka EtherniDee)
+*)
 
 (***)  interface  (***)
 
@@ -24,25 +24,29 @@ type
   TAssocArray = AssocArrays.TAssocArray;
 
 
+(* Forgets all cached data for specified ini file. Any read/write operation will lead to its re-reading and re-parsing *)
 procedure ClearIniCache (const FileName: string);
+
+(* Forgets all cached data for all ini files *)
 procedure ClearAllIniCache;
 
-(* Works with RAM cache only *)
-function ReadStrFromIni
-(
-  const Key:         string;
-  const SectionName: string;
-        FilePath:    string;
-  out   Res:         string
-): boolean;
+(* Replaces ini file cache in memory with an empty one. Use it for recreating ini files from scratch, when you don't need previously cached data and original file on disk *)
+procedure EmptyIniCache (const FileName: string);
 
-(* Works with RAM cache only *)
+(* Reads entry from in-memory cache. Automatically loads ini file from disk if it's not cached yet *)
+function ReadStrFromIni (const Key: string; const SectionName: string; FilePath: string; out Res: string): boolean;
+
+(* Writes and entry to in-memory cache. Automatically loads ini file from disk if it's not cached yet *)
 function WriteStrToIni (const Key, Value, SectionName: string; FilePath: string): boolean;
 
+(* Loads and parses ini file. Creates in-memory cache for it to prevent further disk accesses. Returns true only if file existed, was successfully read and parsed.
+   Creates empty cache entry in case of any error *)
 function LoadIni (FilePath: string): boolean;
+
+(* Saves cached ini to the specified file on a disk. Automatically recreates all directories in a path to the file *)
 function SaveIni (FilePath: string): boolean;
 
-(* Workis with RAM cache only *)
+(* Loads two ini files and merges source ini entries with target ini entries in cache without overwriting existing entries *)
 procedure MergeIniWithDefault (TargetPath, SourcePath: string);
 
 
@@ -61,6 +65,11 @@ end;
 procedure ClearAllIniCache;
 begin
   CachedIniFiles.Clear;
+end;
+
+procedure EmptyIniCache (const FileName: string);
+begin
+  CachedIniFiles[SysUtils.ExpandFileName(FileName)] := AssocArrays.NewStrictAssocArr(TAssocArray);;
 end;
 
 function LoadIni (FilePath: string): boolean;
@@ -90,15 +99,15 @@ var
 
 begin
   TextScanner := TextScan.TTextScanner.Create;
-  Sections    := nil;
+  Sections    := AssocArrays.NewStrictAssocArr(TAssocArray);
   CurrSection := nil;
   // * * * * * //
-  FilePath                 := SysUtils.ExpandFileName(FilePath);
-  CachedIniFiles[FilePath] := nil;
-  result                   := Files.ReadFileContents(FilePath, FileContents);
+  FilePath := SysUtils.ExpandFileName(FilePath);
+  CachedIniFiles.DeleteItem(FilePath);
+
+  result := Files.ReadFileContents(FilePath, FileContents);
 
   if result and (Length(FileContents) > 0) then begin
-    Sections := AssocArrays.NewStrictAssocArr(TAssocArray);
     TextScanner.Connect(FileContents, LINE_END_MARKER);
 
     while result and (not TextScanner.EndOfText) do begin
@@ -152,21 +161,20 @@ begin
       end; // .if
     end; // .while
 
-    if result then begin
-      CachedIniFiles[FilePath] := Sections; Sections := nil;
-    end else begin
+    if not result then begin
+      // Do not preserve semi-parsed ini file data
+      Sections.Clear;
+
       Log.Write
       (
         'Ini',
         'LoadIni',
-        StrLib.Concat
-        ([
-          'The file "', FilePath, '" has invalid format.'#13#10,
-          'Scanner stopped at position ', SysUtils.IntToStr(TextScanner.Pos)
-        ])
+        StrLib.Concat(['The file "', FilePath, '" has invalid format.'#13#10, 'Scanner stopped at position ', SysUtils.IntToStr(TextScanner.Pos)])
       );
-    end; // .else
+    end;
   end; // .if
+
+  CachedIniFiles[FilePath] := Sections; Sections := nil;
   // * * * * * //
   SysUtils.FreeAndNil(TextScanner);
   SysUtils.FreeAndNil(Sections);
@@ -177,7 +185,6 @@ var
 {O} StrBuilder:   StrLib.TStrBuilder;
 {O} SectionNames: Lists.TStringList {OF TAssocArray};
 {O} SectionKeys:  Lists.TStringList {OF TString};
-
 {U} CachedIni:    {O} TAssocArray {OF TAssocArray};
 {U} Section:      {O} TAssocArray {OF TString};
 {U} Value:        TString;
@@ -187,29 +194,29 @@ var
     j:            integer;
 
 begin
-  StrBuilder    :=  StrLib.TStrBuilder.Create;
-  SectionNames  :=  Lists.NewSimpleStrList;
-  SectionKeys   :=  Lists.NewSimpleStrList;
-  CachedIni     :=  nil;
-  Section       :=  nil;
-  Value         :=  nil;
+  StrBuilder   := StrLib.TStrBuilder.Create;
+  SectionNames := Lists.NewSimpleStrList;
+  SectionKeys  := Lists.NewSimpleStrList;
+  CachedIni    := nil;
+  Section      := nil;
+  Value        := nil;
   // * * * * * //
-  FilePath  :=  SysUtils.ExpandFileName(FilePath);
-  CachedIni :=  CachedIniFiles[FilePath];
+  FilePath  := SysUtils.ExpandFileName(FilePath);
+  CachedIni := CachedIniFiles[FilePath];
 
   if CachedIni <> nil then begin
     CachedIni.BeginIterate;
 
     while CachedIni.IterateNext(SectionName, pointer(Section)) do begin
       SectionNames.AddObj(SectionName, Section);
-      Section :=  nil;
+      Section := nil;
     end;
 
     CachedIni.EndIterate;
 
     SectionNames.Sorted := true;
 
-    for i:=0 to SectionNames.Count - 1 do begin
+    for i := 0 to SectionNames.Count - 1 do begin
       if SectionNames[i] <> '' then begin
         StrBuilder.Append('[');
         StrBuilder.Append(SectionNames[i]);
@@ -229,7 +236,7 @@ begin
 
       SectionKeys.Sorted := true;
 
-      for j:=0 to SectionKeys.Count - 1 do begin
+      for j := 0 to SectionKeys.Count - 1 do begin
         StrBuilder.Append(SectionKeys[j]);
         StrBuilder.Append('=');
         StrBuilder.Append(TString(SectionKeys.Values[j]).Value);
@@ -241,6 +248,7 @@ begin
     end; // .for
   end; // .if
 
+  Files.ForcePath(SysUtils.ExtractFileDir(FilePath));
   result := Files.WriteFileContents(StrBuilder.BuildStr, FilePath);
   // * * * * * //
   SysUtils.FreeAndNil(StrBuilder);
@@ -248,14 +256,7 @@ begin
   SysUtils.FreeAndNil(SectionKeys);
 end; // .function SaveIni
 
-function ReadStrFromIni
-(
-  const Key:          string;
-  const SectionName:  string;
-        FilePath:     string;
-  out   Res:          string
-): boolean;
-
+function ReadStrFromIni (const Key: string; const SectionName: string; FilePath: string; out Res: string): boolean;
 var
 {U} CachedIni: {O} TAssocArray {OF TAssocArray};
 {U} Section:   {O} TAssocArray {OF TString};
@@ -298,32 +299,24 @@ var
     InvalidCharPos: integer;
 
 begin
-  CachedIni :=  nil;
-  Section   :=  nil;
+  CachedIni := nil;
+  Section   := nil;
   // * * * * * //
-  FilePath  :=  SysUtils.ExpandFileName(FilePath);
-  CachedIni :=  CachedIniFiles[FilePath];
+  FilePath  := SysUtils.ExpandFileName(FilePath);
+  CachedIni := CachedIniFiles[FilePath];
 
   if CachedIni = nil then begin
-    if not LoadIni(FilePath) then begin
-      CachedIniFiles[FilePath] := AssocArrays.NewStrictAssocArr(TAssocArray);
-    end;
-
+    LoadIni(FilePath);
     CachedIni := CachedIniFiles[FilePath];
   end;
 
-  result  :=
+  result :=
+    (CachedIni <> nil)                                                        and
     not StrLib.FindCharset([';', #10, #13, ']'], SectionName, InvalidCharPos) and
     not StrLib.FindCharset([';', #10, #13, '='], Key, InvalidCharPos)         and
-    not StrLib.FindCharset([';', #10, #13], Value, InvalidCharPos)            and
-    ((CachedIni <> nil) or (not SysUtils.FileExists(FilePath)));
+    not StrLib.FindCharset([';', #10, #13], Value, InvalidCharPos);
 
   if result then begin
-    if CachedIni = nil then begin
-      CachedIni                := AssocArrays.NewStrictAssocArr(TAssocArray);
-      CachedIniFiles[FilePath] := CachedIni;
-    end;
-
     Section := CachedIni[SectionName];
 
     if Section = nil then begin
@@ -359,8 +352,7 @@ begin
 
   if SourceIni <> nil then begin
     if TargetIni = nil then begin
-      TargetIni                  := TAssocArray(SourceIni.Clone);
-      CachedIniFiles[TargetPath] := TargetIni;
+      CachedIniFiles[TargetPath] := TAssocArray(SourceIni.Clone);
     end else begin
       SourceIni.BeginIterate;
 
