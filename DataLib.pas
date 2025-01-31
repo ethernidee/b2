@@ -1,7 +1,7 @@
 unit DataLib;
 (*
   Description: Convinient and widely used data structures
-  Author:      Alexander Shostak (aka Berserker aka EtherniDee aka BerSoft)
+  Author:      Alexander Shostak aka Berserker
 *)
 
 (***)  interface  (***)
@@ -25,11 +25,11 @@ const
 
 
 type
-  TAssocArray = AssocArrays.TAssocArray {OF pointer};
-  TDict       = AssocArrays.TAssocArray {OF TObject};
-  TObjDict    = AssocArrays.TObjArray {OF TObject};
-  TList       = Lists.TList {OF TObject};
-  TStrList    = Lists.TStringList {OF TObject};
+  TAssocArray = AssocArrays.TAssocArray {of pointer};
+  TDict       = AssocArrays.TAssocArray {of TObject};
+  TObjDict    = AssocArrays.TObjArray {of TObject};
+  TList       = Lists.TList {of TObject};
+  TStrList    = Lists.TStringList {of TObject};
   TString     = TypeWrappers.TString;
 
   (*  Combines access speed of TDict and order of TStrList  *)
@@ -71,7 +71,7 @@ type
 
     property IterKey:   string read GetIterKey;
     property IterValue: {n} TObject read GetIterValue;
-  end; // .interface IDictIterator
+  end;
 
   IObjDictIterator = interface
     procedure BeginIterate (aDict: TObjDict);
@@ -82,7 +82,7 @@ type
 
     property IterKey:   pointer read GetIterKey;
     property IterValue: {n} TObject read GetIterValue;
-  end; // .interface IObjDictIterator
+  end;
 
   TSerializeProc   = procedure ({Un} Data: pointer; Writer: StrLib.IStrBuilder);
   TUnserializeFunc = function (ByteMapper: StrLib.IByteMapper): {UOn} pointer;
@@ -102,7 +102,7 @@ function  DictToStrList ({n} Dict: TDict; CaseInsensitive: boolean): {O} TStrLis
 function  GetObjDictKeys ({n} ObjDict: TObjDict): {O} TList {U};
 
 (* Returns flipped associativa array with values as keys and keys as values (wrapped in TString) *)
-function  FlipDict (Dict: TDict): {O} TObjDict {O} {OF TString};
+function  FlipDict (Dict: TDict): {O} TObjDict {O} {of TString};
 
 function  SerializeDict (Dict: TDict; ItemSerializer: TSerializeProc = nil): string;
 function  UnserializeDict (const Data: string; OwnsItems: boolean; CaseInsensitive: boolean; ItemUnserializer: TUnserializeFunc = nil): {O} TDict {UOn};
@@ -155,7 +155,7 @@ type
       procedure EndIterate;
       function  GetIterKey: string;
       function  GetIterValue: {Un} TObject;
-  end; // .class TDictIterator
+  end;
 
   TObjDictIterator = class (TInterfacedObject, IObjDictIterator)
     protected
@@ -170,7 +170,7 @@ type
       procedure EndIterate;
       function  GetIterKey: {n} pointer;
       function  GetIterValue: {n} TObject;
-  end; // .class TObjDictIterator
+  end;
 
 
 function NewDict (OwnsItems, CaseInsensitive: boolean): {O} TDict;
@@ -219,7 +219,7 @@ end;
 
 function NewStrListFromStrArr (StrArr: Utils.TArrayOfStr; OwnsItems: boolean; CaseInsensitive: boolean; Flags: integer = 0): {O} TStrList;
 var
-{On} AddedKeys:      {U} TDict {OF Ptr(1)};
+{On} AddedKeys:      {U} TDict {of Ptr(1)};
      SkipDuplicates: boolean;
      i:              integer;
 
@@ -473,7 +473,7 @@ begin
   end;
 end;
 
-function FlipDict (Dict: TDict): {O} TObjDict {OF TString};
+function FlipDict (Dict: TDict): {O} TObjDict {of TString};
 begin
   {!} Assert(Dict <> nil);
   result := NewObjDict(not Utils.OWNS_ITEMS);
@@ -508,7 +508,7 @@ begin
   end; // .with
 
   result := Writer.BuildStr;
-end; // .function SerializeDict
+end;
 
 function UnserializeDict (const Data: string; OwnsItems: boolean; CaseInsensitive: boolean; ItemUnserializer: TUnserializeFunc = nil): {O} TDict {UOn};
 var
@@ -532,7 +532,7 @@ begin
       result[Key] := Ptr(Reader.ReadInt());
     end;
   end;
-end; // .function UnserializeDict
+end;
 
 function SerializeObjDict (Dict: TObjDict; KeySerializer: TSerializeProc = nil; ValueSerializer: TSerializeProc = nil): string;
 var
@@ -560,7 +560,7 @@ begin
   end; // .with
 
   result := Writer.BuildStr;
-end; // .function SerializeDict
+end;
 
 function UnserializeObjDict (const Data: string; OwnsItems: boolean; KeyUnserializer: TUnserializeFunc = nil; ValueUnserializer: TUnserializeFunc = nil): {O} TObjDict {UOn};
 var
@@ -590,6 +590,6 @@ begin
       result[Key] := Ptr(Reader.ReadInt());
     end;
   end; // .for
-end; // .function UnserializeDict
+end;
 
 end.
