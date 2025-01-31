@@ -17,7 +17,7 @@ uses
   Utils;
 
 const
-  CASE_SENSITIVE   = FALSE;
+  CASE_SENSITIVE   = false;
   CASE_INSENSITIVE = not CASE_SENSITIVE;
 
   (* Flags for complex routines *)
@@ -150,6 +150,8 @@ type
             fIterating: boolean;
 
     public
+      destructor Destroy; override;
+
       procedure BeginIterate ({U} Dict: TDict);
       function  IterNext: boolean;
       procedure EndIterate;
@@ -165,6 +167,8 @@ type
             fIterating: boolean;
 
     public
+      destructor Destroy; override;
+
       procedure BeginIterate ({U} aObjDict: TObjDict);
       function  IterNext: boolean;
       procedure EndIterate;
@@ -332,12 +336,21 @@ begin
   Self.fItems.Clear;
 end;
 
+destructor TDictIterator.Destroy;
+begin
+  if Self.fIterating and Self.fDict.Locked then begin
+    Self.fDict.EndIterate;
+  end;
+
+  inherited Destroy;
+end;
+
 procedure TDictIterator.BeginIterate ({U} Dict: TDict);
 begin
   {!} Assert(Dict <> nil);
   {!} Assert(not Dict.Locked);
   Self.fDict      := Dict;
-  Self.fIterating := TRUE;
+  Self.fIterating := true;
   Dict.BeginIterate;
 end;
 
@@ -356,21 +369,21 @@ procedure TDictIterator.EndIterate;
 begin
   if Self.fIterating then begin
     Self.fDict.EndIterate;
-    Self.fDict      :=  nil;
-    Self.fIterating :=  FALSE;
+    Self.fDict      := nil;
+    Self.fIterating := false;
   end;
 end;
 
 function TDictIterator.GetIterKey: string;
 begin
   {!} Assert(Self.fIterating);
-  result  :=  Self.fIterKey;
+  result := Self.fIterKey;
 end;
 
 function TDictIterator.GetIterValue: {Un} TObject;
 begin
   {!} Assert(Self.fIterating);
-  result  :=  Self.fIterValue;
+  result := Self.fIterValue;
 end;
 
 function IterateDict ({U} Dict: TDict): IDictIterator;
@@ -379,18 +392,27 @@ var
 
 begin
   {!} Assert(Dict <> nil);
-  DictIterator  :=  TDictIterator.Create;
+  DictIterator := TDictIterator.Create;
   // * * * * * //
   DictIterator.BeginIterate(Dict);
-  result  :=  DictIterator; DictIterator  :=  nil;
-end; // .function IterateDict
+  result := DictIterator; DictIterator := nil;
+end;
+
+destructor TObjDictIterator.Destroy;
+begin
+  if Self.fIterating and Self.fObjDict.Locked then begin
+    Self.fObjDict.EndIterate;
+  end;
+
+  inherited Destroy;
+end;
 
 procedure TObjDictIterator.BeginIterate (aObjDict: TObjDict);
 begin
   {!} Assert(aObjDict <> nil);
   {!} Assert(not aObjDict.Locked);
   Self.fObjDict   := aObjDict;
-  Self.fIterating := TRUE;
+  Self.fIterating := true;
   aObjDict.BeginIterate;
 end;
 
@@ -404,14 +426,14 @@ begin
   if not result then begin
     Self.EndIterate;
   end;
-end; // .function TObjDictIterator.IterNext
+end;
 
 procedure TObjDictIterator.EndIterate;
 begin
   if Self.fIterating then begin
     Self.fObjDict.EndIterate;
     Self.fObjDict   := nil;
-    Self.fIterating := FALSE;
+    Self.fIterating := false;
   end;
 end;
 
@@ -437,7 +459,7 @@ begin
   // * * * * * //
   ObjDictIterator.BeginIterate(aObjDict);
   result := ObjDictIterator; ObjDictIterator := nil;
-end; // .function IterateObjDict
+end;
 
 procedure JoinLists (MainList, DependentList: TList);
 var
@@ -446,10 +468,11 @@ var
 begin
   {!} Assert(MainList <> nil);
   {!} Assert(DependentList <> nil);
+
   for i := 0 to DependentList.Count - 1 do begin
     MainList.Add(DependentList[i]);
   end;
-end; // .procedure JoinLists
+end;
 
 function DictToStrList ({n} Dict: TDict; CaseInsensitive: boolean): {O} TStrList {U};
 begin
