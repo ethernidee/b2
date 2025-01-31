@@ -124,6 +124,13 @@ type
     property FoundRec:  PSearchRec read GetFoundRec;
   end; // .interface ILocator
 
+  TClearDirFilter = function (const FileName, RelPath, FilePath: string; IsDirectory: boolean): boolean;
+
+  PClearDirContext = ^TClearDirContext;
+  TClearDirContext = record
+    BasePathLen: integer;
+  end;
+
 
 function  HasPathSeparators (const FileName: string): boolean;
 function  IsBaseName (const FileName: string): boolean;
@@ -143,7 +150,7 @@ function  ReadFileContents (FileHandle: integer; out FileContents: string): bool
 function  WriteFileContents (const FileContents, FilePath: string): boolean;
 function  AppendFileContents (const FileContents, FilePath: string): boolean;
 function  DeleteDir (const DirPath: string): boolean;
-function  ClearDir (const DirPath: string): boolean;
+function  ClearDir (const DirPath: string; {n} Filter: TClearDirFilter = nil; {n} _Context: PClearDirContext = nil): boolean;
 function  GetFileSize (const FilePath: string; out Res: integer): boolean;
 
 function  Scan
@@ -170,6 +177,7 @@ function  Locate (const MaskedPath: string; SearchSubj: TSearchSubj): ILocator;
 
 
 (***) implementation (***)
+
 uses StrLib;
 
 const
@@ -660,18 +668,26 @@ begin
   SysUtils.FreeAndNil(MyFile);
 end; // .function AppendFileContents
 
-function ClearDir (const DirPath: string): boolean;
+function ClearDir (const DirPath: string; {n} Filter: TClearDirFilter = nil; {n} _Context: PClearDirContext = nil): boolean;
 var
-{O} Locator:  TFileLocator;
-{O} FileInfo: TFileItemInfo;
-    FileName: string;
-    FilePath: string;
+{O} Locator:     TFileLocator;
+{O} FileInfo:    TFileItemInfo;
+    FileName:    string;
+    FilePath:    string;
+    IsDirectory: longbool;
+    Context:     TClearDirContext;
 
 begin
   Locator  := TFileLocator.Create;
   FileInfo := nil;
   // * * * * * //
-  result          := true;
+  result := true;
+
+  if _Context = nil then begin
+    _Context            := @Context;
+    Context.BasePathLen := Length(DirPath) + Length('\');
+  end;
+
   Locator.DirPath := DirPath;
   Locator.InitSearch('*');
 
@@ -679,12 +695,16 @@ begin
     FileName := Locator.GetNextItem(CFiles.TItemInfo(FileInfo));
 
     if (FileName <> '.') and (FileName <> '..') then begin
-      FilePath := DirPath + '\' + FileName;
+      FilePath    := DirPath + '\' + FileName;
+      IsDirectory := (FileInfo.Data.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0;
 
-      if (FileInfo.Data.dwFileAttributes and Windows.FILE_ATTRIBUTE_DIRECTORY) <> 0 then begin
-        result := DeleteDir(FilePath);
-      end else begin
-        result := SysUtils.DeleteFile(FilePath);
+      if (@Filter = nil) or (Filter(FileName, System.Copy(FilePath, _Context.BasePathLen + 1), FilePath, IsDirectory)) then begin
+        if IsDirectory then begin
+          result := ClearDir(FilePath, Filter, _Context);
+          SysUtils.RemoveDir(FilePath);
+        end else begin
+          result := SysUtils.DeleteFile(FilePath);
+        end;
       end;
     end;
 
