@@ -148,7 +148,8 @@ function ToRelativePathIfPossible (FilePath, BasePath: string): string;
 function  ReadFileContents (const FilePath: string; out FileContents: string): boolean; overload;
 function  ReadFileContents (FileHandle: integer; out FileContents: string): boolean; overload;
 function  WriteFileContents (const FileContents, FilePath: string): boolean;
-function  AppendFileContents (const FileContents, FilePath: string): boolean;
+function  AppendFileContents (const FileContents, FilePath: string): boolean; overload;
+function  AppendFileContents ({n} FileContentsBuf: pointer; FileContentsBufSize: integer; const FilePath: string): boolean; overload;
 function  DeleteDir (const DirPath: string): boolean;
 function  ClearDir (const DirPath: string; {n} Filter: TClearDirFilter = nil; {n} _Context: PClearDirContext = nil): boolean;
 function  GetFileSize (const FilePath: string; out Res: integer): boolean;
@@ -601,7 +602,7 @@ begin
     end;
   end;
   SysUtils.FreeAndNil(Locator);
-end; // .function TFileLocator.GetItemInfo
+end;
 
 function ReadFileContents (const FilePath: string; out FileContents: string): boolean;
 var
@@ -617,7 +618,7 @@ begin
   end;
   // * * * * * //
   SysUtils.FreeAndNil(TheFile);
-end; // .function ReadFileContents
+end;
 
 function ReadFileContents (FileHandle: integer; out FileContents: string): boolean; overload;
 var
@@ -634,7 +635,7 @@ begin
   end;
   // * * * * * //
   SysUtils.FreeAndNil(TheFile);
-end; // .function ReadFileContents
+end;
 
 function WriteFileContents (const FileContents, FilePath: string): boolean;
 var
@@ -648,9 +649,9 @@ begin
     MyFile.WriteStr(FileContents);
   // * * * * * //
   SysUtils.FreeAndNil(MyFile);
-end; // .function WriteFileContents
+end;
 
-function AppendFileContents (const FileContents, FilePath: string): boolean;
+function AppendFileContents (const FileContents, FilePath: string): boolean; overload;
 var
 {O} MyFile: TFile;
 
@@ -666,7 +667,25 @@ begin
   result := result and MyFile.WriteStr(FileContents);
   // * * * * * //
   SysUtils.FreeAndNil(MyFile);
-end; // .function AppendFileContents
+end;
+
+function AppendFileContents ({n} FileContentsBuf: pointer; FileContentsBufSize: integer; const FilePath: string): boolean; overload;
+var
+{O} MyFile: TFile;
+
+begin
+  MyFile := TFile.Create;
+  // * * * * * //
+  if SysUtils.FileExists(FilePath) then begin
+    result := MyFile.Open(FilePath, MODE_WRITE) and MyFile.Seek(MyFile.Size);
+  end else begin
+    result := MyFile.CreateNew(FilePath);
+  end;
+
+  result := result and MyFile.Write(FileContentsBufSize, FileContentsBuf);
+  // * * * * * //
+  SysUtils.FreeAndNil(MyFile);
+end;
 
 function ClearDir (const DirPath: string; {n} Filter: TClearDirFilter = nil; {n} _Context: PClearDirContext = nil): boolean;
 var
