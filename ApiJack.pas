@@ -193,6 +193,7 @@ type
     class procedure FreeAndNil (var {n} Addr: pointer); static;
   end;
 
+
 class procedure CodeMemoryManager.Alloc (var Addr: pointer; Size: integer);
 begin
   {!} Assert(@Addr <> nil);
