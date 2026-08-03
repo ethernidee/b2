@@ -137,25 +137,20 @@ begin
             end;
           end else begin
             TextScanner.ReadTokenTillDelim(KEY_DELIMS, Key);
-            result := TextScanner.GetCurrChar(c) and (c = '=');
 
-            if result then begin
-              Key := SysUtils.Trim(Key);
-              TextScanner.GotoNextChar;
+            Key   := SysUtils.Trim(Key);
+            Value := '';
 
-              if not TextScanner.ReadTokenTillDelim(DEFAULT_DELIMS, Value) then begin
-                Value := '';
-              end else begin
-                Value := Trim(Value);
-              end;
+            if TextScanner.GetCurrChar(c) and (c = '=') and TextScanner.GotoNextChar and TextScanner.ReadTokenTillDelim(DEFAULT_DELIMS, Value) then begin
+              Value := Trim(Value);
+            end;
 
-              if CurrSection = nil then begin
-                CurrSection  := AssocArrays.NewStrictAssocArr(TString);
-                Sections[''] := CurrSection;
-              end;
+            if CurrSection = nil then begin
+              CurrSection  := AssocArrays.NewStrictAssocArr(TString);
+              Sections[''] := CurrSection;
+            end;
 
-              CurrSection[Key]  :=  TString.Create(Value);
-            end; // .if
+            CurrSection[Key] := TString.Create(Value);
           end; // .else
         end; // .else
       end; // .if
