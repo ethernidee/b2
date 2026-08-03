@@ -7,7 +7,15 @@ unit StrLib;
 *)
 
 (***)  interface  (***)
-uses Windows, Math, SysUtils, Classes, StrUtils, Utils;
+
+uses
+  Classes,
+  Math,
+  StrUtils,
+  SysUtils,
+  Windows,
+
+  Utils;
 
 const
   (* ExplodeEx *)
@@ -245,10 +253,10 @@ function  Utf8ToWide (const Str: string; FailOnError: boolean = false): WideStri
 (* Returns empty string on failure *)
 function  WideToUtf8 (const Str: WideString): AnsiString;
 
-function  PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
+function  PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false; CodePage: cardinal = Windows.CP_ACP): boolean;
 
 (* Converts null-terminated WideString to AnsiString, substituting invalid characters with special character *)
-function  WideToAnsiSubstitute (const Str: WideString): string;
+function  WideToAnsiSubstitute (const Str: WideString; CodePage: integer = Windows.CP_ACP): string;
 
 function  WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
 function  WideStringToBuf (const Str: WideString; Buf: PWideChar): PWideChar;
@@ -1961,7 +1969,7 @@ begin
   end; // .if
 end; // .function WideToUtf8
 
-function PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false): boolean;
+function PWideCharToAnsi (const Str: PWideChar; out Res: string; FailOnError: boolean = false; CodePage: cardinal = Windows.CP_ACP): boolean;
 const
   AUTO_LEN      = -1;
   NULL_CHAR_LEN = sizeof(char);
@@ -1981,12 +1989,12 @@ begin
       Flags := Flags or WC_ERR_INVALID_CHARS;
     end;
 
-    ResBufLen := Windows.WideCharToMultiByte(Windows.CP_ACP, Flags, Str, AUTO_LEN, nil, 0, nil, nil);
+    ResBufLen := Windows.WideCharToMultiByte(CodePage, Flags, Str, AUTO_LEN, nil, 0, nil, nil);
     result    := ResBufLen > NULL_CHAR_LEN;
 
     if result then begin
       SetLength(Res, ResBufLen * sizeof(char) - NULL_CHAR_LEN);
-      ResBufLen := Windows.WideCharToMultiByte(Windows.CP_ACP, Flags, Str, AUTO_LEN, @Res[1], ResBufLen, nil, nil);
+      ResBufLen := Windows.WideCharToMultiByte(CodePage, Flags, Str, AUTO_LEN, @Res[1], ResBufLen, nil, nil);
       result    := ResBufLen = length(Res) + NULL_CHAR_LEN;
     end;
 
@@ -1996,9 +2004,9 @@ begin
   end; // .if
 end; // .function PWideCharToAnsi
 
-function WideToAnsiSubstitute (const Str: WideString): string;
+function WideToAnsiSubstitute (const Str: WideString; CodePage: integer = Windows.CP_ACP): string;
 begin
-  PWideCharToAnsi(PWideChar(Str), result, not FAIL_ON_ERROR);
+  PWideCharToAnsi(PWideChar(Str), result, not FAIL_ON_ERROR, CodePage);
 end;
 
 function WideStringFromBuf ({n} Buf: PWideChar; NumChars: integer = -1): WideString;
