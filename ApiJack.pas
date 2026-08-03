@@ -198,14 +198,15 @@ class procedure CodeMemoryManager.Alloc (var Addr: pointer; Size: integer);
 begin
   {!} Assert(@Addr <> nil);
   {!} Assert(Size >= 0);
-  System.GetMem(Addr, Size);
-  // TODO: unsure, that FastMM returns blocks with PAGE_EXECUTE_READWRITE attribute to not trigger DEP
+  System.GetMem(Addr, Size); // TODO FIXME: use memory manager with PAGE_EXECUTE_READWRITE attribute
 end;
 
 class procedure CodeMemoryManager.FreeAndNil (var {n} Addr: pointer);
 begin
   {!} Assert(@Addr <> nil);
-  System.FreeMem(Addr);
+
+  System.FreeMem(Addr); // TODO FIXME: use memory manager with PAGE_EXECUTE_READWRITE attribute
+
   Addr := nil;
 end;
 
