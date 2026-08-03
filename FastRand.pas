@@ -19,6 +19,7 @@ type
   TRng = class abstract
    public
     procedure Seed (NewSeed: integer); virtual; abstract;
+    procedure SeedFromRng (Rng: TRng); virtual;
     function Random: integer; virtual; abstract;
     function GetStateSize: integer; virtual; abstract;
     procedure ReadState (Buf: pointer); virtual; abstract;
@@ -65,6 +66,7 @@ type
     destructor Destroy; override;
 
     procedure Seed (NewSeed: integer); override;
+    procedure SeedFromRng (Rng: TRng); override;
     function Random: integer; override;
     function GetStateSize: integer; override;
     procedure ReadState (Buf: pointer); override;
@@ -88,13 +90,54 @@ type
     function RandomRange (MinValue, MaxValue: integer): integer; override;
   end;
 
+  ESecurityException = class(Exception);
 
-function GenerateSecureSeed: integer;
+  (* Thread safe cryptographically secure RNG *)
+  TSecureRng = class (TRng)
+   protected
+    fQueue:          array [0..31] of integer;
+    fQueuePos:       integer;
+    fHasQueuedItems: longbool;
+
+   public
+    (* Seed methos does nothing, because secure generation means unpredictable *)
+    procedure Seed (NewSeed: integer); override;
+
+    (* Raises exception on inability to produce random data *)
+    function Random: integer; override;
+
+    (* Always returns zero *)
+    function GetStateSize: integer; override;
+
+    (* Does nothing *)
+    procedure ReadState ({n} Buf: pointer); override;
+
+    (* Does nothing *)
+    procedure WriteState (Buf: pointer); override;
+  end;
+
+
 function RandomRange (Rng: TRng; MinValue, MaxValue: integer): integer;
+
+(* Fill buffer with specified number of random bytes using provided RNG *)
+procedure FillRandomBytes (Rng: TRng; Count: integer; {n} Buf: pointer);
+
+(* Generates secure seed if possible and fallbacks to insecure random source on failure *)
+function MakeSecureSeedWithFallback: integer;
+
+
+var
+{O} Rng:       {O} TThreadSafeRng {of TXoroshiro128Rng};
+{O} SecureRng: TSecureRng;
 
 
 (***)  implementation  (***)
 
+
+procedure TRng.SeedFromRng (Rng: TRng);
+begin
+  Self.Seed(Rng.Random());
+end;
 
 function TRng.RandomRange (MinValue, MaxValue: integer): integer;
 begin
@@ -208,14 +251,18 @@ begin
 end;
 
 procedure TXoroshiro128Rng.Seed (NewSeed: integer);
+begin
+  Self.fSeeder.Seed(NewSeed);
+  Self.SeedFromRng(Self.fSeeder);
+end;
+
+procedure TXoroshiro128Rng.SeedFromRng (Rng: TRng);
 var
   i: integer;
 
 begin
-  Self.fSeeder.Seed(NewSeed);
-
   for i := 0 to High(Self.fState) do begin
-    Self.fState[i] := Self.fSeeder.Random;
+    Self.fState[i] := Rng.Random;
   end;
 end;
 
@@ -274,12 +321,8 @@ begin
 
   try
     Self.fRealRng.Seed(NewSeed);
-  except
-    on E: Exception do begin
-      Windows.LeaveCriticalSection(Self.fCritSection);
-
-      raise E;
-    end;
+  finally
+    Windows.LeaveCriticalSection(Self.fCritSection);
   end;
 end;
 
@@ -289,12 +332,8 @@ begin
 
   try
     result := Self.fRealRng.Random;
-  except
-    on E: Exception do begin
-      Windows.LeaveCriticalSection(Self.fCritSection);
-
-      raise E;
-    end;
+  finally
+    Windows.LeaveCriticalSection(Self.fCritSection);
   end;
 end;
 
@@ -303,13 +342,9 @@ begin
   Windows.EnterCriticalSection(Self.fCritSection);
 
   try
-    result := Self.fRealRng.GetStateSize();
-  except
-    on E: Exception do begin
-      Windows.LeaveCriticalSection(Self.fCritSection);
-
-      raise E;
-    end;
+    result := Self.fRealRng.GetStateSize;
+  finally
+    Windows.LeaveCriticalSection(Self.fCritSection);
   end;
 end;
 
@@ -319,12 +354,8 @@ begin
 
   try
     Self.fRealRng.ReadState(Buf);
-  except
-    on E: Exception do begin
-      Windows.LeaveCriticalSection(Self.fCritSection);
-
-      raise E;
-    end;
+  finally
+    Windows.LeaveCriticalSection(Self.fCritSection);
   end;
 end;
 
@@ -334,12 +365,8 @@ begin
 
   try
     Self.fRealRng.WriteState(Buf);
-  except
-    on E: Exception do begin
-      Windows.LeaveCriticalSection(Self.fCritSection);
-
-      raise E;
-    end;
+  finally
+    Windows.LeaveCriticalSection(Self.fCritSection);
   end;
 end;
 
@@ -349,16 +376,74 @@ begin
 
   try
     result := FastRand.RandomRange(Self, MinValue, MaxValue);
-  except
-    on E: Exception do begin
-      Windows.LeaveCriticalSection(Self.fCritSection);
-
-      raise E;
-    end;
+  finally
+    Windows.LeaveCriticalSection(Self.fCritSection);
   end;
 end;
 
-function GenerateSecureSeed: integer;
+procedure TSecureRng.Seed (NewSeed: integer);
+begin
+  (* No effect *)
+end;
+
+function TSecureRng.Random: integer;
+begin
+  if not Self.fHasQueuedItems then begin
+    if not WinUtils.RtlGenRandom(@Self.fQueue[0], sizeof(Self.fQueue)) then begin
+      raise ESecurityException.Create('Failed to generate secure bytes using RtlGenRandom');
+    end;
+
+    Self.fHasQueuedItems := true;
+    Self.fQueuePos       := 0;
+  end;
+
+  result := Self.fQueue[Self.fQueuePos];
+  Inc(Self.fQueuePos);
+
+  if Self.fQueuePos > High(Self.fQueue) then begin
+    Self.fHasQueuedItems := false;
+  end;
+end;
+
+function TSecureRng.GetStateSize: integer;
+begin
+  result := 0;
+end;
+
+procedure TSecureRng.ReadState ({n} Buf: pointer);
+begin
+  (* Ignore *)
+end;
+
+procedure TSecureRng.WriteState (Buf: pointer);
+begin
+  (* Ignore *)
+end;
+
+procedure FillRandomBytes (Rng: TRng; Count: integer; {n} Buf: pointer);
+var
+  NumIntItems:  integer;
+  NumRestBytes: integer;
+  RestBytes:    integer;
+  i:            integer;
+
+begin
+  {!} Assert(Utils.IsValidBuf(Buf, Count));
+  // * * * * * //
+  NumIntItems  := Count div sizeof(integer);
+  NumRestBytes := Count mod sizeof(integer);
+
+  for i := 0 to NumIntItems - 1 do begin
+    Utils.PEndlessIntArr(Buf)[i] := Rng.Random;
+  end;
+
+  if (NumRestBytes > 0) then begin
+    RestBytes := Rng.Random;
+    Utils.CopyMem(NumRestBytes, @RestBytes, @Utils.PEndlessIntArr(Buf)[NumIntItems]);
+  end;
+end;
+
+function MakeSecureSeedWithFallback: integer;
 begin
   if not WinUtils.RtlGenRandom(@result, sizeof(result)) then begin
     result := Crypto.Tm32Encode(WinUtils.GetMicroTime);
@@ -405,4 +490,8 @@ begin
   end;
 end;
 
+begin
+  Rng       := TThreadSafeRng.Create(TXoroshiro128Rng.Create(0));
+  SecureRng := TSecureRng.Create;
+  Rng.SeedFromRng(SecureRng);
 end.
