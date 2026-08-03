@@ -28,10 +28,11 @@ type
   uint = cardinal;
 
   (* Item pointers *)
+  pbyte     = ^byte;
   pobject   = ^TObject;
   pclass    = ^TClass;
   PCharByte = ^char;
-  plongbool = ^LONGBOOL;
+  plongbool = ^longbool;
 
   (* Array pointers *)
   TEndlessByteArr       = array [0..MAXLONGINT div sizeof(byte) - 1] of byte;
