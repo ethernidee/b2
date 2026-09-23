@@ -222,6 +222,7 @@ function  PtrOfs ({n} BasePtr: pointer; Offset: integer): pointer; overload; inl
 function  PtrOfs ({n} BasePtr: pointer; ItemIndex, ItemSize: integer): pointer; overload; inline;
 function  ItemPtrToIndex ({n} ItemPtr, {n} ArrPtr: pointer; ItemSize: integer): integer; inline;
 function  IsValidBuf ({n} Buf: pointer; BufSize: integer): boolean;
+procedure ZeroMem (Count: integer; {n} Buf: pointer);
 procedure CopyMem (Count: integer; {n} Source, Destination: pointer);
 procedure Exchange (var A, B); inline;
 procedure SetPcharValue (What: pchar; const Value: string; BufSize: integer); overload;
@@ -374,6 +375,16 @@ function IsValidBuf ({n} Buf: pointer; BufSize: integer): boolean;
 begin
   {Buf <> NIL and BufSize = 0 is OK. Buf = NIL and BufSize > 0 is BAD. !BufSize >= 0}
   result := (BufSize >= 0) and ((Buf <> nil) or (BufSize = 0));
+end;
+
+procedure ZeroMem (Count: integer; {n} Buf: pointer);
+begin
+  {!} Assert(Count >= 0);
+  {!} Assert((Count = 0) or ((Buf <> nil)));
+
+  if Count > 0 then begin
+    System.FillChar(Buf^, Count, #0);
+  end;
 end;
 
 procedure CopyMem (Count: integer; {n} Source, Destination: pointer);
